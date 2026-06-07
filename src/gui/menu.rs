@@ -16,74 +16,74 @@ impl App {
 
         egui::MenuBar::new().ui(ui, |ui| {
             // ===================== Tâches =====================
-            ui.menu_button(t(lang, "tasks"), |ui| {
+            ui.menu_button(t(lang, "menu.tasks.title"), |ui| {
                 if ui
-                    .button(t(lang, "add_new_download"))
+                    .button(t(lang, "menu.tasks.add"))
                     .clicked()
                 {
                     self.show_add = true;
                 }
                 if ui
-                    .button(t(lang, "manual_download"))
+                    .button(t(lang, "menu.tasks.manual"))
                     .clicked()
                 {
                     self.show_manual = true;
                 }
                 if ui
                     .add(
-                        egui::Button::new(t(lang, "batch_download_clipboard"))
+                        egui::Button::new(t(lang, "menu.tasks.batch"))
                         .shortcut_text("Ctrl+Maj+V"),
                     )
                     .clicked()
                 {
-                    self.soon(t(lang, "batch_from_clipboard"));
+                    self.soon(t(lang, "status.batch_clipboard"));
                 }
 
                 ui.separator();
-                ui.menu_button(t(lang, "export"), |ui| {
-                    self.export_import_items(ui, lang, t(lang, "export_2"));
+                ui.menu_button(t(lang, "menu.tasks.export"), |ui| {
+                    self.export_import_items(ui, lang, t(lang, "menu.tasks.export_verb"));
                 });
-                ui.menu_button(t(lang, "import"), |ui| {
-                    self.export_import_items(ui, lang, t(lang, "import_2"));
+                ui.menu_button(t(lang, "menu.tasks.import"), |ui| {
+                    self.export_import_items(ui, lang, t(lang, "menu.tasks.import_verb"));
                 });
 
                 ui.separator();
-                if ui.button(t(lang, "quit")).clicked() {
+                if ui.button(t(lang, "menu.tasks.quit")).clicked() {
                     ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                 }
             });
 
             // ===================== Fichier =====================
             // Items contextuels : actifs seulement si une ligne est sélectionnée.
-            ui.menu_button(t(lang, "file"), |ui| {
+            ui.menu_button(t(lang, "menu.file.title"), |ui| {
                 let has = self.selected.is_some();
                 if ui
                     .add_enabled(
                         has,
-                        egui::Button::new(t(lang, "start_download")),
+                        egui::Button::new(t(lang, "menu.file.start")),
                     )
                     .clicked()
                 {
-                    self.soon(t(lang, "start_download"));
+                    self.soon(t(lang, "menu.file.start"));
                 }
                 if ui
                     .add_enabled(
                         has,
-                        egui::Button::new(t(lang, "stop_download")),
+                        egui::Button::new(t(lang, "menu.file.stop")),
                     )
                     .clicked()
                 {
-                    self.soon(t(lang, "stop_download"));
+                    self.soon(t(lang, "menu.file.stop"));
                 }
                 if ui
-                    .add_enabled(has, egui::Button::new(t(lang, "re_download")))
+                    .add_enabled(has, egui::Button::new(t(lang, "menu.file.redownload")))
                     .clicked()
                 {
-                    self.soon(t(lang, "re_download"));
+                    self.soon(t(lang, "menu.file.redownload"));
                 }
                 ui.separator();
                 if ui
-                    .add_enabled(has, egui::Button::new(t(lang, "remove")))
+                    .add_enabled(has, egui::Button::new(t(lang, "menu.file.remove")))
                     .clicked()
                 {
                     self.remove_selected();
@@ -91,75 +91,75 @@ impl App {
             });
 
             // ===================== Téléchargement =====================
-            ui.menu_button(t(lang, "download_2"), |ui| {
-                if ui.button(t(lang, "pause_all")).clicked() {
-                    self.soon(t(lang, "pause_all"));
+            ui.menu_button(t(lang, "menu.download.title"), |ui| {
+                if ui.button(t(lang, "menu.download.pause_all")).clicked() {
+                    self.soon(t(lang, "menu.download.pause_all"));
                 }
-                if ui.button(t(lang, "stop_all")).clicked() {
-                    self.soon(t(lang, "stop_all"));
+                if ui.button(t(lang, "menu.download.stop_all")).clicked() {
+                    self.soon(t(lang, "menu.download.stop_all"));
                 }
                 if ui
-                    .button(t(lang, "remove_completed"))
+                    .button(t(lang, "menu.download.remove_completed"))
                     .clicked()
                 {
                     self.remove_completed();
                 }
                 if ui
-                    .add(egui::Button::new(t(lang, "search_2")).shortcut_text("Ctrl+F"))
+                    .add(egui::Button::new(t(lang, "menu.download.search")).shortcut_text("Ctrl+F"))
                     .clicked()
                 {
                     self.search_open = !self.search_open;
                 }
 
                 ui.separator();
-                if ui.button(t(lang, "schedule")).clicked() {
-                    self.soon(t(lang, "schedule"));
+                if ui.button(t(lang, "menu.download.schedule")).clicked() {
+                    self.soon(t(lang, "menu.download.schedule"));
                 }
-                ui.menu_button(t(lang, "start_queue"), |ui| {
-                    if ui.button(t(lang, "main_queue")).clicked() {
-                        self.soon(t(lang, "main_queue"));
+                ui.menu_button(t(lang, "menu.download.start_queue"), |ui| {
+                    if ui.button(t(lang, "menu.download.queue_main")).clicked() {
+                        self.soon(t(lang, "menu.download.queue_main"));
                     }
-                    if ui.button(t(lang, "sync_queue")).clicked() {
-                        self.soon(t(lang, "sync_queue"));
-                    }
-                });
-                ui.menu_button(t(lang, "stop_queue"), |ui| {
-                    if ui.button(t(lang, "main_queue")).clicked() {
-                        self.soon(t(lang, "main_queue"));
-                    }
-                    if ui.button(t(lang, "sync_queue")).clicked() {
-                        self.soon(t(lang, "sync_queue"));
+                    if ui.button(t(lang, "menu.download.queue_sync")).clicked() {
+                        self.soon(t(lang, "menu.download.queue_sync"));
                     }
                 });
-                ui.menu_button(t(lang, "speed_limiter"), |ui| {
-                    if ui.radio(self.speed_limit_enabled, t(lang, "enable")).clicked() {
+                ui.menu_button(t(lang, "menu.download.stop_queue"), |ui| {
+                    if ui.button(t(lang, "menu.download.queue_main")).clicked() {
+                        self.soon(t(lang, "menu.download.queue_main"));
+                    }
+                    if ui.button(t(lang, "menu.download.queue_sync")).clicked() {
+                        self.soon(t(lang, "menu.download.queue_sync"));
+                    }
+                });
+                ui.menu_button(t(lang, "menu.download.limiter"), |ui| {
+                    if ui.radio(self.speed_limit_enabled, t(lang, "menu.download.limiter_enable")).clicked() {
                         self.speed_limit_enabled = true;
-                        self.set_status(t(lang, "limiter_enabled"));
+                        self.set_status(t(lang, "status.limiter_enabled"));
                     }
                     if ui
-                        .radio(!self.speed_limit_enabled, t(lang, "disable"))
+                        .radio(!self.speed_limit_enabled, t(lang, "menu.download.limiter_disable"))
                         .clicked()
                     {
                         self.speed_limit_enabled = false;
-                        self.set_status(t(lang, "limiter_disabled"));
+                        self.set_status(t(lang, "status.limiter_disabled"));
                     }
-                    if ui.button(t(lang, "settings")).clicked() {
-                        self.soon(t(lang, "limiter_settings"));
+                    if ui.button(t(lang, "menu.download.settings")).clicked() {
+                        self.soon(t(lang, "menu.download.settings_soon"));
                     }
                 });
-                if ui.button(t(lang, "speed_booster")).clicked() {
-                    self.soon(t(lang, "speed_booster"));
+                if ui.button(t(lang, "menu.download.booster")).clicked() {
+                    self.soon(t(lang, "menu.download.booster"));
                 }
             });
 
             // ===================== Affichage =====================
-            ui.menu_button(t(lang, "view"), |ui| {
+            ui.menu_button(t(lang, "menu.view.title"), |ui| {
                 ui.checkbox(
                     &mut self.show_categories,
-                    t(lang, "categories_panel"),
+                    t(lang, "menu.view.categories"),
                 );
 
-                ui.menu_button(t(lang, "sort_files"), |ui| {
+                ui.menu_button(t(lang, "menu.view.sort"), |ui| {
                     let opts: &[(SortBy, &str)] = &[
                         (SortBy::DateAdded, "sort.date_added"),
                         (SortBy::Name, "sort.name"),
@@ -180,36 +180,36 @@ impl App {
                     }
                 });
 
-                ui.menu_button(t(lang, "toolbar"), |ui| {
-                    if ui.button(t(lang, "customize")).clicked() {
-                        self.soon(t(lang, "customize_toolbar"));
+                ui.menu_button(t(lang, "menu.view.toolbar"), |ui| {
+                    if ui.button(t(lang, "menu.view.toolbar_customize")).clicked() {
+                        self.soon(t(lang, "menu.view.toolbar_customize_soon"));
                     }
-                    ui.radio_value(&mut self.toolbar_big, true, t(lang, "big_buttons"));
+                    ui.radio_value(&mut self.toolbar_big, true, t(lang, "menu.view.big_buttons"));
                     ui.radio_value(
                         &mut self.toolbar_big,
                         false,
-                        t(lang, "small_buttons"),
+                        t(lang, "menu.view.small_buttons"),
                     );
-                    if ui.button(t(lang, "interface")).clicked() {
-                        self.soon(t(lang, "interface_2"));
+                    if ui.button(t(lang, "menu.view.interface")).clicked() {
+                        self.soon(t(lang, "menu.view.interface_soon"));
                     }
-                    if ui.button(t(lang, "shortcuts")).clicked() {
-                        self.soon(t(lang, "shortcuts_2"));
+                    if ui.button(t(lang, "menu.view.shortcuts")).clicked() {
+                        self.soon(t(lang, "menu.view.shortcuts_soon"));
                     }
                 });
 
                 ui.checkbox(
                     &mut self.notifications_enabled,
-                    t(lang, "notifications"),
+                    t(lang, "menu.view.notifications"),
                 );
                 if ui
-                    .button(t(lang, "customize_columns"))
+                    .button(t(lang, "menu.view.columns"))
                     .clicked()
                 {
-                    self.soon(t(lang, "displayed_columns"));
+                    self.soon(t(lang, "menu.view.columns_soon"));
                 }
 
-                ui.menu_button(t(lang, "mode"), |ui| {
+                ui.menu_button(t(lang, "menu.view.mode"), |ui| {
                     let modes: &[(ThemeMode, &str)] = &[
                         (ThemeMode::Dark, "mode.dark"),
                         (ThemeMode::Light, "mode.light"),
@@ -222,43 +222,43 @@ impl App {
                     }
                 });
 
-                ui.menu_button(t(lang, "font"), |ui| {
-                    if ui.button(t(lang, "select_font")).clicked() {
-                        self.soon(t(lang, "font_selection"));
+                ui.menu_button(t(lang, "menu.view.font"), |ui| {
+                    if ui.button(t(lang, "menu.view.font_select")).clicked() {
+                        self.soon(t(lang, "menu.view.font_select_soon"));
                     }
                     if ui
-                        .button(t(lang, "reset_default_font"))
+                        .button(t(lang, "menu.view.font_reset"))
                         .clicked()
                     {
-                        self.soon(t(lang, "default_font"));
+                        self.soon(t(lang, "menu.view.font_reset_soon"));
                     }
                 });
 
-                ui.menu_button(t(lang, "language"), |ui| {
+                ui.menu_button(t(lang, "menu.view.language"), |ui| {
                     ui.radio_value(&mut self.lang, Lang::En, Lang::En.native_name());
                     ui.radio_value(&mut self.lang, Lang::Fr, Lang::Fr.native_name());
                 });
             });
 
             // ===================== Aide =====================
-            ui.menu_button(t(lang, "help"), |ui| {
-                if ui.add(egui::Button::new(t(lang, "help")).shortcut_text("F1")).clicked() {
+            ui.menu_button(t(lang, "menu.help.title"), |ui| {
+                if ui.add(egui::Button::new(t(lang, "menu.help.title")).shortcut_text("F1")).clicked() {
                     self.show_help = true;
                 }
-                if ui.button(t(lang, "quick_update")).clicked() {
-                    self.soon(t(lang, "quick_update"));
+                if ui.button(t(lang, "menu.help.update")).clicked() {
+                    self.soon(t(lang, "menu.help.update"));
                 }
-                ui.menu_button(t(lang, "about"), |ui| {
-                    if ui.button(t(lang, "about")).clicked() {
+                ui.menu_button(t(lang, "menu.help.about"), |ui| {
+                    if ui.button(t(lang, "menu.help.about")).clicked() {
                         self.show_about = true;
                     }
-                    if ui.button(t(lang, "authors_2")).clicked() {
+                    if ui.button(t(lang, "menu.help.authors")).clicked() {
                         self.show_about = true;
                     }
-                    if ui.button(t(lang, "license_2")).clicked() {
+                    if ui.button(t(lang, "menu.help.license")).clicked() {
                         self.show_about = true;
                     }
-                    if ui.button(t(lang, "credits")).clicked() {
+                    if ui.button(t(lang, "menu.help.credits")).clicked() {
                         self.show_about = true;
                     }
                 });
@@ -269,10 +269,10 @@ impl App {
     /// Items partagés des sous-menus Exporter / Importer (4 formats).
     fn export_import_items(&mut self, ui: &mut egui::Ui, lang: Lang, verb: &str) {
         let formats = [
-            t(lang, "adm_file_our_format"),
-            t(lang, "text_file_txt"),
-            t(lang, "json_file_json"),
-            t(lang, "excel_file_xlsx"),
+            t(lang, "menu.tasks.fmt_adm"),
+            t(lang, "menu.tasks.fmt_txt"),
+            t(lang, "menu.tasks.fmt_json"),
+            t(lang, "menu.tasks.fmt_xlsx"),
         ];
         for f in formats {
             if ui.button(f).clicked() {
