@@ -17,7 +17,7 @@ impl App {
                 .add(egui::Button::new(
                     egui::RichText::new(format!(
                         "➕  {}",
-                        t(self.lang, "Ajouter une URL", "Add URL")
+                        t(self.lang, "add_url")
                     ))
                     .size(size),
                 ))
@@ -31,8 +31,8 @@ impl App {
             ui.label(format!(
                 "{} {} · {active} {}",
                 self.downloads.len(),
-                t(self.lang, "téléchargement(s)", "download(s)"),
-                t(self.lang, "actif(s)", "active")
+                t(self.lang, "download_s"),
+                t(self.lang, "active")
             ));
 
             if self.search_open {
@@ -40,7 +40,7 @@ impl App {
                 ui.label("🔍");
                 ui.add(
                     egui::TextEdit::singleline(&mut self.search_query)
-                        .hint_text(t(self.lang, "rechercher…", "search…"))
+                        .hint_text(t(self.lang, "search"))
                         .desired_width(160.0),
                 );
             }
@@ -53,14 +53,14 @@ impl App {
 
     pub(crate) fn ui_sidebar(&mut self, ui: &mut egui::Ui) {
         ui.add_space(4.0);
-        ui.strong(t(self.lang, "Catégories", "Categories"));
+        ui.strong(t(self.lang, "categories"));
         ui.separator();
 
         let total = self.downloads.len();
         if ui
             .selectable_label(
                 self.category_filter.is_none(),
-                format!("📁 {} ({total})", t(self.lang, "Tous", "All")),
+                format!("📁 {} ({total})", t(self.lang, "all")),
             )
             .clicked()
         {
@@ -97,7 +97,7 @@ impl App {
                     egui::RichText::new(format!(
                         "{} {}",
                         self.downloads.iter().filter(|d| is_active(d.status)).count(),
-                        t(self.lang, "en cours", "running")
+                        t(self.lang, "running")
                     ))
                     .weak(),
                 );
@@ -124,17 +124,13 @@ impl App {
             ui.vertical_centered(|ui| {
                 ui.add_space(60.0);
                 ui.label(
-                    egui::RichText::new(t(self.lang, "Aucun téléchargement", "No downloads"))
+                    egui::RichText::new(t(self.lang, "no_downloads"))
                         .size(18.0)
                         .weak(),
                 );
                 ui.add_space(6.0);
                 ui.label(
-                    egui::RichText::new(t(
-                        self.lang,
-                        "Menu Tâches › Ajouter, ou colle un lien d'animé voir-anime.to",
-                        "Tasks menu › Add, or paste a voir-anime.to link",
-                    ))
+                    egui::RichText::new(t(self.lang, "tasks_menu_add_or_paste_a_voir_anime_to_"))
                     .weak(),
                 );
             });
@@ -157,10 +153,10 @@ impl App {
             .header(22.0, |mut header| {
                 for title in [
                     "",
-                    t(lang, "Fichier", "File"),
-                    t(lang, "État", "Status"),
-                    t(lang, "Progression", "Progress"),
-                    t(lang, "Vitesse", "Speed"),
+                    t(lang, "file"),
+                    t(lang, "status"),
+                    t(lang, "progress"),
+                    t(lang, "speed"),
                 ] {
                     header.col(|ui| {
                         ui.strong(title);
@@ -188,7 +184,7 @@ impl App {
                         row.col(|ui| {
                             if d.status == DownloadStatus::Downloading && d.progress < 0.0 {
                                 ui.spinner();
-                                ui.label(t(lang, "démarrage…", "starting…"));
+                                ui.label(t(lang, "starting"));
                             } else {
                                 ui.add(
                                     egui::ProgressBar::new(d.progress.clamp(0.0, 1.0))
@@ -212,11 +208,11 @@ impl App {
 
 fn status_label(lang: Lang, s: DownloadStatus) -> &'static str {
     match s {
-        DownloadStatus::Queued => t(lang, "En attente", "Queued"),
-        DownloadStatus::Resolving => t(lang, "Résolution", "Resolving"),
-        DownloadStatus::Downloading => t(lang, "Téléchargement", "Downloading"),
-        DownloadStatus::Completed => t(lang, "Terminé", "Completed"),
-        DownloadStatus::Failed => t(lang, "Échec", "Failed"),
+        DownloadStatus::Queued => t(lang, "queued"),
+        DownloadStatus::Resolving => t(lang, "resolving"),
+        DownloadStatus::Downloading => t(lang, "downloading"),
+        DownloadStatus::Completed => t(lang, "completed"),
+        DownloadStatus::Failed => t(lang, "failed"),
     }
 }
 

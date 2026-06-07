@@ -27,14 +27,14 @@ impl App {
         let mut do_launch = false;
         let lang = self.lang;
 
-        egui::Window::new(t(lang, "Ajouter un téléchargement", "Add a download"))
+        egui::Window::new(t(lang, "add_a_download"))
             .open(&mut open)
             .collapsible(false)
             .resizable(true)
             .default_width(460.0)
             .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
             .show(ctx, |ui| {
-                ui.label(t(lang, "Lien de l'animé :", "Anime link:"));
+                ui.label(t(lang, "anime_link"));
                 ui.horizontal(|ui| {
                     let resp = ui.add(
                         egui::TextEdit::singleline(&mut self.url_input)
@@ -43,7 +43,7 @@ impl App {
                     );
                     let enter =
                         resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-                    if ui.button(t(lang, "Valider", "Confirm")).clicked() || enter {
+                    if ui.button(t(lang, "confirm")).clicked() || enter {
                         do_validate = true;
                     }
                 });
@@ -51,7 +51,7 @@ impl App {
                 if self.loading_anime {
                     ui.horizontal(|ui| {
                         ui.spinner();
-                        ui.label(t(lang, "Récupération des épisodes…", "Fetching episodes…"));
+                        ui.label(t(lang, "fetching_episodes"));
                     });
                 }
                 if let Some(err) = &self.load_error {
@@ -64,7 +64,7 @@ impl App {
                     ui.label(format!(
                         "{} {}",
                         anime.episodes.len(),
-                        t(lang, "épisode(s)", "episode(s)")
+                        t(lang, "episode_s")
                     ));
                     ui.add_space(6.0);
 
@@ -72,7 +72,7 @@ impl App {
                         .num_columns(2)
                         .spacing([12.0, 8.0])
                         .show(ui, |ui| {
-                            ui.label(t(lang, "Épisodes :", "Episodes:"));
+                            ui.label(t(lang, "episodes"));
                             ui.add(
                                 egui::TextEdit::singleline(&mut self.selection_input)
                                     .hint_text("ex : 1-20  ou  1,5,8")
@@ -80,7 +80,7 @@ impl App {
                             );
                             ui.end_row();
 
-                            ui.label(t(lang, "Lecteur :", "Player:"));
+                            ui.label(t(lang, "player"));
                             egui::ComboBox::from_id_salt("player_combo")
                                 .selected_text(self.selected_player.clone())
                                 .show_ui(ui, |ui| {
@@ -94,7 +94,7 @@ impl App {
                                 });
                             ui.end_row();
 
-                            ui.label(t(lang, "Dossier :", "Folder:"));
+                            ui.label(t(lang, "folder"));
                             ui.add(
                                 egui::TextEdit::singleline(&mut self.out_dir).desired_width(260.0),
                             );
@@ -109,7 +109,7 @@ impl App {
                             egui::Button::new(
                                 egui::RichText::new(format!(
                                     "⬇  {} ({})",
-                                    t(lang, "Télécharger", "Download"),
+                                    t(lang, "download"),
                                     preview.len()
                                 ))
                                 .size(15.0),
@@ -144,7 +144,7 @@ impl App {
 
         if self.show_about {
             let mut open = true;
-            egui::Window::new(t(lang, "À propos", "About"))
+            egui::Window::new(t(lang, "about"))
                 .open(&mut open)
                 .collapsible(false)
                 .resizable(false)
@@ -153,45 +153,29 @@ impl App {
                     ui.heading("Anime Download Manager");
                     ui.label("v0.1.0");
                     ui.add_space(4.0);
-                    ui.label(t(
-                        lang,
-                        "Gestionnaire de téléchargement type IDM pour sites d'animés.",
-                        "IDM-like download manager for anime sites.",
-                    ));
+                    ui.label(t(lang, "idm_like_download_manager_for_anime_site"));
                     ui.separator();
-                    ui.label(t(lang, "Auteurs : —", "Authors: —"));
-                    ui.label(t(lang, "Licence : —", "License: —"));
+                    ui.label(t(lang, "authors"));
+                    ui.label(t(lang, "license"));
                 });
             self.show_about = open;
         }
 
         if self.show_help {
             let mut open = true;
-            egui::Window::new(t(lang, "Aide", "Help"))
+            egui::Window::new(t(lang, "help"))
                 .open(&mut open)
                 .collapsible(false)
                 .resizable(true)
                 .default_width(420.0)
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                 .show(ctx, |ui| {
-                    ui.label(t(
-                        lang,
-                        "1. Menu Tâches › Ajouter, colle un lien d'animé.",
-                        "1. Tasks menu › Add, paste an anime link.",
-                    ));
-                    ui.label(t(
-                        lang,
-                        "2. Choisis les épisodes (1-20 / 1,5,8) et un lecteur.",
-                        "2. Pick episodes (1-20 / 1,5,8) and a player.",
-                    ));
-                    ui.label(t(
-                        lang,
-                        "3. Le téléchargement démarre en parallèle.",
-                        "3. Downloads start in parallel.",
-                    ));
+                    ui.label(t(lang, "1_tasks_menu_add_paste_an_anime_link"));
+                    ui.label(t(lang, "2_pick_episodes_1_20_1_5_8_and_a_player"));
+                    ui.label(t(lang, "3_downloads_start_in_parallel"));
                     ui.separator();
                     ui.hyperlink_to(
-                        t(lang, "Wiki en ligne", "Online wiki"),
+                        t(lang, "online_wiki"),
                         "https://example.com/wiki",
                     );
                     ui.hyperlink_to("FAQ", "https://example.com/faq");
@@ -202,30 +186,26 @@ impl App {
         if self.show_manual {
             let mut open = true;
             let mut do_add = false;
-            egui::Window::new(t(lang, "Téléchargement manuel", "Manual download"))
+            egui::Window::new(t(lang, "manual_download"))
                 .open(&mut open)
                 .collapsible(false)
                 .resizable(true)
                 .default_width(460.0)
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                 .show(ctx, |ui| {
-                    ui.label(t(
-                        lang,
-                        "Colle une ou plusieurs URL d'épisodes (une par ligne) :",
-                        "Paste one or more episode URLs (one per line):",
-                    ));
+                    ui.label(t(lang, "paste_one_or_more_episode_urls_one_per_l"));
                     ui.add(
                         egui::TextEdit::multiline(&mut self.manual_input)
                             .desired_rows(6)
                             .desired_width(430.0)
                             .hint_text("https://voir-anime.to/anime/.../episode-1-vf/"),
                     );
-                    if ui.button(t(lang, "Ajouter", "Add")).clicked() {
+                    if ui.button(t(lang, "add")).clicked() {
                         do_add = true;
                     }
                 });
             if do_add {
-                self.soon(t(lang, "Téléchargement manuel", "Manual download"));
+                self.soon(t(lang, "manual_download"));
                 self.show_manual = false;
             } else {
                 self.show_manual = open;

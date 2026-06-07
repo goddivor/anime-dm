@@ -152,7 +152,7 @@ impl App {
 
     /// Marque une fonctionnalité comme non encore disponible (coquille de menu).
     pub(crate) fn soon(&mut self, feature: &str) {
-        let suffix = t(self.lang, "à venir", "coming soon");
+        let suffix = t(self.lang, "coming_soon");
         self.status = format!("« {feature} » — {suffix}");
     }
 
@@ -163,7 +163,7 @@ impl App {
         let removed = before - self.downloads.len();
         self.set_status(format!(
             "{removed} {}",
-            t(self.lang, "terminé(s) retiré(s)", "completed removed")
+            t(self.lang, "completed_removed")
         ));
     }
 
@@ -302,7 +302,7 @@ impl App {
         if ctx.input_mut(|i| {
             i.consume_key(egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::V)
         }) {
-            self.soon(t(self.lang, "Lot depuis le presse-papier", "Batch from clipboard"));
+            self.soon(t(self.lang, "batch_from_clipboard"));
         }
         if ctx.input(|i| i.key_pressed(egui::Key::F1)) {
             self.show_help = true;
