@@ -5,8 +5,8 @@ use regex::Regex;
 use scraper::{Html, Selector};
 use std::collections::BTreeMap;
 
+use super::net::{get_html, BASE};
 use crate::model::{Anime, Episode, Player};
-use crate::net::{get_html, BASE};
 
 /// Récupère le titre et la liste ordonnée des épisodes d'une page `/anime/{slug}/`.
 pub async fn fetch_anime(http: &reqwest::Client, url: &str) -> anyhow::Result<Anime> {

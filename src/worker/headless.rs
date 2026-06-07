@@ -18,8 +18,8 @@ use chromiumoxide::layout::Point;
 use chromiumoxide::{Browser, BrowserConfig, Page};
 use futures::StreamExt;
 
+use super::net::UA;
 use crate::model::VideoSource;
-use crate::net::UA;
 
 /// Anti-détection : masque les marqueurs d'automatisation (certains hébergeurs comme mail.ru
 /// refusent de charger leur lecteur s'ils détectent un navigateur piloté). Exécuté avant

@@ -3,13 +3,8 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod downloader;
-mod extractors;
 mod gui;
-mod headless;
 mod model;
-mod net;
-mod scraper;
 mod selection;
 mod worker;
 
@@ -48,7 +43,7 @@ fn selftest() -> i32 {
     let url = url.as_str();
     let rt = tokio::runtime::Runtime::new().expect("runtime tokio");
     rt.block_on(async {
-        let http = net::client().unwrap();
+        let http = worker::net::client().unwrap();
 
         // Accepte soit une URL d'animé (on prend l'ep 1), soit directement une URL d'épisode.
         let is_episode = url.trim_end_matches('/').split('/').count() >= 6;
@@ -57,7 +52,7 @@ fn selftest() -> i32 {
             url.to_string()
         } else {
             println!("[1/4] fetch_anime({url})");
-            let anime = match scraper::fetch_anime(&http, url).await {
+            let anime = match worker::scraper::fetch_anime(&http, url).await {
                 Ok(a) => a,
                 Err(e) => {
                     eprintln!("  ÉCHEC : {e:#}");
@@ -71,7 +66,7 @@ fn selftest() -> i32 {
         };
 
         println!("[2/4] fetch_players({episode_url})");
-        let players = match scraper::fetch_players(&http, &episode_url).await {
+        let players = match worker::scraper::fetch_players(&http, &episode_url).await {
             Ok(p) => p,
             Err(e) => {
                 eprintln!("  ÉCHEC : {e:#}");
@@ -91,7 +86,7 @@ fn selftest() -> i32 {
                 continue;
             };
             println!("[3/4] resolve {want} -> {}", player.iframe_url);
-            let sources = match extractors::resolve(&http, &player.iframe_url).await {
+            let sources = match worker::extractors::resolve(&http, &player.iframe_url).await {
                 Ok(s) => s,
                 Err(e) => {
                     eprintln!("  ÉCHEC : {e:#}");
@@ -115,7 +110,7 @@ fn selftest() -> i32 {
             }
             println!("[4/4] ffmpeg 8 s -> {out}");
             let mut cmd = std::process::Command::new("ffmpeg");
-            cmd.args(["-y", "-hide_banner", "-loglevel", "error", "-user_agent", net::UA])
+            cmd.args(["-y", "-hide_banner", "-loglevel", "error", "-user_agent", worker::net::UA])
                 .args(["-headers", &headers])
                 .args(["-i", &src.url, "-t", "8", "-c", "copy"]);
             if src.url.contains(".m3u8") {
@@ -139,7 +134,7 @@ fn selftest() -> i32 {
 
         // --- Étape headless : VOE / MOON / SB (sources générées en JS) ---
         println!("\n[headless] lancement de Chrome headless…");
-        let hl = match headless::Headless::launch().await {
+        let hl = match worker::headless::Headless::launch().await {
             Ok(h) => h,
             Err(e) => {
                 eprintln!("  ÉCHEC lancement Chrome : {e:#}");
@@ -177,7 +172,7 @@ fn selftest() -> i32 {
                 headers.push_str(&format!("Cookie: {c}\r\n"));
             }
             let status = std::process::Command::new("ffmpeg")
-                .args(["-y", "-hide_banner", "-loglevel", "error", "-user_agent", net::UA])
+                .args(["-y", "-hide_banner", "-loglevel", "error", "-user_agent", worker::net::UA])
                 .args(["-headers", &headers])
                 .args(["-i", &src.url, "-t", "8", "-c", "copy", &out])
                 .status();

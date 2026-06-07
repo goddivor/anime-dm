@@ -9,9 +9,9 @@ use regex::Regex;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
+use super::net::UA;
+use super::WorkerMsg;
 use crate::model::{DownloadStatus, VideoSource};
-use crate::net::UA;
-use crate::worker::WorkerMsg;
 
 /// Télécharge `source` vers `out`, avec une 2ᵉ tentative en cas d'échec : certains CDN
 /// (mail.ru notamment) renvoient une erreur d'I/O transitoire au premier accès.

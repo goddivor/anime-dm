@@ -2,6 +2,19 @@
 //!
 //! L'UI (synchrone, immediate-mode) ne fait jamais d'attente bloquante : elle lance des tâches
 //! via `load_anime` / `start_download` et reçoit les résultats par `WorkerMsg` (canal mpsc).
+//!
+//! Sous-modules (toute la logique backend) :
+//! - [`net`]        : client HTTP partagé
+//! - [`scraper`]    : liste d'épisodes et lecteurs (voir-anime.to)
+//! - [`extractors`] : extraction des sources vidéo par hébergeur (HTTP)
+//! - [`headless`]   : extraction via navigateur headless (hébergeurs JS)
+//! - [`downloader`] : téléchargement via ffmpeg
+
+mod downloader;
+pub mod extractors;
+pub mod headless;
+pub mod net;
+pub mod scraper;
 
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
@@ -12,9 +25,8 @@ use eframe::egui;
 use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
 
-use crate::headless::Headless;
+use self::headless::Headless;
 use crate::model::{Anime, DownloadStatus};
-use crate::{downloader, extractors, scraper};
 
 /// État partagé du navigateur headless : lancé à la première vidéo JS, puis réutilisé.
 type HeadlessCell = Arc<Mutex<Option<Arc<Headless>>>>;
@@ -57,7 +69,7 @@ impl Worker {
             .worker_threads(4)
             .enable_all()
             .build()?;
-        let http = crate::net::client()?;
+        let http = net::client()?;
         Ok(Self {
             rt,
             http,

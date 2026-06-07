@@ -10,7 +10,7 @@
 //!     - [`streamtape`] (LECTEUR Stape) -> MP4 direct (`get_video`)
 //!     - [`mailru`]     (LECTEUR FHD1)  -> MP4 full-HD via l'endpoint `/+/video/meta/`
 //!
-//! - **Navigateur headless** (cf. `crate::headless`) — pour les hébergeurs dont la source est
+//! - **Navigateur headless** (cf. `super::headless`) — pour les hébergeurs dont la source est
 //!   générée en JavaScript (VOE, et lecteurs « Byse » MOON/SB). Le worker y bascule
 //!   automatiquement quand [`is_http_extractable`] est faux.
 
