@@ -84,6 +84,9 @@ pub struct App {
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         cc.egui_ctx.set_theme(egui::ThemePreference::Dark);
+        // Agrandit légèrement l'interface par-dessus le scaling écran (réglable par l'utilisateur
+        // plus tard via un menu). 1.15 reste lisible sans déborder sur petit écran.
+        cc.egui_ctx.set_zoom_factor(1.15);
 
         let (tx, rx) = std::sync::mpsc::channel();
         let worker = Worker::new(tx, cc.egui_ctx.clone())
@@ -349,7 +352,7 @@ impl eframe::App for App {
             .show_inside(ui, |ui| self.ui_statusbar(ui));
         if self.show_categories {
             egui::Panel::left("categories")
-                .exact_size(190.0)
+                .exact_size(170.0)
                 .show_inside(ui, |ui| self.ui_sidebar(ui));
         }
         egui::CentralPanel::default().show_inside(ui, |ui| self.ui_table(ui));

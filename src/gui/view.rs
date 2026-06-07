@@ -149,11 +149,11 @@ impl App {
             .striped(true)
             .resizable(true)
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-            .column(Column::auto().at_least(28.0))
-            .column(Column::remainder().at_least(180.0))
-            .column(Column::auto().at_least(120.0))
-            .column(Column::initial(200.0).at_least(120.0))
-            .column(Column::auto().at_least(60.0))
+            .column(Column::exact(24.0)) // icône
+            .column(Column::initial(210.0).at_least(130.0).clip(true)) // fichier
+            .column(Column::exact(110.0)) // état
+            .column(Column::exact(150.0)) // progression
+            .column(Column::remainder().at_least(60.0)) // vitesse (dernière -> absorbe le reste)
             .header(22.0, |mut header| {
                 for title in [
                     "",
@@ -193,7 +193,7 @@ impl App {
                                 ui.add(
                                     egui::ProgressBar::new(d.progress.clamp(0.0, 1.0))
                                         .show_percentage()
-                                        .desired_width(180.0),
+                                        .desired_width(140.0),
                                 );
                             }
                         });

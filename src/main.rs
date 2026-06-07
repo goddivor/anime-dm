@@ -18,8 +18,8 @@ fn main() -> eframe::Result<()> {
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([920.0, 560.0])
-            .with_min_inner_size([640.0, 360.0])
+            .with_inner_size([1000.0, 640.0])
+            .with_min_inner_size([760.0, 460.0])
             .with_title("Anime Download Manager"),
         ..Default::default()
     };
