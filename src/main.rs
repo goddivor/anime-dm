@@ -3,9 +3,9 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod app;
 mod downloader;
 mod extractors;
+mod gui;
 mod headless;
 mod model;
 mod net;
@@ -32,7 +32,7 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Anime DM",
         options,
-        Box::new(|cc| Ok(Box::new(app::App::new(cc)))),
+        Box::new(|cc| Ok(Box::new(gui::App::new(cc)))),
     )
 }
 

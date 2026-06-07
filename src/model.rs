@@ -73,16 +73,6 @@ impl DownloadStatus {
             DownloadStatus::Failed => "✖",
         }
     }
-
-    pub fn label(self) -> &'static str {
-        match self {
-            DownloadStatus::Queued => "En attente",
-            DownloadStatus::Resolving => "Résolution",
-            DownloadStatus::Downloading => "Téléchargement",
-            DownloadStatus::Completed => "Terminé",
-            DownloadStatus::Failed => "Échec",
-        }
-    }
 }
 
 /// Ligne de la table de téléchargements (état vivant côté UI).
