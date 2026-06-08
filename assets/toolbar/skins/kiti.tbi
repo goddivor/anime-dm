@@ -1,0 +1,6 @@
+v=3
+name=Kiti
+large=kiti/normal.bmp
+largeHot=kiti/hot.bmp
+small=kiti/normal.bmp
+smallHot=kiti/hot.bmp

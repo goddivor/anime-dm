@@ -1,0 +1,6 @@
+v=3
+name=Round
+large=round/normal.bmp
+largeHot=round/hot.bmp
+small=round/normal.bmp
+smallHot=round/hot.bmp

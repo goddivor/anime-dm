@@ -80,8 +80,8 @@ impl Toolbar {
 
         let mut skins = scan_skins(&dir.join("skins"));
         skins.sort_by(|a, b| a.name.cmp(&b.name));
-        let skin_id = if skins.iter().any(|s| s.id == "blue") {
-            "blue".to_string()
+        let skin_id = if skins.iter().any(|s| s.id == "8") {
+            "8".to_string()
         } else {
             skins.first().map(|s| s.id.clone()).unwrap_or_default()
         };
