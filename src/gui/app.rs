@@ -33,7 +33,6 @@ pub(crate) enum SortBy {
     TimeLeft,
     Speed,
     LastTry,
-    Description,
     Location,
     Address,
     ParentPage,
@@ -186,7 +185,6 @@ impl App {
             // Critères sans donnée disponible pour l'instant : on ne réordonne pas.
             SortBy::TimeLeft
             | SortBy::LastTry
-            | SortBy::Description
             | SortBy::Location
             | SortBy::Address
             | SortBy::ParentPage => {}

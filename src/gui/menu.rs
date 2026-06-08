@@ -15,6 +15,9 @@ impl App {
         let ctx = ui.ctx().clone();
 
         egui::MenuBar::new().ui(ui, |ui| {
+            // Écart plus large entre les menus du haut (sans toucher au reste de l'UI).
+            ui.spacing_mut().item_spacing.x = 20.0;
+
             // ===================== Tâches =====================
             ui.menu_button(t(lang, "menu.tasks.title"), |ui| {
                 if ui
@@ -168,7 +171,6 @@ impl App {
                         (SortBy::TimeLeft, "sort.time_left"),
                         (SortBy::Speed, "sort.speed"),
                         (SortBy::LastTry, "sort.last_try"),
-                        (SortBy::Description, "sort.description"),
                         (SortBy::Location, "sort.location"),
                         (SortBy::Address, "sort.address"),
                         (SortBy::ParentPage, "sort.parent_page"),
