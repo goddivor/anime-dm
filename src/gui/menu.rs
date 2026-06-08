@@ -44,10 +44,30 @@ impl App {
 
                 ui.separator();
                 ui.menu_button(t(lang, "menu.tasks.export"), |ui| {
-                    self.export_import_items(ui, lang, t(lang, "menu.tasks.export_verb"));
+                    self.export_import_items(
+                        ui,
+                        lang,
+                        t(lang, "menu.tasks.export_verb"),
+                        &[
+                            "menu.tasks.export.fmt_adm",
+                            "menu.tasks.export.fmt_txt",
+                            "menu.tasks.export.fmt_json",
+                            "menu.tasks.export.fmt_sheet",
+                        ],
+                    );
                 });
                 ui.menu_button(t(lang, "menu.tasks.import"), |ui| {
-                    self.export_import_items(ui, lang, t(lang, "menu.tasks.import_verb"));
+                    self.export_import_items(
+                        ui,
+                        lang,
+                        t(lang, "menu.tasks.import_verb"),
+                        &[
+                            "menu.tasks.import.fmt_adm",
+                            "menu.tasks.import.fmt_txt",
+                            "menu.tasks.import.fmt_json",
+                            "menu.tasks.import.fmt_sheet",
+                        ],
+                    );
                 });
 
                 ui.separator();
@@ -268,15 +288,10 @@ impl App {
         });
     }
 
-    /// Items partagés des sous-menus Exporter / Importer (4 formats).
-    fn export_import_items(&mut self, ui: &mut egui::Ui, lang: Lang, verb: &str) {
-        let formats = [
-            t(lang, "menu.tasks.fmt_adm"),
-            t(lang, "menu.tasks.fmt_txt"),
-            t(lang, "menu.tasks.fmt_json"),
-            t(lang, "menu.tasks.fmt_xlsx"),
-        ];
-        for f in formats {
+    /// Items d'un sous-menu Exporter ou Importer : un bouton par clé de format fournie.
+    fn export_import_items(&mut self, ui: &mut egui::Ui, lang: Lang, verb: &str, keys: &[&'static str]) {
+        for key in keys {
+            let f = t(lang, key);
             if ui.button(f).clicked() {
                 self.soon(&format!("{verb} {f}"));
             }
