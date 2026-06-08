@@ -1,0 +1,6 @@
+v=3
+name=H3M Glossy
+large=glossy/normal.bmp
+largeHot=glossy/hot.bmp
+small=glossy/normal.bmp
+smallHot=glossy/hot.bmp
