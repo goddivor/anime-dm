@@ -133,7 +133,11 @@ fn scan_skins(dir: &Path) -> Vec<Skin> {
                 large = Some(v.trim().replace('\\', "/"));
             }
         }
-        let id = path.file_stem().and_then(|s| s.to_str()).unwrap_or("").to_string();
+        let id = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_string();
         if let (Some(name), Some(large)) = (name, large) {
             let hot = hot.unwrap_or_else(|| large.clone());
             out.push(Skin {
@@ -152,7 +156,10 @@ fn assets_dir() -> PathBuf {
     if cwd.join("toolbar.tbi").exists() {
         return cwd;
     }
-    if let Some(dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(Path::to_path_buf)) {
+    if let Some(dir) = std::env::current_exe()
+        .ok()
+        .and_then(|e| e.parent().map(Path::to_path_buf))
+    {
         let p = dir.join("assets/toolbar");
         if p.join("toolbar.tbi").exists() {
             return p;
@@ -175,5 +182,9 @@ fn load_strip(ctx: &egui::Context, path: &Path) -> Option<egui::TextureHandle> {
         }
     }
     let image = egui::ColorImage::from_rgba_unmultiplied([w as usize, h as usize], &rgba);
-    Some(ctx.load_texture(format!("tbstrip:{}", path.display()), image, egui::TextureOptions::LINEAR))
+    Some(ctx.load_texture(
+        format!("tbstrip:{}", path.display()),
+        image,
+        egui::TextureOptions::LINEAR,
+    ))
 }

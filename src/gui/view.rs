@@ -30,46 +30,54 @@ impl App {
                     ui.add_space(2.0);
                     continue;
                 }
-                ui.vertical_centered(|ui| {
-                    ui.spacing_mut().item_spacing.y = 3.0;
-                    let resp = if has_strip {
-                        let (rect, resp) = ui.allocate_exact_size(disp, egui::Sense::click());
-                        let u0 = item.slot as f32 / cells as f32;
-                        let u1 = (item.slot + 1) as f32 / cells as f32;
-                        let uv = egui::Rect::from_min_max(egui::pos2(u0, 0.0), egui::pos2(u1, 1.0));
-                        let tex = if resp.hovered() {
-                            self.toolbar.hot.as_ref()
-                        } else {
-                            self.toolbar.normal.as_ref()
-                        };
-                        if let Some(tex) = tex.or(self.toolbar.normal.as_ref()) {
-                            ui.painter().image(tex.id(), rect, uv, egui::Color32::WHITE);
-                        }
-                        resp
-                    } else {
-                        ui.button(t(lang, &item.label))
-                    };
-                    let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
-                    let resp = if item.tip.is_empty() {
-                        resp
-                    } else {
-                        resp.on_hover_text(t(lang, &item.tip))
-                    };
-                    if item.menu.is_empty() {
-                        if resp.clicked() {
-                            action = Some(item.id.clone());
-                        }
-                    } else {
-                        egui::Popup::menu(&resp).show(|ui| {
-                            for sub in &item.menu {
-                                if ui.button(t(lang, sub)).clicked() {
-                                    action = Some(format!("{}|{}", item.id, sub));
-                                }
+                ui.allocate_ui_with_layout(
+                    egui::vec2(74.0, 54.0),
+                    egui::Layout::top_down(egui::Align::Center),
+                    |ui| {
+                        ui.spacing_mut().item_spacing.y = 3.0;
+                        let resp = if has_strip {
+                            let (rect, resp) = ui.allocate_exact_size(disp, egui::Sense::click());
+                            let u0 = item.slot as f32 / cells as f32;
+                            let u1 = (item.slot + 1) as f32 / cells as f32;
+                            let uv =
+                                egui::Rect::from_min_max(egui::pos2(u0, 0.0), egui::pos2(u1, 1.0));
+                            let tex = if resp.hovered() {
+                                self.toolbar.hot.as_ref()
+                            } else {
+                                self.toolbar.normal.as_ref()
+                            };
+                            if let Some(tex) = tex.or(self.toolbar.normal.as_ref()) {
+                                ui.painter().image(tex.id(), rect, uv, egui::Color32::WHITE);
                             }
-                        });
-                    }
-                    ui.label(egui::RichText::new(t(lang, &item.label)).size(11.0));
-                });
+                            resp
+                        } else {
+                            ui.button(t(lang, &item.label))
+                        };
+                        let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+                        let resp = if item.tip.is_empty() {
+                            resp
+                        } else {
+                            resp.on_hover_text(t(lang, &item.tip))
+                        };
+                        if item.menu.is_empty() {
+                            if resp.clicked() {
+                                action = Some(item.id.clone());
+                            }
+                        } else {
+                            egui::Popup::menu(&resp).show(|ui| {
+                                for sub in &item.menu {
+                                    if ui.button(t(lang, sub)).clicked() {
+                                        action = Some(format!("{}|{}", item.id, sub));
+                                    }
+                                }
+                            });
+                        }
+                        ui.add(
+                            egui::Label::new(egui::RichText::new(t(lang, &item.label)).size(11.0))
+                                .truncate(),
+                        );
+                    },
+                );
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {

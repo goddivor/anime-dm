@@ -48,7 +48,8 @@ pub fn run() -> i32 {
                 continue;
             };
             println!("[3/4] resolve {want} -> {}", player.iframe_url);
-            let sources = match crate::worker::extractors::resolve(&http, &player.iframe_url).await {
+            let sources = match crate::worker::extractors::resolve(&http, &player.iframe_url).await
+            {
                 Ok(s) => s,
                 Err(e) => {
                     eprintln!("  FAILED: {e:#}");

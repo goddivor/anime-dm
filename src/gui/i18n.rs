@@ -30,9 +30,7 @@ fn table(lang: Lang) -> &'static HashMap<String, String> {
         Lang::Fr => &FR,
         Lang::En => &EN,
     };
-    cell.get_or_init(|| {
-        serde_json::from_str(lang.source()).expect("invalid locale JSON file")
-    })
+    cell.get_or_init(|| serde_json::from_str(lang.source()).expect("invalid locale JSON file"))
 }
 
 pub fn t(lang: Lang, key: &str) -> &'static str {
