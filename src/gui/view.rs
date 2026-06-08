@@ -7,46 +7,82 @@ use crate::model::DownloadStatus;
 
 impl App {
     pub(crate) fn ui_toolbar(&mut self, ui: &mut egui::Ui) {
-        let size = if self.toolbar_big { 15.0 } else { 12.0 };
-        ui.horizontal(|ui| {
-            ui.add_space(4.0);
-            if ui
-                .add(egui::Button::new(
-                    egui::RichText::new(format!("➕  {}", t(self.lang, "toolbar.add_url")))
-                        .size(size),
-                ))
-                .clicked()
-            {
-                self.show_add = true;
-            }
-            ui.separator();
+        let lang = self.lang;
+        let icon = egui::vec2(30.0, 30.0);
+        let mut action: Option<String> = None;
 
-            let active = self
-                .downloads
-                .iter()
-                .filter(|d| is_active(d.status))
-                .count();
-            ui.label(format!(
-                "{} {} · {active} {}",
-                self.downloads.len(),
-                t(self.lang, "toolbar.downloads_count"),
-                t(self.lang, "toolbar.active")
-            ));
-
-            if self.search_open {
-                ui.separator();
-                ui.label("🔍");
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.search_query)
-                        .hint_text(t(self.lang, "toolbar.search_hint"))
-                        .desired_width(160.0),
-                );
+        ui.horizontal_centered(|ui| {
+            ui.add_space(6.0);
+            for item in &self.toolbar.items {
+                if item.separator {
+                    ui.add_space(2.0);
+                    ui.separator();
+                    ui.add_space(2.0);
+                    continue;
+                }
+                ui.allocate_ui(egui::vec2(64.0, 58.0), |ui| {
+                    ui.vertical_centered(|ui| {
+                        ui.spacing_mut().item_spacing.y = 2.0;
+                        let resp = match &item.icon {
+                            Some(tex) => ui.add(
+                                egui::Button::image(egui::load::SizedTexture::new(tex.id(), icon))
+                                    .frame(false),
+                            ),
+                            None => ui.button(t(lang, &item.label)),
+                        };
+                        if item.menu.is_empty() {
+                            if resp.clicked() {
+                                action = Some(item.id.clone());
+                            }
+                        } else {
+                            egui::Popup::menu(&resp).show(|ui| {
+                                for sub in &item.menu {
+                                    if ui.button(t(lang, sub)).clicked() {
+                                        action = Some(format!("{}|{}", item.id, sub));
+                                    }
+                                }
+                            });
+                        }
+                        ui.label(egui::RichText::new(t(lang, &item.label)).size(11.0));
+                    });
+                });
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(egui::RichText::new(format!("📁 {}", self.out_dir)).weak());
+                ui.add_space(6.0);
+                if self.search_open {
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.search_query)
+                            .hint_text(t(lang, "toolbar.search_hint"))
+                            .desired_width(160.0),
+                    );
+                    ui.label("🔍");
+                }
             });
         });
+
+        if let Some(a) = action {
+            self.toolbar_action(&a);
+        }
+    }
+
+    fn toolbar_action(&mut self, action: &str) {
+        let lang = self.lang;
+        if let Some((_, sub)) = action.split_once('|') {
+            self.soon(t(lang, sub));
+            return;
+        }
+        match action {
+            "add_url" => self.show_add = true,
+            "delete" => self.remove_selected(),
+            "delete_all" => self.remove_completed(),
+            "resume" => self.soon(t(lang, "toolbar.resume")),
+            "stop" => self.soon(t(lang, "toolbar.stop")),
+            "stop_all" => self.soon(t(lang, "toolbar.stop_all")),
+            "options" => self.soon(t(lang, "toolbar.options")),
+            "scheduler" => self.soon(t(lang, "toolbar.scheduler")),
+            _ => {}
+        }
     }
 
     pub(crate) fn ui_sidebar(&mut self, ui: &mut egui::Ui) {

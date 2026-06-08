@@ -121,6 +121,15 @@
   "table.status": "État",
   "toolbar.active": "actif(s)",
   "toolbar.add_url": "Ajouter une URL",
+  "toolbar.delete": "Supprimer",
+  "toolbar.delete_all": "Tout supprimer",
   "toolbar.downloads_count": "téléchargement(s)",
-  "toolbar.search_hint": "rechercher…"
+  "toolbar.options": "Options",
+  "toolbar.resume": "Reprendre",
+  "toolbar.scheduler": "Planifier",
+  "toolbar.search_hint": "rechercher…",
+  "toolbar.start_queue": "Démarrer la file",
+  "toolbar.stop": "Arrêter",
+  "toolbar.stop_all": "Tout arrêter",
+  "toolbar.stop_queue": "Arrêter la file"
 }

@@ -61,6 +61,8 @@ pub struct App {
     pub(crate) show_help: bool,
     pub(crate) show_manual: bool,
     pub(crate) manual_input: String,
+
+    pub(crate) toolbar: crate::gui::toolbar::Toolbar,
 }
 
 impl App {
@@ -79,10 +81,12 @@ impl App {
         let (tx, rx) = std::sync::mpsc::channel();
         let worker = Worker::new(tx, cc.egui_ctx.clone())
             .expect("worker init (tokio runtime + HTTP client)");
+        let toolbar = crate::gui::toolbar::Toolbar::load(&cc.egui_ctx);
 
         Self {
             worker,
             rx,
+            toolbar,
             downloads: Vec::new(),
             next_id: 1,
             out_dir: default_download_dir(),
@@ -288,7 +292,7 @@ impl eframe::App for App {
             .exact_size(34.0)
             .show_inside(ui, |ui| self.show_menu_bar(ui));
         egui::Panel::top("toolbar")
-            .exact_size(48.0)
+            .exact_size(66.0)
             .show_inside(ui, |ui| self.ui_toolbar(ui));
         egui::Panel::bottom("statusbar")
             .exact_size(28.0)

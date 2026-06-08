@@ -198,6 +198,7 @@ dependencies = [
  "eframe",
  "egui_extras",
  "futures",
+ "image",
  "regex",
  "reqwest",
  "scraper",

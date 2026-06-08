@@ -121,6 +121,15 @@
   "table.status": "Status",
   "toolbar.active": "active",
   "toolbar.add_url": "Add URL",
+  "toolbar.delete": "Delete",
+  "toolbar.delete_all": "Delete All",
   "toolbar.downloads_count": "download(s)",
-  "toolbar.search_hint": "search…"
+  "toolbar.options": "Options",
+  "toolbar.resume": "Resume",
+  "toolbar.scheduler": "Scheduler",
+  "toolbar.search_hint": "search…",
+  "toolbar.start_queue": "Start Queue",
+  "toolbar.stop": "Stop",
+  "toolbar.stop_all": "Stop All",
+  "toolbar.stop_queue": "Stop Queue"
 }

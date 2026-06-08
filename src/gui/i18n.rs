@@ -35,12 +35,12 @@ fn table(lang: Lang) -> &'static HashMap<String, String> {
     })
 }
 
-pub fn t(lang: Lang, key: &'static str) -> &'static str {
+pub fn t(lang: Lang, key: &str) -> &'static str {
     if let Some(v) = table(lang).get(key) {
         return v.as_str();
     }
     if let Some(v) = table(Lang::En).get(key) {
         return v.as_str();
     }
-    key
+    "⟨?⟩"
 }
