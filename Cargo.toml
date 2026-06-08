@@ -28,6 +28,7 @@ futures = "0.3"
 
 # --- Divers ---
 anyhow = "1"
+image = { version = "0.25.10", default-features = false, features = ["bmp"] }
 
 [profile.release]
 opt-level = 2

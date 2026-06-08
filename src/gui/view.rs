@@ -7,46 +7,114 @@ use crate::model::DownloadStatus;
 
 impl App {
     pub(crate) fn ui_toolbar(&mut self, ui: &mut egui::Ui) {
-        let size = if self.toolbar_big { 15.0 } else { 12.0 };
-        ui.horizontal(|ui| {
-            ui.add_space(4.0);
-            if ui
-                .add(egui::Button::new(
-                    egui::RichText::new(format!("➕  {}", t(self.lang, "toolbar.add_url")))
-                        .size(size),
-                ))
-                .clicked()
-            {
-                self.show_add = true;
+        let lang = self.lang;
+        let mut action: Option<String> = None;
+
+        let cells = self.toolbar.icon_count.max(1);
+        let (disp, has_strip) = match &self.toolbar.normal {
+            Some(tex) => {
+                let [sw, sh] = tex.size();
+                let cw = sw as f32 / cells as f32;
+                let h = 32.0;
+                (egui::vec2(h * cw / sh as f32, h), true)
             }
-            ui.separator();
+            None => (egui::vec2(30.0, 30.0), false),
+        };
 
-            let active = self
-                .downloads
-                .iter()
-                .filter(|d| is_active(d.status))
-                .count();
-            ui.label(format!(
-                "{} {} · {active} {}",
-                self.downloads.len(),
-                t(self.lang, "toolbar.downloads_count"),
-                t(self.lang, "toolbar.active")
-            ));
-
-            if self.search_open {
-                ui.separator();
-                ui.label("🔍");
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.search_query)
-                        .hint_text(t(self.lang, "toolbar.search_hint"))
-                        .desired_width(160.0),
+        ui.horizontal_centered(|ui| {
+            ui.add_space(6.0);
+            for item in &self.toolbar.buttons {
+                if item.separator {
+                    ui.add_space(2.0);
+                    ui.separator();
+                    ui.add_space(2.0);
+                    continue;
+                }
+                ui.allocate_ui_with_layout(
+                    egui::vec2(74.0, 54.0),
+                    egui::Layout::top_down(egui::Align::Center),
+                    |ui| {
+                        ui.spacing_mut().item_spacing.y = 3.0;
+                        let resp = if has_strip {
+                            let (rect, resp) = ui.allocate_exact_size(disp, egui::Sense::click());
+                            let u0 = item.slot as f32 / cells as f32;
+                            let u1 = (item.slot + 1) as f32 / cells as f32;
+                            let uv =
+                                egui::Rect::from_min_max(egui::pos2(u0, 0.0), egui::pos2(u1, 1.0));
+                            let tex = if resp.hovered() {
+                                self.toolbar.hot.as_ref()
+                            } else {
+                                self.toolbar.normal.as_ref()
+                            };
+                            if let Some(tex) = tex.or(self.toolbar.normal.as_ref()) {
+                                ui.painter().image(tex.id(), rect, uv, egui::Color32::WHITE);
+                            }
+                            resp
+                        } else {
+                            ui.button(t(lang, &item.label))
+                        };
+                        let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+                        let resp = if item.tip.is_empty() {
+                            resp
+                        } else {
+                            resp.on_hover_text(t(lang, &item.tip))
+                        };
+                        if item.menu.is_empty() {
+                            if resp.clicked() {
+                                action = Some(item.id.clone());
+                            }
+                        } else {
+                            egui::Popup::menu(&resp).show(|ui| {
+                                for sub in &item.menu {
+                                    if ui.button(t(lang, sub)).clicked() {
+                                        action = Some(format!("{}|{}", item.id, sub));
+                                    }
+                                }
+                            });
+                        }
+                        ui.add(
+                            egui::Label::new(egui::RichText::new(t(lang, &item.label)).size(11.0))
+                                .truncate(),
+                        );
+                    },
                 );
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(egui::RichText::new(format!("📁 {}", self.out_dir)).weak());
+                ui.add_space(6.0);
+                if self.search_open {
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.search_query)
+                            .hint_text(t(lang, "toolbar.search_hint"))
+                            .desired_width(160.0),
+                    );
+                    ui.label("🔍");
+                }
             });
         });
+
+        if let Some(a) = action {
+            self.toolbar_action(&a);
+        }
+    }
+
+    fn toolbar_action(&mut self, action: &str) {
+        let lang = self.lang;
+        if let Some((_, sub)) = action.split_once('|') {
+            self.soon(t(lang, sub));
+            return;
+        }
+        match action {
+            "add_url" => self.show_add = true,
+            "delete" => self.remove_selected(),
+            "delete_all" => self.remove_completed(),
+            "resume" => self.soon(t(lang, "toolbar.resume")),
+            "stop" => self.soon(t(lang, "toolbar.stop")),
+            "stop_all" => self.soon(t(lang, "toolbar.stop_all")),
+            "options" => self.soon(t(lang, "toolbar.options")),
+            "scheduler" => self.soon(t(lang, "toolbar.scheduler")),
+            _ => {}
+        }
     }
 
     pub(crate) fn ui_sidebar(&mut self, ui: &mut egui::Ui) {

@@ -204,6 +204,23 @@ impl App {
                     if ui.button(t(lang, "menu.view.shortcuts")).clicked() {
                         self.soon(t(lang, "menu.view.shortcuts_soon"));
                     }
+                    ui.separator();
+                    ui.menu_button(t(lang, "menu.view.toolbar_theme"), |ui| {
+                        ui.menu_button(t(lang, "menu.view.theme_idm"), |ui| {
+                            let current = self.toolbar.skin_id.clone();
+                            let skins: Vec<(String, String)> = self
+                                .toolbar
+                                .skins
+                                .iter()
+                                .map(|s| (s.id.clone(), s.name.clone()))
+                                .collect();
+                            for (id, name) in &skins {
+                                if ui.radio(current == *id, name).clicked() {
+                                    self.toolbar.set_skin(&ctx, id);
+                                }
+                            }
+                        });
+                    });
                 });
 
                 ui.checkbox(

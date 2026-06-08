@@ -1,0 +1,6 @@
+v=3
+name=Globe
+large=globe/normal.bmp
+largeHot=globe/hot.bmp
+small=globe/normal.bmp
+smallHot=globe/hot.bmp

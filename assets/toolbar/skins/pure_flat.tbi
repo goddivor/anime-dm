@@ -1,0 +1,6 @@
+v=3
+name=Pure Flat
+large=pure_flat/normal.bmp
+largeHot=pure_flat/hot.bmp
+small=pure_flat/normal.bmp
+smallHot=pure_flat/hot.bmp
