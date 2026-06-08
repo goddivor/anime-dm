@@ -13,6 +13,10 @@ impl App {
 
         ui.horizontal_centered(|ui| {
             ui.add_space(6.0);
+            ui.spacing_mut().button_padding = egui::vec2(7.0, 5.0);
+            let v = ui.visuals_mut();
+            v.widgets.inactive.weak_bg_fill = egui::Color32::TRANSPARENT;
+            v.widgets.inactive.bg_stroke = egui::Stroke::NONE;
             for item in &self.toolbar.items {
                 if item.separator {
                     ui.add_space(2.0);
@@ -24,11 +28,16 @@ impl App {
                     ui.vertical_centered(|ui| {
                         ui.spacing_mut().item_spacing.y = 2.0;
                         let resp = match &item.icon {
-                            Some(tex) => ui.add(
-                                egui::Button::image(egui::load::SizedTexture::new(tex.id(), icon))
-                                    .frame(false),
-                            ),
+                            Some(tex) => ui.add(egui::Button::image(
+                                egui::load::SizedTexture::new(tex.id(), icon),
+                            )),
                             None => ui.button(t(lang, &item.label)),
+                        };
+                        let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+                        let resp = if item.tip.is_empty() {
+                            resp
+                        } else {
+                            resp.on_hover_text(t(lang, &item.tip))
                         };
                         if item.menu.is_empty() {
                             if resp.clicked() {

@@ -131,5 +131,15 @@
   "toolbar.start_queue": "Démarrer la file",
   "toolbar.stop": "Arrêter",
   "toolbar.stop_all": "Tout arrêter",
-  "toolbar.stop_queue": "Arrêter la file"
+  "toolbar.stop_queue": "Arrêter la file",
+  "tooltip.add_url": "Ajouter manuellement une nouvelle adresse de téléchargement",
+  "tooltip.delete": "Supprimer le fichier sélectionné de la liste",
+  "tooltip.delete_all": "Supprimer la liste des fichiers entièrement téléchargés",
+  "tooltip.options": "Configuration et divers",
+  "tooltip.resume": "Démarrer/Reprendre le téléchargement des fichiers sélectionnés",
+  "tooltip.scheduler": "Programmeur et file d'attente de téléchargement",
+  "tooltip.start_queue": "Démarrer la file d'attente principale, ou choisissez une file d'attente à démarrer depuis la liste",
+  "tooltip.stop": "Arrêter de télécharger le ou les fichier(s) sélectionné(s)",
+  "tooltip.stop_all": "Arrêter tous les téléchargements",
+  "tooltip.stop_queue": "Arrêter la file d'attente principale, ou choisissez une file d'attente à arrêter depuis la liste"
 }

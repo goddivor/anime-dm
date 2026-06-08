@@ -2,18 +2,18 @@
   "icon_size": 32,
   "transparency_key": [255, 0, 255],
   "buttons": [
-    { "id": "add_url",     "icon": "add.bmp",         "label": "toolbar.add_url" },
+    { "id": "add_url",     "icon": "add.bmp",         "label": "toolbar.add_url",     "tip": "tooltip.add_url" },
     { "sep": true },
-    { "id": "resume",      "icon": "resume.bmp",      "label": "toolbar.resume" },
-    { "id": "stop",        "icon": "stop.bmp",        "label": "toolbar.stop" },
-    { "id": "stop_all",    "icon": "stop_all.bmp",    "label": "toolbar.stop_all" },
+    { "id": "resume",      "icon": "resume.bmp",      "label": "toolbar.resume",      "tip": "tooltip.resume" },
+    { "id": "stop",        "icon": "stop.bmp",        "label": "toolbar.stop",        "tip": "tooltip.stop" },
+    { "id": "stop_all",    "icon": "stop_all.bmp",    "label": "toolbar.stop_all",    "tip": "tooltip.stop_all" },
     { "sep": true },
-    { "id": "delete",      "icon": "delete.bmp",      "label": "toolbar.delete" },
-    { "id": "delete_all",  "icon": "delete_all.bmp",  "label": "toolbar.delete_all" },
+    { "id": "delete",      "icon": "delete.bmp",      "label": "toolbar.delete",      "tip": "tooltip.delete" },
+    { "id": "delete_all",  "icon": "delete_all.bmp",  "label": "toolbar.delete_all",  "tip": "tooltip.delete_all" },
     { "sep": true },
-    { "id": "options",     "icon": "options.bmp",     "label": "toolbar.options" },
-    { "id": "scheduler",   "icon": "scheduler.bmp",   "label": "toolbar.scheduler", "menu": ["menu.download.queue_main", "menu.download.queue_sync"] },
-    { "id": "start_queue", "icon": "start_queue.bmp", "label": "toolbar.start_queue", "menu": ["menu.download.queue_main", "menu.download.queue_sync"] },
-    { "id": "stop_queue",  "icon": "stop_queue.bmp",  "label": "toolbar.stop_queue", "menu": ["menu.download.queue_main", "menu.download.queue_sync"] }
+    { "id": "options",     "icon": "options.bmp",     "label": "toolbar.options",     "tip": "tooltip.options" },
+    { "id": "scheduler",   "icon": "scheduler.bmp",   "label": "toolbar.scheduler",   "tip": "tooltip.scheduler",   "menu": ["menu.download.queue_main", "menu.download.queue_sync"] },
+    { "id": "start_queue", "icon": "start_queue.bmp", "label": "toolbar.start_queue", "tip": "tooltip.start_queue", "menu": ["menu.download.queue_main", "menu.download.queue_sync"] },
+    { "id": "stop_queue",  "icon": "stop_queue.bmp",  "label": "toolbar.stop_queue",  "tip": "tooltip.stop_queue",  "menu": ["menu.download.queue_main", "menu.download.queue_sync"] }
   ]
 }

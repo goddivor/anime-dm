@@ -17,6 +17,8 @@ struct TbiButton {
     #[serde(default)]
     label: String,
     #[serde(default)]
+    tip: String,
+    #[serde(default)]
     menu: Vec<String>,
     #[serde(default)]
     sep: bool,
@@ -25,6 +27,7 @@ struct TbiButton {
 pub struct ToolbarItem {
     pub id: String,
     pub label: String,
+    pub tip: String,
     pub menu: Vec<String>,
     pub icon: Option<egui::TextureHandle>,
     pub separator: bool,
@@ -49,6 +52,7 @@ impl Toolbar {
                             .flatten(),
                         id: b.id,
                         label: b.label,
+                        tip: b.tip,
                         menu: b.menu,
                         separator: b.sep,
                     })

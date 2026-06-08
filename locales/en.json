@@ -131,5 +131,15 @@
   "toolbar.start_queue": "Start Queue",
   "toolbar.stop": "Stop",
   "toolbar.stop_all": "Stop All",
-  "toolbar.stop_queue": "Stop Queue"
+  "toolbar.stop_queue": "Stop Queue",
+  "tooltip.add_url": "Manually add a new download address",
+  "tooltip.delete": "Remove the selected file from the list",
+  "tooltip.delete_all": "Remove all fully downloaded files from the list",
+  "tooltip.options": "Configuration and miscellaneous",
+  "tooltip.resume": "Start/Resume downloading the selected files",
+  "tooltip.scheduler": "Scheduler and download queue",
+  "tooltip.start_queue": "Start the main queue, or pick a queue to start from the list",
+  "tooltip.stop": "Stop downloading the selected file(s)",
+  "tooltip.stop_all": "Stop all downloads",
+  "tooltip.stop_queue": "Stop the main queue, or pick a queue to stop from the list"
 }
