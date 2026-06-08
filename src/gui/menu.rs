@@ -19,7 +19,7 @@ impl App {
             ui.spacing_mut().item_spacing.x = 20.0;
 
             // ===================== Tâches =====================
-            ui.menu_button(t(lang, "menu.tasks.title"), |ui| {
+            let it_tasks = ui.menu_button(t(lang, "menu.tasks.title"), |ui| {
                 if ui
                     .button(t(lang, "menu.tasks.add"))
                     .clicked()
@@ -78,7 +78,7 @@ impl App {
 
             // ===================== Fichier =====================
             // Items contextuels : actifs seulement si une ligne est sélectionnée.
-            ui.menu_button(t(lang, "menu.file.title"), |ui| {
+            let it_file = ui.menu_button(t(lang, "menu.file.title"), |ui| {
                 let has = self.selected.is_some();
                 if ui
                     .add_enabled(
@@ -114,7 +114,7 @@ impl App {
             });
 
             // ===================== Téléchargement =====================
-            ui.menu_button(t(lang, "menu.download.title"), |ui| {
+            let it_download = ui.menu_button(t(lang, "menu.download.title"), |ui| {
                 if ui.button(t(lang, "menu.download.pause_all")).clicked() {
                     self.soon(t(lang, "menu.download.pause_all"));
                 }
@@ -176,7 +176,7 @@ impl App {
             });
 
             // ===================== Affichage =====================
-            ui.menu_button(t(lang, "menu.view.title"), |ui| {
+            let it_view = ui.menu_button(t(lang, "menu.view.title"), |ui| {
                 ui.checkbox(
                     &mut self.show_categories,
                     t(lang, "menu.view.categories"),
@@ -263,7 +263,7 @@ impl App {
             });
 
             // ===================== Aide =====================
-            ui.menu_button(t(lang, "menu.help.title"), |ui| {
+            let it_help = ui.menu_button(t(lang, "menu.help.title"), |ui| {
                 if ui.add(egui::Button::new(t(lang, "menu.help.title")).shortcut_text("F1")).clicked() {
                     self.show_help = true;
                 }
@@ -285,6 +285,18 @@ impl App {
                     }
                 });
             });
+
+            // Comportement barre de menus façon IDM : un menu étant déjà ouvert, survoler
+            // un autre menu du haut l'ouvre (plus besoin de cliquer dessus).
+            for it in [&it_tasks, &it_file, &it_download, &it_view, &it_help] {
+                let id = egui::Popup::default_response_id(&it.response);
+                if it.response.hovered()
+                    && egui::Popup::is_any_open(&ctx)
+                    && !egui::Popup::is_id_open(&ctx, id)
+                {
+                    egui::Popup::open_id(&ctx, id);
+                }
+            }
         });
     }
 
