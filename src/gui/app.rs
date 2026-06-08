@@ -88,6 +88,16 @@ impl App {
         // plus tard via un menu). 1.15 reste lisible sans déborder sur petit écran.
         cc.egui_ctx.set_zoom_factor(1.15);
 
+        // Espacement plus généreux (par défaut egui est très compact) : écart entre menus,
+        // hauteur/padding des items, marges des popups — pour un rendu aéré façon IDM.
+        cc.egui_ctx.all_styles_mut(|s| {
+            s.spacing.item_spacing = egui::vec2(12.0, 8.0);
+            s.spacing.button_padding = egui::vec2(12.0, 7.0);
+            s.spacing.menu_margin = egui::Margin::same(8);
+            s.spacing.menu_spacing = 6.0;
+            s.spacing.interact_size.y = 26.0;
+        });
+
         let (tx, rx) = std::sync::mpsc::channel();
         let worker = Worker::new(tx, cc.egui_ctx.clone())
             .expect("initialisation du worker (runtime tokio + client HTTP)");
@@ -342,13 +352,13 @@ impl eframe::App for App {
         self.handle_shortcuts(&ctx);
 
         egui::Panel::top("menubar")
-            .exact_size(28.0)
+            .exact_size(34.0)
             .show_inside(ui, |ui| self.show_menu_bar(ui));
         egui::Panel::top("toolbar")
-            .exact_size(40.0)
+            .exact_size(48.0)
             .show_inside(ui, |ui| self.ui_toolbar(ui));
         egui::Panel::bottom("statusbar")
-            .exact_size(24.0)
+            .exact_size(28.0)
             .show_inside(ui, |ui| self.ui_statusbar(ui));
         if self.show_categories {
             egui::Panel::left("categories")
