@@ -30,6 +30,10 @@ regex = "1"
 chromiumoxide = "0.9"
 futures = "0.3"
 
+# --- Addons (sources de sites en WASM, chargées via Extism) ---
+addon-api = { path = "addon-api" }
+extism = "1"
+
 # --- Divers ---
 anyhow = "1"
 base64 = "0.22.1"

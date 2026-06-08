@@ -1,3 +1,4 @@
+mod addons;
 mod model;
 mod worker;
 
@@ -33,6 +34,21 @@ struct FinishedEvent {
     ok: bool,
     error: Option<String>,
     path: Option<String>,
+}
+
+#[tauri::command]
+fn addon_metadata(path: String) -> Result<addon_api::Metadata, String> {
+    addons::Addon::load(&path)
+        .map(|a| a.metadata)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn addon_episode_list(path: String, url: String) -> Result<Vec<addon_api::Episode>, String> {
+    let mut addon = addons::Addon::load(&path).map_err(|e| e.to_string())?;
+    addon
+        .call_json(addon_api::exports::EPISODE_LIST, &addon_api::UrlInput { url })
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -168,7 +184,13 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(engine)
-        .invoke_handler(tauri::generate_handler![load_anime, fetch_image, start_download])
+        .invoke_handler(tauri::generate_handler![
+            addon_metadata,
+            addon_episode_list,
+            load_anime,
+            fetch_image,
+            start_download
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
