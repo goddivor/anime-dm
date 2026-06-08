@@ -1,31 +1,31 @@
 ---
-name: "🐛 Rapport de bug"
-about: Signaler un dysfonctionnement
+name: "🐛 Bug report"
+about: Report a malfunction
 title: "fix: "
 labels: ["bug"]
 ---
 
-## Description du bug
+## Bug description
 
-<!-- Description claire et concise du problème. -->
+<!-- Clear and concise description of the problem. -->
 
-## Étapes pour reproduire
+## Steps to reproduce
 
 1.
 2.
 3.
 
-## Comportement attendu
+## Expected behavior
 
-## Comportement observé
+## Actual behavior
 
-## Environnement
+## Environment
 
-- OS :
-- Version / commit :
-- Lecteur concerné (myTV / FHD1 / VOE / …) :
-- Animé / URL (si pertinent) :
+- OS:
+- Version / commit:
+- Player involved (myTV / FHD1 / VOE / …):
+- Anime / URL (if relevant):
 
-## Logs / captures d'écran
+## Logs / screenshots
 
-<!-- Sortie de `cargo run`, message d'erreur, capture… -->
+<!-- `cargo run` output, error message, screenshot… -->

@@ -1,58 +1,58 @@
 # Anime Download Manager
 
-Gestionnaire de téléchargement type **IDM**, en **Rust**, pour les sites d'animés.
-**Premier site pris en charge : `voir-anime.to`** — l'architecture est pensée pour en
-accueillir d'autres (chaque site = son module de scraping + ses extracteurs).
+An **IDM-style** download manager, written in **Rust**, for anime sites.
+**First supported site: `voir-anime.to`** — the architecture is designed to host more
+(each site = its own scraping module + extractors).
 
-Interface graphique (egui) : on colle un lien d'animé, l'app liste les épisodes, on choisit
-une plage (`1-20`, `1,5,8`…) et un lecteur, et les téléchargements partent **en parallèle**.
+GUI (egui): paste an anime link, the app lists the episodes, you pick a range
+(`1-20`, `1,5,8`…) and a player, and downloads run **in parallel**.
 
-## État actuel (itération 1 — tranche verticale)
+## Current status
 
-✅ Coller une URL d'animé → liste des épisodes (titre + nombre)
-✅ Sélection d'épisodes par plage/liste (`1-20`, `1,5,8`, vide = tous)
-✅ Choix du lecteur (menu déroulant)
-✅ Extraction de la vraie source vidéo et téléchargement **simultané** via ffmpeg
-✅ Table de téléchargements avec statut, barre de progression et vitesse (lues sur ffmpeg)
+✅ Paste an anime URL → episode list (title + number)
+✅ Episode selection by range/list (`1-20`, `1,5,8`, empty = all)
+✅ Player selection (dropdown)
+✅ Real video-source extraction and **concurrent** download via ffmpeg
+✅ Downloads table with status, progress bar and speed (parsed from ffmpeg)
 
-### Hébergeurs
+### Hosts
 
-Constaté en juin 2026 : la plupart des hébergeurs ont migré vers des sources **générées
-en JavaScript au runtime** pour casser les scrapers HTTP. Deux voies d'extraction :
-**HTTP direct** (rapide) pour ceux qui exposent encore la source dans le HTML, et un
-**backend Chrome headless** (`headless.rs`, via `chromiumoxide`) qui charge l'embed,
-déclenche la lecture et intercepte le manifeste réseau pour tous les autres.
+As of June 2026, most hosts moved their source to **runtime-generated JavaScript** to
+defeat HTTP scrapers. Two extraction paths: **direct HTTP** (fast) for hosts that still
+expose the source in the HTML, and a **headless Chrome backend** (`worker/headless.rs`, via
+`chromiumoxide`) that loads the embed, triggers playback and intercepts the network
+manifest for the rest.
 
-| Lecteur | Hébergeur | Voie | Statut (vérifié bout-en-bout) |
-|---------|-----------|------|-------------------------------|
-| `LECTEUR myTV`  | vidmoly        | HTTP     | ✅ HLS `.m3u8` |
-| `LECTEUR Stape` | streamtape     | HTTP     | ✅ MP4 direct (`get_video`) |
-| `LECTEUR FHD1`  | my.mail.ru     | HTTP     | ✅ MP4 **1080p** (endpoint `/+/video/meta/` + cookie `video_key`) |
-| `LECTEUR VOE`   | voe.sx         | Headless | ✅ HLS `.m3u8` intercepté |
-| `LECTEUR MOON`  | sb*.org « Byse » | Headless | ⚠️ SPA récalcitrante (détection) |
-| `LECTEUR SB`    | streamhide     | Headless | ⚠️ même famille « Byse » |
-| `LECTEUR YU`    | yourupload     | —        | ⚠️ jwplayer (souvent DMCA) |
+| Player | Host | Path | Status (verified end-to-end) |
+|--------|------|------|------------------------------|
+| `LECTEUR myTV`  | vidmoly          | HTTP     | ✅ HLS `.m3u8` |
+| `LECTEUR Stape` | streamtape       | HTTP     | ✅ direct MP4 (`get_video`) |
+| `LECTEUR FHD1`  | my.mail.ru       | HTTP     | ✅ **1080p** MP4 (`/+/video/meta/` endpoint + `video_key` cookie) |
+| `LECTEUR VOE`   | voe.sx           | Headless | ✅ HLS `.m3u8` intercepted |
+| `LECTEUR MOON`  | sb*.org "Byse"   | Headless | ⚠️ stubborn SPA (detection) |
+| `LECTEUR SB`    | streamhide       | Headless | ⚠️ same "Byse" family |
+| `LECTEUR YU`    | yourupload       | —        | ⚠️ jwplayer (often DMCA'd) |
 
-**4 lecteurs opérationnels** (myTV, Stape, FHD1, VOE) — confortable en pratique. Les ⚠️
-« Byse » résistent à l'automatisation headless ; piste : **mode headful** (Xvfb pour rester
-invisible). Le CDN mail.ru renvoyant parfois une I/O error au 1ᵉʳ accès, le downloader
-réessaie une fois automatiquement.
+**4 working players** (myTV, Stape, FHD1, VOE) — comfortable in practice. The ⚠️ "Byse"
+hosts resist headless automation; possible next step: **headful mode** (Xvfb to stay
+invisible). The mail.ru CDN sometimes returns an I/O error on the first hit, so the
+downloader retries once automatically.
 
-## Prérequis
+## Requirements
 
-- **Rust** (édition 2021) et Cargo
-- **ffmpeg** dans le `PATH` (récupère/remuxe MP4, HLS et DASH)
-- **Google Chrome / Chromium** dans le `PATH` (backend headless pour les hébergeurs JS :
-  VOE, mail.ru, …). Non requis pour myTV/Stape qui sont en HTTP pur.
+- **Rust** (edition 2021) and Cargo
+- **ffmpeg** on `PATH` (fetches/remuxes MP4, HLS and DASH)
+- **Google Chrome / Chromium** on `PATH` (headless backend for JS hosts: VOE, mail.ru, …).
+  Not needed for myTV/Stape, which are pure HTTP.
 
-## Lancer
+## Run
 
 ```bash
 cargo run --release
 ```
 
-Diagnostic de bout en bout sans interface (scrape → extract HTTP + headless → ffmpeg).
-Une URL d'animé optionnelle permet de tester sur des liens récents (plus fiables) :
+End-to-end diagnostics without the UI (scrape → HTTP + headless extract → ffmpeg).
+An optional anime URL lets you test against fresh links (more reliable):
 
 ```bash
 cargo run --release -- --selftest
@@ -61,41 +61,41 @@ cargo run --release -- --selftest "https://voir-anime.to/anime/<slug>/"
 
 ## Architecture
 
-Pipeline découplé, un module par responsabilité :
+Two layers: `gui/` (UI) and `worker/` (backend logic), with shared types at the crate root.
 
-| Module            | Rôle |
-|-------------------|------|
-| `net.rs`          | Client HTTP partagé, User-Agent navigateur, constantes (`BASE`, `UA`) |
-| `scraper.rs`      | `fetch_anime` (liste épisodes via `li.wp-manga-chapter`) et `fetch_players` (JSON `thisChapterSources`) |
-| `extractors.rs`   | Extraction HTTP directe (vidmoly, streamtape) ; `is_http_extractable()` route le reste vers le headless |
-| `headless.rs`     | Chrome headless (chromiumoxide) : charge l'embed, déclenche la lecture, **intercepte** le manifeste réseau (`.m3u8`/`.mpd`/`.mp4`) |
-| `downloader.rs`   | ffmpeg piloté en async, progression réelle lue sur stderr (`Duration:` / `time=` / `speed=`) |
-| `selection.rs`    | Parse `1-20` / `1,5,8` → liste de numéros (testé unitairement) |
-| `worker.rs`       | Runtime tokio + canal `mpsc` ; orchestre `load_anime` / `start_download` sans bloquer l'UI |
-| `model.rs`        | Types du domaine (`Anime`, `Episode`, `Player`, `VideoSource`, `DownloadItem`) |
-| `app.rs`          | Interface egui (barre d'outils, table, dialogue d'ajout) |
+| Module | Role |
+|--------|------|
+| `worker/net.rs`          | Shared HTTP client, browser User-Agent, constants (`BASE`, `UA`) |
+| `worker/scraper.rs`      | `fetch_anime` (episodes via `li.wp-manga-chapter`) and `fetch_players` (`thisChapterSources` JSON) |
+| `worker/extractors/`     | One module per host (vidmoly, streamtape, mailru); `is_http_extractable()` routes the rest to headless |
+| `worker/headless.rs`     | Headless Chrome (chromiumoxide): loads the embed, triggers playback, **intercepts** the network manifest (`.m3u8`/`.mpd`/`.mp4`) |
+| `worker/downloader.rs`   | Async-driven ffmpeg, real progress parsed from stderr (`Duration:` / `time=` / `speed=`) |
+| `worker/mod.rs`          | tokio runtime + `mpsc` channel; orchestrates `load_anime` / `start_download` without blocking the UI |
+| `selection.rs`           | Parses `1-20` / `1,5,8` → list of numbers (unit-tested) |
+| `model.rs`               | Domain types (`Anime`, `Episode`, `Player`, `VideoSource`, `DownloadItem`) |
+| `gui/`                   | egui UI: `app` (state + loop), `menu`, `view`, `dialogs`, `i18n` (FR/EN) |
 
-### Chaîne d'extraction (rappel technique)
+### Extraction chain
 
-1. **Page animé** `/anime/{slug}/` → `li.wp-manga-chapter a` → liste d'épisodes (remise en ordre croissant)
-2. **Page épisode** → variable JS `thisChapterSources` = `{ "LECTEUR X": "<iframe src=…>", … }` (parsée en JSON)
-3. **iframe hébergeur** → extracteur dédié → `.mp4` direct ou playlist `.m3u8`
-4. **ffmpeg** `-c copy -bsf:a aac_adtstoasc` → fichier MP4 final
+1. **Anime page** `/anime/{slug}/` → `li.wp-manga-chapter a` → episode list (sorted ascending)
+2. **Episode page** → JS variable `thisChapterSources` = `{ "LECTEUR X": "<iframe src=…>", … }` (parsed as JSON)
+3. **Host iframe** → dedicated extractor → direct `.mp4` or `.m3u8` playlist
+4. **ffmpeg** `-c copy` (+ `-bsf:a aac_adtstoasc` for HLS) → final MP4
 
-### Concurrence / UI
+### Concurrency / UI
 
-egui est *immediate-mode* (synchrone). Tout le réseau/téléchargement tourne sur un runtime
-**tokio multi-thread** ; les tâches renvoient leur état par un canal `mpsc` que l'UI draine à
-chaque frame (`WorkerMsg`). Aucun appel bloquant dans la boucle de rendu.
+egui is *immediate-mode* (synchronous). All networking/downloading runs on a
+**multi-thread tokio runtime**; tasks report their state through an `mpsc` channel that the
+UI drains every frame (`WorkerMsg`). No blocking call in the render loop.
 
-## Notes sur le site
+## Site notes
 
-- Domaine actif : **`voir-anime.to`** (l'ancien `v6.voiranime.com` est hors service).
-- Cloudflare est présent mais **ne challenge pas** avec un User-Agent Chrome → de simples
-  requêtes HTTP suffisent (pas de navigateur headless nécessaire pour l'instant).
+- Active domain: **`voir-anime.to`** (the old `v6.voiranime.com` is dead).
+- Cloudflare is present but **does not challenge** a Chrome User-Agent → plain HTTP requests
+  are enough (no headless browser needed to scrape the site itself).
 
-## Suite envisagée
+## Roadmap
 
-- Extracteurs supplémentaires (VOE = déchiffrement 6 étapes, Stape, Filemoon, etc.)
-- Sélecteur de qualité (le `master.m3u8` expose plusieurs résolutions)
-- Pause/reprise, file d'attente avec limite de concurrence, renommage automatique
+- Headful (Xvfb) headless backend to unlock the "Byse" hosts (MOON/SB)
+- Quality selector (the `master.m3u8` exposes several resolutions)
+- Pause/resume, download queue with a concurrency limit, automatic renaming
