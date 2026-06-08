@@ -78,7 +78,7 @@ impl App {
 
         let (tx, rx) = std::sync::mpsc::channel();
         let worker = Worker::new(tx, cc.egui_ctx.clone())
-            .expect("initialisation du worker (runtime tokio + client HTTP)");
+            .expect("worker init (tokio runtime + HTTP client)");
 
         Self {
             worker,
