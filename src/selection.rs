@@ -1,8 +1,3 @@
-//! Analyse d'une sélection d'épisodes saisie par l'utilisateur.
-//!
-//! Formats acceptés : `1-20`, `1,5,8`, `1-3,7,10-12`, vide / `tous` / `all` -> tout.
-
-/// Renvoie les numéros d'épisodes (1-based), triés et dédupliqués, bornés à `[1, max]`.
 pub fn parse(input: &str, max: usize) -> Vec<usize> {
     let trimmed = input.trim().to_lowercase();
     if max == 0 {

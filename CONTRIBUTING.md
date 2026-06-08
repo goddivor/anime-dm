@@ -1,59 +1,66 @@
-# Contribuer à Anime Download Manager
+# Contributing to Anime Download Manager
 
-## Modèle de branches
+## Branching model
 
-| Branche | Rôle |
-|---------|------|
-| `master` | Production. **Protégée** : aucun push direct, uniquement via Pull Request. |
-| `dev` | Intégration. **Protégée** également : aucun push direct, uniquement via Pull Request. |
-| `feature/<slug>` | Nouvelle fonctionnalité (créée **depuis `dev`**). |
-| `fix/<slug>` | Correction de bug. |
-| `refactor/<slug>` | Refonte sans changement de comportement. |
-| `chore/<slug>` | Outillage, dépendances, CI, divers. |
+| Branch | Role |
+|--------|------|
+| `master` | Production. **Protected**: no direct push, pull requests only. |
+| `dev` | Integration. **Protected** as well: no direct push, pull requests only. |
+| `feature/<slug>` | New feature (branched **from `dev`**). |
+| `fix/<slug>` | Bug fix. |
+| `refactor/<slug>` | Rework with no behavior change. |
+| `chore/<slug>` | Tooling, dependencies, CI, misc. |
 | `docs/<slug>` | Documentation. |
 
-`<slug>` en **kebab-case**, court et descriptif :
+`<slug>` in **kebab-case**, short and descriptive:
 `feature/headless-voe`, `fix/mailru-403`, `refactor/gui-split`.
 
-## Flux de travail
+## Workflow
 
 ```bash
-# 1. Partir de dev à jour
+# 1. Start from an up-to-date dev
 git checkout dev && git pull
 
-# 2. Créer la branche de travail
-git checkout -b feature/ma-fonction
+# 2. Create the working branch
+git checkout -b feature/my-feature
 
-# 3. Développer + commiter (voir conventions ci-dessous), puis pousser
-git push -u origin feature/ma-fonction
+# 3. Develop + commit (see conventions below), then push
+git push -u origin feature/my-feature
 
-# 4. Ouvrir une Pull Request VERS dev (jamais vers master)
+# 4. Open a Pull Request TARGETING dev (never master)
 ```
 
-- Les branches de travail ciblent **toujours `dev`** (via PR).
-- `dev` et `master` sont **toutes deux protégées** : aucun push direct, tout passe par PR.
-- `master` ne reçoit que des PR **`dev` → `master`** (releases), une fois `dev` stable.
+- Working branches **always target `dev`** (via PR).
+- `dev` and `master` are **both protected**: no direct push, everything goes through a PR.
+- `master` only receives **`dev` → `master`** PRs (releases), once `dev` is stable.
 
-## Conventions de commit
+## Commit conventions
 
-- Format **Conventional Commits** : `type(scope): description`
-- Types : `feat`, `fix`, `refactor`, `style`, `docs`, `chore`, `test`, `perf`
-- Verbe à l'**impératif**, en **anglais**, minuscule après les deux-points
+- **Conventional Commits**: `type(scope): description`
+- Types: `feat`, `fix`, `refactor`, `style`, `docs`, `chore`, `test`, `perf`
+- **Imperative**, **English**, lowercase after the colon
   - ✅ `feat(gui): add speed limiter dialog`
-  - ❌ `Added a dialog` / `ajout du dialogue`
-- **Pas** de signature `Co-Authored-By` ni `Generated with`
-- **Staging sélectif** : jamais `git add .` / `git add -A`, on nomme les fichiers
-- Ne jamais committer de fichiers sensibles (`.env*`, `*.key`, `credentials*`…)
+  - ❌ `Added a dialog`
+- **No** `Co-Authored-By` or `Generated with` trailers
+- **Selective staging**: never `git add .` / `git add -A`, name the files
+- Never commit sensitive files (`.env*`, `*.key`, `credentials*`…)
+
+## Code comments
+
+- The code must be **self-documenting through naming**: no comment that paraphrases the code.
+- A comment is allowed **only on a function** (doc-comment `///`), and only when its intent is not obvious.
+- Every comment must be **short, precise, clear and non-verbose** — it states the *why*, never the *what*.
+- No inline comments (`//`) and no descriptive module-header blocks.
 
 ## Pull Requests
 
-- Remplir le **template de PR** (`.github/PULL_REQUEST_TEMPLATE.md`).
-- Lier l'issue concernée : `Closes #123`.
-- S'assurer que **`cargo build` passe sans warning** et que `cargo test` est vert.
-- Pour un changement visuel : joindre une **capture d'écran** avant/après.
+- Fill in the **PR template** (`.github/PULL_REQUEST_TEMPLATE.md`).
+- Link the related issue: `Closes #123`.
+- Make sure **`cargo build` passes with no warning** and `cargo test` is green.
+- For any visual change: attach a **before/after screenshot**.
 
 ## Issues
 
-Deux modèles disponibles à la création (`.github/ISSUE_TEMPLATE/`) :
-- 🐛 **Rapport de bug**
-- ✨ **Demande de fonctionnalité**
+Two templates available when creating one (`.github/ISSUE_TEMPLATE/`):
+- 🐛 **Bug report**
+- ✨ **Feature request**

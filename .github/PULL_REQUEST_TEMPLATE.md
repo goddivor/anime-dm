@@ -1,30 +1,30 @@
-<!-- Merci pour ta contribution ! Remplis les sections ci-dessous. -->
+<!-- Thanks for contributing! Fill in the sections below. -->
 
 ## Description
 
-<!-- Que fait cette PR, et pourquoi ? -->
+<!-- What does this PR do, and why? -->
 
-## Type de changement
+## Type of change
 
-- [ ] ✨ `feat` — nouvelle fonctionnalité
-- [ ] 🐛 `fix` — correction de bug
-- [ ] ♻️ `refactor` — refonte sans changement de comportement
-- [ ] 🎨 `style` — UI / mise en forme
+- [ ] ✨ `feat` — new feature
+- [ ] 🐛 `fix` — bug fix
+- [ ] ♻️ `refactor` — rework with no behavior change
+- [ ] 🎨 `style` — UI / formatting
 - [ ] 📝 `docs` — documentation
-- [ ] 🔧 `chore` — outillage / dépendances
+- [ ] 🔧 `chore` — tooling / dependencies
 
-## Issue liée
+## Related issue
 
 Closes #
 
-## Captures d'écran
+## Screenshots
 
-<!-- Pour tout changement visuel : avant / après. Sinon, retirer cette section. -->
+<!-- For any visual change: before / after. Otherwise, remove this section. -->
 
 ## Checklist
 
-- [ ] La branche part de `dev` et la PR cible `dev` (ou `dev` → `master` pour une release)
-- [ ] `cargo build` passe **sans warning**
-- [ ] `cargo test` est vert
-- [ ] Commits au format **Conventional Commits** (anglais, impératif)
-- [ ] Pas de fichier sensible ni de `git add .`
+- [ ] Branched from `dev` and the PR targets `dev` (or `dev` → `master` for a release)
+- [ ] `cargo build` passes **with no warning**
+- [ ] `cargo test` is green
+- [ ] Commits follow **Conventional Commits** (English, imperative)
+- [ ] No sensitive file and no `git add .`

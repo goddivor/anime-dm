@@ -1,10 +1,3 @@
-//! Application egui type IDM : état, actions partagées et boucle de rendu.
-//!
-//! Le rendu est réparti par responsabilité dans le dossier `gui/` :
-//! - [`crate::gui::menu`]    : barre de menus
-//! - [`crate::gui::view`]    : barre d'outils, sidebar, table, barre d'état
-//! - [`crate::gui::dialogs`] : fenêtres modales (ajout, à propos, aide, manuel)
-
 use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 
@@ -15,7 +8,6 @@ use crate::model::{Anime, DownloadItem, DownloadStatus};
 use crate::selection;
 use crate::worker::{DownloadJob, Worker, WorkerMsg};
 
-/// Thème de l'interface.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ThemeMode {
     Dark,
@@ -23,7 +15,6 @@ pub(crate) enum ThemeMode {
     System,
 }
 
-/// Critère de classement des fichiers (menu Affichage › Classer les fichiers).
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SortBy {
     DateAdded,
@@ -39,14 +30,12 @@ pub(crate) enum SortBy {
 }
 
 pub struct App {
-    // --- cœur (logique de téléchargement, inchangée) ---
     pub(crate) worker: Worker,
     pub(crate) rx: Receiver<WorkerMsg>,
     pub(crate) downloads: Vec<DownloadItem>,
     pub(crate) next_id: u64,
     pub(crate) out_dir: String,
 
-    // --- dialogue d'ajout ---
     pub(crate) show_add: bool,
     pub(crate) url_input: String,
     pub(crate) loading_anime: bool,
@@ -55,7 +44,6 @@ pub struct App {
     pub(crate) selection_input: String,
     pub(crate) selected_player: String,
 
-    // --- état UI / préférences (piloté par les menus) ---
     pub(crate) lang: Lang,
     pub(crate) theme: ThemeMode,
     pub(crate) sort_by: SortBy,
@@ -69,7 +57,6 @@ pub struct App {
     pub(crate) selected: Option<u64>,
     pub(crate) status: String,
 
-    // --- dialogues secondaires ---
     pub(crate) show_about: bool,
     pub(crate) show_help: bool,
     pub(crate) show_manual: bool,
@@ -79,12 +66,8 @@ pub struct App {
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         cc.egui_ctx.set_theme(egui::ThemePreference::Dark);
-        // Agrandit légèrement l'interface par-dessus le scaling écran (réglable par l'utilisateur
-        // plus tard via un menu). 1.15 reste lisible sans déborder sur petit écran.
         cc.egui_ctx.set_zoom_factor(1.15);
 
-        // Espacement plus généreux (par défaut egui est très compact) : écart entre menus,
-        // hauteur/padding des items, marges des popups — pour un rendu aéré façon IDM.
         cc.egui_ctx.all_styles_mut(|s| {
             s.spacing.item_spacing = egui::vec2(12.0, 8.0);
             s.spacing.button_padding = egui::vec2(12.0, 7.0);
@@ -95,7 +78,7 @@ impl App {
 
         let (tx, rx) = std::sync::mpsc::channel();
         let worker = Worker::new(tx, cc.egui_ctx.clone())
-            .expect("initialisation du worker (runtime tokio + client HTTP)");
+            .expect("worker init (tokio runtime + HTTP client)");
 
         Self {
             worker,
@@ -129,10 +112,6 @@ impl App {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Actions partagées (appelées par les menus / dialogues — d'où pub(crate))
-    // ------------------------------------------------------------------
-
     pub(crate) fn apply_theme(&self, ctx: &egui::Context) {
         ctx.set_theme(match self.theme {
             ThemeMode::Dark => egui::ThemePreference::Dark,
@@ -141,12 +120,10 @@ impl App {
         });
     }
 
-    /// Message de feedback affiché dans la barre d'état.
     pub(crate) fn set_status(&mut self, msg: impl Into<String>) {
         self.status = msg.into();
     }
 
-    /// Marque une fonctionnalité comme non encore disponible (coquille de menu).
     pub(crate) fn soon(&mut self, feature: &str) {
         let suffix = t(self.lang, "status.coming_soon");
         self.status = format!("« {feature} » — {suffix}");
@@ -182,7 +159,6 @@ impl App {
             SortBy::Speed => self
                 .downloads
                 .sort_by(|a, b| b.progress.total_cmp(&a.progress)),
-            // Critères sans donnée disponible pour l'instant : on ne réordonne pas.
             SortBy::TimeLeft
             | SortBy::LastTry
             | SortBy::Location
@@ -191,9 +167,10 @@ impl App {
         }
     }
 
-    /// Lance les téléchargements sélectionnés dans le dialogue d'ajout.
     pub(crate) fn launch_selection(&mut self) {
-        let Some(anime) = self.anime.clone() else { return };
+        let Some(anime) = self.anime.clone() else {
+            return;
+        };
         let numbers = selection::parse(&self.selection_input, anime.episodes.len());
         let _ = std::fs::create_dir_all(&self.out_dir);
 
@@ -233,10 +210,6 @@ impl App {
         self.selection_input.clear();
         self.load_error = None;
     }
-
-    // ------------------------------------------------------------------
-    // Boucle interne
-    // ------------------------------------------------------------------
 
     fn drain_messages(&mut self) {
         while let Ok(msg) = self.rx.try_recv() {
@@ -303,7 +276,6 @@ impl App {
             self.show_help = true;
         }
     }
-
 }
 
 impl eframe::App for App {
@@ -338,11 +310,6 @@ impl eframe::App for App {
     }
 }
 
-// ----------------------------------------------------------------------
-// Helpers libres
-// ----------------------------------------------------------------------
-
-/// Un téléchargement encore en cours (en attente, résolution ou téléchargement).
 pub(crate) fn is_active(s: DownloadStatus) -> bool {
     matches!(
         s,
@@ -360,7 +327,6 @@ fn status_rank(s: DownloadStatus) -> u8 {
     }
 }
 
-/// Dossier de téléchargement par défaut : `~/Téléchargements` ou `~/Downloads`, sinon `.`.
 fn default_download_dir() -> String {
     if let Ok(home) = std::env::var("HOME") {
         for name in ["Téléchargements", "Downloads"] {
@@ -377,7 +343,6 @@ fn default_download_dir() -> String {
     ".".to_string()
 }
 
-/// Nettoie un nom de fichier des caractères interdits.
 fn sanitize(name: &str) -> String {
     name.chars()
         .map(|c| match c {

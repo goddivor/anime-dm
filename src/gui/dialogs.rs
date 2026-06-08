@@ -1,12 +1,9 @@
-//! Fenêtres modales : ajout de téléchargement, À propos, Aide, Téléchargement manuel.
-
 use eframe::egui;
 
 use crate::gui::app::App;
 use crate::gui::i18n::t;
 use crate::selection;
 
-/// Lecteurs proposés dans le menu déroulant, avec leur état réel (vérifié en bout-en-bout).
 const PLAYERS: &[(&str, &str)] = &[
     ("LECTEUR myTV", "✓ rapide"),
     ("LECTEUR FHD1", "✓ rapide"),
@@ -41,8 +38,7 @@ impl App {
                             .hint_text("https://voir-anime.to/anime/dragon-ball-vf/")
                             .desired_width(320.0),
                     );
-                    let enter =
-                        resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                    let enter = resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
                     if ui.button(t(lang, "dialog.add.confirm")).clicked() || enter {
                         do_validate = true;
                     }
@@ -174,10 +170,7 @@ impl App {
                     ui.label(t(lang, "dialog.help.step2"));
                     ui.label(t(lang, "dialog.help.step3"));
                     ui.separator();
-                    ui.hyperlink_to(
-                        t(lang, "dialog.help.wiki"),
-                        "https://example.com/wiki",
-                    );
+                    ui.hyperlink_to(t(lang, "dialog.help.wiki"), "https://example.com/wiki");
                     ui.hyperlink_to("FAQ", "https://example.com/faq");
                 });
             self.show_help = open;

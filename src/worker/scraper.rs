@@ -1,5 +1,3 @@
-//! Scraping du site voir-anime.to : liste d'épisodes et lecteurs d'un épisode.
-
 use anyhow::{anyhow, Context};
 use regex::Regex;
 use scraper::{Html, Selector};
@@ -8,12 +6,9 @@ use std::collections::BTreeMap;
 use super::net::{get_html, BASE};
 use crate::model::{Anime, Episode, Player};
 
-/// Récupère le titre et la liste ordonnée des épisodes d'une page `/anime/{slug}/`.
 pub async fn fetch_anime(http: &reqwest::Client, url: &str) -> anyhow::Result<Anime> {
     let html = get_html(http, url, BASE).await?;
 
-    // NB : aucun type `scraper` (non-Send) ne doit franchir un `.await`.
-    //      Tout le parsing est donc strictement synchrone, après le GET.
     let doc = Html::parse_document(&html);
 
     let title = {
@@ -31,11 +26,14 @@ pub async fn fetch_anime(http: &reqwest::Client, url: &str) -> anyhow::Result<An
 
     let mut episodes = Vec::new();
     for li in doc.select(&li_sel) {
-        let Some(a) = li.select(&a_sel).next() else { continue };
-        let Some(href) = a.value().attr("href") else { continue };
+        let Some(a) = li.select(&a_sel).next() else {
+            continue;
+        };
+        let Some(href) = a.value().attr("href") else {
+            continue;
+        };
         let raw = a.text().collect::<String>().trim().to_string();
 
-        // Le numéro d'épisode = dernier nombre du libellé (« Dragon Ball 012 VF » -> 12).
         let number = num_re
             .find_iter(&raw)
             .last()
@@ -62,11 +60,11 @@ pub async fn fetch_anime(http: &reqwest::Client, url: &str) -> anyhow::Result<An
         ));
     }
 
-    // Le site liste les épisodes du plus récent au plus ancien : on remet en ordre croissant
-    // et on déduplique par numéro (BTreeMap = tri + unicité).
     let mut by_num: BTreeMap<i64, Episode> = BTreeMap::new();
     for ep in episodes {
-        by_num.entry((ep.number * 10.0).round() as i64).or_insert(ep);
+        by_num
+            .entry((ep.number * 10.0).round() as i64)
+            .or_insert(ep);
     }
     let episodes: Vec<Episode> = by_num.into_values().collect();
 
@@ -77,9 +75,10 @@ pub async fn fetch_anime(http: &reqwest::Client, url: &str) -> anyhow::Result<An
     })
 }
 
-/// Extrait les lecteurs disponibles depuis la variable JS `thisChapterSources`
-/// présente dans le HTML de la page d'épisode.
-pub async fn fetch_players(http: &reqwest::Client, episode_url: &str) -> anyhow::Result<Vec<Player>> {
+pub async fn fetch_players(
+    http: &reqwest::Client,
+    episode_url: &str,
+) -> anyhow::Result<Vec<Player>> {
     let html = get_html(http, episode_url, BASE).await?;
 
     let marker = "thisChapterSources";
@@ -94,7 +93,6 @@ pub async fn fetch_players(http: &reqwest::Client, episode_url: &str) -> anyhow:
     let json = balanced_object(&html[brace..])
         .ok_or_else(|| anyhow!("accolades non équilibrées dans `thisChapterSources`"))?;
 
-    // Map { "LECTEUR myTV": "<iframe src=\"...\">", ... }
     let map: BTreeMap<String, String> =
         serde_json::from_str(json).context("désérialisation de `thisChapterSources`")?;
 
@@ -116,7 +114,6 @@ pub async fn fetch_players(http: &reqwest::Client, episode_url: &str) -> anyhow:
     Ok(players)
 }
 
-/// Renvoie la sous-chaîne `{...}` équilibrée à partir d'un texte commençant par `{`.
 fn balanced_object(s: &str) -> Option<&str> {
     let bytes = s.as_bytes();
     if bytes.first() != Some(&b'{') {

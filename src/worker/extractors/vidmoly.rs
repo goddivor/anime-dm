@@ -1,6 +1,3 @@
-//! Hébergeur **vidmoly** (LECTEUR myTV) — la page embed contient
-//! `sources: [{ file: 'https://…/master.m3u8…' }]` (apostrophes simples).
-
 use anyhow::anyhow;
 use regex::Regex;
 use reqwest::header::{ORIGIN, REFERER};
@@ -26,7 +23,6 @@ pub async fn extract(http: &reqwest::Client, url: &str) -> anyhow::Result<Vec<Vi
         .text()
         .await?;
 
-    // Accepte guillemets simples ou doubles autour de l'URL HLS.
     let re = Regex::new(r#"file\s*:\s*["']([^"']+\.m3u8[^"']*)["']"#).unwrap();
     let mut seen = HashSet::new();
     let mut out = Vec::new();

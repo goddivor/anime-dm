@@ -1,15 +1,3 @@
-//! Orchestrateur asynchrone : possède le runtime tokio, le client HTTP et le canal vers l'UI.
-//!
-//! L'UI (synchrone, immediate-mode) ne fait jamais d'attente bloquante : elle lance des tâches
-//! via `load_anime` / `start_download` et reçoit les résultats par `WorkerMsg` (canal mpsc).
-//!
-//! Sous-modules (toute la logique backend) :
-//! - [`net`]        : client HTTP partagé
-//! - [`scraper`]    : liste d'épisodes et lecteurs (voir-anime.to)
-//! - [`extractors`] : extraction des sources vidéo par hébergeur (HTTP)
-//! - [`headless`]   : extraction via navigateur headless (hébergeurs JS)
-//! - [`downloader`] : téléchargement via ffmpeg
-
 mod downloader;
 pub mod extractors;
 pub mod headless;
@@ -28,10 +16,8 @@ use tokio::sync::Mutex;
 use self::headless::Headless;
 use crate::model::{Anime, DownloadStatus};
 
-/// État partagé du navigateur headless : lancé à la première vidéo JS, puis réutilisé.
 type HeadlessCell = Arc<Mutex<Option<Arc<Headless>>>>;
 
-/// Messages remontés du worker vers l'UI.
 pub enum WorkerMsg {
     AnimeLoaded(Result<Anime, String>),
     Progress {
@@ -47,7 +33,6 @@ pub enum WorkerMsg {
     },
 }
 
-/// Tâche de téléchargement décrite par l'UI.
 pub struct DownloadJob {
     pub id: u64,
     pub episode_url: String,
@@ -79,7 +64,6 @@ impl Worker {
         })
     }
 
-    /// Charge un animé (titre + épisodes) en arrière-plan.
     pub fn load_anime(&self, url: String) {
         let http = self.http.clone();
         let tx = self.tx.clone();
@@ -93,7 +77,6 @@ impl Worker {
         });
     }
 
-    /// Résout la source vidéo puis télécharge un épisode, en arrière-plan.
     pub fn start_download(&self, job: DownloadJob) {
         let http = self.http.clone();
         let tx = self.tx.clone();
@@ -110,16 +93,12 @@ impl Worker {
             ctx.request_repaint();
 
             let result = run_job(&http, &headless, &job, &tx, &ctx).await;
-            let _ = tx.send(WorkerMsg::Finished {
-                id: job.id,
-                result,
-            });
+            let _ = tx.send(WorkerMsg::Finished { id: job.id, result });
             ctx.request_repaint();
         });
     }
 }
 
-/// Récupère (ou lance à la demande) le navigateur headless partagé.
 async fn get_headless(cell: &HeadlessCell) -> Result<Arc<Headless>, String> {
     let mut guard = cell.lock().await;
     if let Some(h) = guard.as_ref() {
@@ -130,7 +109,6 @@ async fn get_headless(cell: &HeadlessCell) -> Result<Arc<Headless>, String> {
     Ok(h)
 }
 
-/// Pipeline d'un épisode : page épisode -> lecteur choisi -> extracteur (HTTP ou headless) -> ffmpeg.
 async fn run_job(
     http: &reqwest::Client,
     headless: &HeadlessCell,
@@ -148,7 +126,6 @@ async fn run_job(
         .or_else(|| players.first())
         .ok_or_else(|| "aucun lecteur disponible sur cet épisode".to_string())?;
 
-    // vidmoly / streamtape : extraction HTTP directe. Tout le reste : moteur headless.
     let source = if extractors::is_http_extractable(&player.iframe_url) {
         extractors::resolve(http, &player.iframe_url)
             .await
@@ -172,6 +149,13 @@ async fn run_job(
     });
     ctx.request_repaint();
 
-    downloader::download(source, job.out_path.clone(), job.id, tx.clone(), ctx.clone()).await?;
+    downloader::download(
+        source,
+        job.out_path.clone(),
+        job.id,
+        tx.clone(),
+        ctx.clone(),
+    )
+    .await?;
     Ok(job.out_path.to_string_lossy().into_owned())
 }
