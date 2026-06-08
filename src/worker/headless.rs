@@ -1,13 +1,3 @@
-//! Backend navigateur headless : pour les hébergeurs qui génèrent leur source en JavaScript
-//! (VOE, mail.ru/FHD1, …), on charge l'embed dans un vrai Chrome, on déclenche la lecture et
-//! on **intercepte la requête réseau** du manifeste vidéo (`.m3u8` / `.mpd` / `.mp4`).
-//!
-//! Leçons du prototypage (cf. historique) :
-//!   - NE PAS forcer `Referer: voir-anime.to` → provoque `ERR_BLOCKED_BY_CLIENT`. On laisse
-//!     le navigateur naviguer naturellement vers l'iframe.
-//!   - Le Referer à rejouer dans ffmpeg est celui *de la requête média capturée*
-//!     (ex. `jessicayeahcatch.com` pour VOE, `my.mail.ru` pour FHD1), pas celui de voir-anime.
-
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -21,9 +11,6 @@ use futures::StreamExt;
 use super::net::UA;
 use crate::model::VideoSource;
 
-/// Anti-détection : masque les marqueurs d'automatisation (certains hébergeurs comme mail.ru
-/// refusent de charger leur lecteur s'ils détectent un navigateur piloté). Exécuté avant
-/// tout script de la page.
 const STEALTH_JS: &str = r#"
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
     Object.defineProperty(navigator, 'languages', { get: () => ['fr-FR','fr','en-US','en'] });
@@ -36,14 +23,12 @@ const STEALTH_JS: &str = r#"
             : _q(p);
 "#;
 
-/// Script injecté pour forcer la lecture (les hébergeurs ne chargent le flux qu'au play).
 const PLAY_JS: &str = r#"
     document.querySelectorAll('video').forEach(v => { try { v.muted = true; v.play(); } catch (e) {} });
     ['.play','.jw-icon-display','.vjs-big-play-button','button','.plyr__control--overlaid','#player','.play-button']
         .forEach(s => { const b = document.querySelector(s); if (b) { try { b.click(); } catch (e) {} } });
 "#;
 
-/// Chemins de binaires Chrome essayés dans l'ordre.
 const CHROME_CANDIDATES: &[&str] = &[
     "/usr/bin/google-chrome",
     "/usr/bin/google-chrome-stable",
@@ -51,14 +36,12 @@ const CHROME_CANDIDATES: &[&str] = &[
     "/usr/bin/chromium-browser",
 ];
 
-/// Navigateur headless partagé, lancé une seule fois et réutilisé (un onglet par capture).
 pub struct Headless {
     browser: Browser,
     _handler: tokio::task::JoinHandle<()>,
 }
 
 impl Headless {
-    /// Lance Chrome en headless. Coûteux : à appeler une fois puis réutiliser.
     pub async fn launch() -> anyhow::Result<Self> {
         let chrome = CHROME_CANDIDATES
             .iter()
@@ -70,7 +53,6 @@ impl Headless {
             .new_headless_mode()
             .no_sandbox()
             .window_size(1280, 720)
-            // UA réel : évite le marqueur « HeadlessChrome » détectable par les hébergeurs.
             .arg(format!("--user-agent={UA}"))
             .arg("--mute-audio")
             .arg("--autoplay-policy=no-user-gesture-required")
@@ -84,7 +66,6 @@ impl Headless {
             .await
             .context("lancement de Chrome headless")?;
 
-        // Le Handler doit être pollé en continu pour faire vivre la connexion CDP.
         let handle = tokio::spawn(async move { while handler.next().await.is_some() {} });
 
         Ok(Self {
@@ -93,7 +74,6 @@ impl Headless {
         })
     }
 
-    /// Charge l'embed, déclenche la lecture et renvoie la première source média interceptée.
     pub async fn capture(&self, embed_url: &str, timeout: Duration) -> anyhow::Result<VideoSource> {
         let page = self
             .browser
@@ -101,12 +81,10 @@ impl Headless {
             .await
             .context("ouverture d'un onglet")?;
 
-        // Activer le domaine Network AVANT navigation pour capturer toutes les requêtes.
         page.execute(EnableParams::default())
             .await
             .context("Network.enable")?;
 
-        // Injecter l'anti-détection avant le chargement des scripts de la page.
         let _ = page
             .execute(AddScriptToEvaluateOnNewDocumentParams::new(STEALTH_JS))
             .await;
@@ -116,7 +94,6 @@ impl Headless {
             .await
             .context("écoute des requêtes réseau")?;
 
-        // (url, referer) des requêtes média repérées.
         let found: Arc<Mutex<Vec<(String, String)>>> = Arc::new(Mutex::new(Vec::new()));
         let sink = found.clone();
         let collector = tokio::spawn(async move {
@@ -129,9 +106,10 @@ impl Headless {
             }
         });
 
-        page.goto(embed_url).await.context("navigation vers l'embed")?;
+        page.goto(embed_url)
+            .await
+            .context("navigation vers l'embed")?;
 
-        // Laisse le lecteur s'initialiser, puis déclenche la lecture (vrai clic + play JS).
         tokio::time::sleep(Duration::from_millis(2800)).await;
         nudge_play(&page).await;
 
@@ -151,14 +129,13 @@ impl Headless {
         let _ = page.close().await;
 
         let (url, referer) = picked.ok_or_else(|| {
-            anyhow!("aucun flux vidéo intercepté en {}s (lecteur protégé ?)", timeout.as_secs())
+            anyhow!(
+                "aucun flux vidéo intercepté en {}s (lecteur protégé ?)",
+                timeout.as_secs()
+            )
         })?;
 
-        let origin = referer
-            .split('/')
-            .take(3)
-            .collect::<Vec<_>>()
-            .join("/");
+        let origin = referer.split('/').take(3).collect::<Vec<_>>().join("/");
 
         Ok(VideoSource {
             url,
@@ -170,8 +147,6 @@ impl Headless {
     }
 }
 
-/// Déclenche la lecture : vrais clics CDP (geste utilisateur) au centre + boutons via JS.
-/// Beaucoup de lecteurs (mail.ru, « Byse »…) n'attachent leur source qu'au premier clic réel.
 async fn nudge_play(page: &Page) {
     for (x, y) in [(640.0, 360.0), (640.0, 380.0), (400.0, 300.0)] {
         let _ = page.click(Point::new(x, y)).await;
@@ -179,10 +154,8 @@ async fn nudge_play(page: &Page) {
     let _ = page.evaluate(PLAY_JS).await;
 }
 
-/// Une URL qui ressemble à un manifeste/fichier vidéo exploitable (et pas à un segment ou une pub).
 fn is_media(url: &str) -> bool {
     let u = url.to_lowercase();
-    // Exclut les segments (téléchargés par ffmpeg lui-même) et les pubs.
     if u.contains(".m4s")
         || u.contains("vinit.mp4")
         || u.contains("ainit.mp4")
@@ -194,7 +167,6 @@ fn is_media(url: &str) -> bool {
     u.contains(".m3u8") || u.contains(".mpd") || u.contains(".mp4")
 }
 
-/// Choisit la meilleure source parmi les requêtes captées : on préfère un manifeste maître.
 fn pick_best(found: &[(String, String)]) -> Option<(String, String)> {
     let score = |u: &str| -> i32 {
         let u = u.to_lowercase();
@@ -217,7 +189,6 @@ fn pick_best(found: &[(String, String)]) -> Option<(String, String)> {
         .cloned()
 }
 
-/// Lit un en-tête (insensible à la casse) depuis l'objet `Headers` (newtype JSON) du CDP.
 fn header_value<S: serde::Serialize>(headers: &S, name: &str) -> Option<String> {
     let value = serde_json::to_value(headers).ok()?;
     let obj = value.as_object()?;

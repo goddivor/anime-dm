@@ -45,6 +45,13 @@ git push -u origin feature/ma-fonction
 - **Staging sélectif** : jamais `git add .` / `git add -A`, on nomme les fichiers
 - Ne jamais committer de fichiers sensibles (`.env*`, `*.key`, `credentials*`…)
 
+## Commentaires dans le code
+
+- Le code doit être **auto-documenté par le nommage** : pas de commentaire qui paraphrase ce que fait le code.
+- Un commentaire n'est autorisé **que sur une fonction** (doc-comment `///`), et seulement si son intention n'est pas évidente.
+- Tout commentaire doit être **court, précis, clair et non verbeux** — il dit le *pourquoi*, jamais le *quoi*.
+- Pas de commentaire inline (`//`) ni de bloc descriptif en tête de module.
+
 ## Pull Requests
 
 - Remplir le **template de PR** (`.github/PULL_REQUEST_TEMPLATE.md`).

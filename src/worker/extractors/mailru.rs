@@ -1,12 +1,3 @@
-//! Hébergeur **my.mail.ru** (LECTEUR FHD1) — plateforme VK.
-//!
-//! L'embed `https://my.mail.ru/video/embed/{ID}` ne contient pas la vidéo (chargée en JS),
-//! mais un endpoint JSON la livre en HTTP direct :
-//! `https://my.mail.ru/+/video/meta/{ID}?…ajax_call=1&ext=1&_=<ts>`
-//! -> `{ "videos": [ { "key": "1080p", "url": "//cdn…/{vid}.mp4?…&video_key=…" }, … ] }`
-//!
-//! Le téléchargement exige le cookie `video_key` (présent aussi dans l'URL, on le rejoue).
-
 use anyhow::{anyhow, Context};
 use serde::Deserialize;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -62,7 +53,6 @@ pub async fn extract(http: &reqwest::Client, embed_url: &str) -> anyhow::Result<
         .await
         .context("mail.ru : JSON meta invalide")?;
 
-    // Meilleure qualité = plus grand nombre dans la clé (« 1080p » -> 1080).
     let best = meta
         .videos
         .into_iter()
@@ -75,7 +65,6 @@ pub async fn extract(http: &reqwest::Client, embed_url: &str) -> anyhow::Result<
         best.url
     };
 
-    // Le cookie video_key est exigé par le CDN ; il figure aussi dans les paramètres de l'URL.
     let cookie = url
         .split("video_key=")
         .nth(1)
@@ -90,7 +79,6 @@ pub async fn extract(http: &reqwest::Client, embed_url: &str) -> anyhow::Result<
     }])
 }
 
-/// Convertit une clé de qualité (« 1080p », « 360p »…) en rang numérique.
 fn quality_rank(key: &str) -> u32 {
     key.chars()
         .take_while(|c| c.is_ascii_digit())

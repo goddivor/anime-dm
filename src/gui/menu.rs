@@ -1,9 +1,3 @@
-//! Barre de menus type IDM : Tâches / Fichier / Téléchargement / Affichage / Aide.
-//!
-//! La plupart des items pilotent l'état UI (thème, langue, tri, recherche…) ; ceux qui
-//! dépendent d'un backend encore absent (files d'attente, planificateur, export/import,
-//! limiteur/booster) sont des coquilles qui affichent « à venir » dans la barre d'état.
-
 use eframe::egui;
 
 use crate::gui::app::{App, SortBy, ThemeMode};
@@ -15,28 +9,17 @@ impl App {
         let ctx = ui.ctx().clone();
 
         egui::MenuBar::new().ui(ui, |ui| {
-            // Écart plus large entre les menus du haut (sans toucher au reste de l'UI).
             ui.spacing_mut().item_spacing.x = 20.0;
 
-            // ===================== Tâches =====================
             let it_tasks = ui.menu_button(t(lang, "menu.tasks.title"), |ui| {
-                if ui
-                    .button(t(lang, "menu.tasks.add"))
-                    .clicked()
-                {
+                if ui.button(t(lang, "menu.tasks.add")).clicked() {
                     self.show_add = true;
                 }
-                if ui
-                    .button(t(lang, "menu.tasks.manual"))
-                    .clicked()
-                {
+                if ui.button(t(lang, "menu.tasks.manual")).clicked() {
                     self.show_manual = true;
                 }
                 if ui
-                    .add(
-                        egui::Button::new(t(lang, "menu.tasks.batch"))
-                        .shortcut_text("Ctrl+Maj+V"),
-                    )
+                    .add(egui::Button::new(t(lang, "menu.tasks.batch")).shortcut_text("Ctrl+Maj+V"))
                     .clicked()
                 {
                     self.soon(t(lang, "status.batch_clipboard"));
@@ -76,24 +59,16 @@ impl App {
                 }
             });
 
-            // ===================== Fichier =====================
-            // Items contextuels : actifs seulement si une ligne est sélectionnée.
             let it_file = ui.menu_button(t(lang, "menu.file.title"), |ui| {
                 let has = self.selected.is_some();
                 if ui
-                    .add_enabled(
-                        has,
-                        egui::Button::new(t(lang, "menu.file.start")),
-                    )
+                    .add_enabled(has, egui::Button::new(t(lang, "menu.file.start")))
                     .clicked()
                 {
                     self.soon(t(lang, "menu.file.start"));
                 }
                 if ui
-                    .add_enabled(
-                        has,
-                        egui::Button::new(t(lang, "menu.file.stop")),
-                    )
+                    .add_enabled(has, egui::Button::new(t(lang, "menu.file.stop")))
                     .clicked()
                 {
                     self.soon(t(lang, "menu.file.stop"));
@@ -113,7 +88,6 @@ impl App {
                 }
             });
 
-            // ===================== Téléchargement =====================
             let it_download = ui.menu_button(t(lang, "menu.download.title"), |ui| {
                 if ui.button(t(lang, "menu.download.pause_all")).clicked() {
                     self.soon(t(lang, "menu.download.pause_all"));
@@ -155,12 +129,21 @@ impl App {
                     }
                 });
                 ui.menu_button(t(lang, "menu.download.limiter"), |ui| {
-                    if ui.radio(self.speed_limit_enabled, t(lang, "menu.download.limiter_enable")).clicked() {
+                    if ui
+                        .radio(
+                            self.speed_limit_enabled,
+                            t(lang, "menu.download.limiter_enable"),
+                        )
+                        .clicked()
+                    {
                         self.speed_limit_enabled = true;
                         self.set_status(t(lang, "status.limiter_enabled"));
                     }
                     if ui
-                        .radio(!self.speed_limit_enabled, t(lang, "menu.download.limiter_disable"))
+                        .radio(
+                            !self.speed_limit_enabled,
+                            t(lang, "menu.download.limiter_disable"),
+                        )
                         .clicked()
                     {
                         self.speed_limit_enabled = false;
@@ -175,12 +158,8 @@ impl App {
                 }
             });
 
-            // ===================== Affichage =====================
             let it_view = ui.menu_button(t(lang, "menu.view.title"), |ui| {
-                ui.checkbox(
-                    &mut self.show_categories,
-                    t(lang, "menu.view.categories"),
-                );
+                ui.checkbox(&mut self.show_categories, t(lang, "menu.view.categories"));
 
                 ui.menu_button(t(lang, "menu.view.sort"), |ui| {
                     let opts: &[(SortBy, &str)] = &[
@@ -196,7 +175,10 @@ impl App {
                         (SortBy::ParentPage, "sort.parent_page"),
                     ];
                     for (variant, key) in opts {
-                        if ui.radio_value(&mut self.sort_by, *variant, t(lang, *key)).clicked() {
+                        if ui
+                            .radio_value(&mut self.sort_by, *variant, t(lang, *key))
+                            .clicked()
+                        {
                             self.sort_downloads();
                         }
                     }
@@ -206,7 +188,11 @@ impl App {
                     if ui.button(t(lang, "menu.view.toolbar_customize")).clicked() {
                         self.soon(t(lang, "menu.view.toolbar_customize_soon"));
                     }
-                    ui.radio_value(&mut self.toolbar_big, true, t(lang, "menu.view.big_buttons"));
+                    ui.radio_value(
+                        &mut self.toolbar_big,
+                        true,
+                        t(lang, "menu.view.big_buttons"),
+                    );
                     ui.radio_value(
                         &mut self.toolbar_big,
                         false,
@@ -224,10 +210,7 @@ impl App {
                     &mut self.notifications_enabled,
                     t(lang, "menu.view.notifications"),
                 );
-                if ui
-                    .button(t(lang, "menu.view.columns"))
-                    .clicked()
-                {
+                if ui.button(t(lang, "menu.view.columns")).clicked() {
                     self.soon(t(lang, "menu.view.columns_soon"));
                 }
 
@@ -238,7 +221,10 @@ impl App {
                         (ThemeMode::System, "mode.system"),
                     ];
                     for (variant, key) in modes {
-                        if ui.radio_value(&mut self.theme, *variant, t(lang, *key)).clicked() {
+                        if ui
+                            .radio_value(&mut self.theme, *variant, t(lang, *key))
+                            .clicked()
+                        {
                             self.apply_theme(&ctx);
                         }
                     }
@@ -248,10 +234,7 @@ impl App {
                     if ui.button(t(lang, "menu.view.font_select")).clicked() {
                         self.soon(t(lang, "menu.view.font_select_soon"));
                     }
-                    if ui
-                        .button(t(lang, "menu.view.font_reset"))
-                        .clicked()
-                    {
+                    if ui.button(t(lang, "menu.view.font_reset")).clicked() {
                         self.soon(t(lang, "menu.view.font_reset_soon"));
                     }
                 });
@@ -262,9 +245,11 @@ impl App {
                 });
             });
 
-            // ===================== Aide =====================
             let it_help = ui.menu_button(t(lang, "menu.help.title"), |ui| {
-                if ui.add(egui::Button::new(t(lang, "menu.help.title")).shortcut_text("F1")).clicked() {
+                if ui
+                    .add(egui::Button::new(t(lang, "menu.help.title")).shortcut_text("F1"))
+                    .clicked()
+                {
                     self.show_help = true;
                 }
                 if ui.button(t(lang, "menu.help.update")).clicked() {
@@ -286,8 +271,6 @@ impl App {
                 });
             });
 
-            // Comportement barre de menus façon IDM : un menu étant déjà ouvert, survoler
-            // un autre menu du haut l'ouvre (plus besoin de cliquer dessus).
             for it in [&it_tasks, &it_file, &it_download, &it_view, &it_help] {
                 let id = egui::Popup::default_response_id(&it.response);
                 if it.response.hovered()
@@ -300,8 +283,13 @@ impl App {
         });
     }
 
-    /// Items d'un sous-menu Exporter ou Importer : un bouton par clé de format fournie.
-    fn export_import_items(&mut self, ui: &mut egui::Ui, lang: Lang, verb: &str, keys: &[&'static str]) {
+    fn export_import_items(
+        &mut self,
+        ui: &mut egui::Ui,
+        lang: Lang,
+        verb: &str,
+        keys: &[&'static str],
+    ) {
         for key in keys {
             let f = t(lang, key);
             if ui.button(f).clicked() {

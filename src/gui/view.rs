@@ -1,6 +1,3 @@
-//! Panneaux de la vue principale : barre d'outils, sidebar des catégories, table des
-//! téléchargements et barre d'état. (Dialogues : voir `dialogs.rs` ; menus : `menu.rs`.)
-
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 
@@ -15,11 +12,8 @@ impl App {
             ui.add_space(4.0);
             if ui
                 .add(egui::Button::new(
-                    egui::RichText::new(format!(
-                        "➕  {}",
-                        t(self.lang, "toolbar.add_url")
-                    ))
-                    .size(size),
+                    egui::RichText::new(format!("➕  {}", t(self.lang, "toolbar.add_url")))
+                        .size(size),
                 ))
                 .clicked()
             {
@@ -27,7 +21,11 @@ impl App {
             }
             ui.separator();
 
-            let active = self.downloads.iter().filter(|d| is_active(d.status)).count();
+            let active = self
+                .downloads
+                .iter()
+                .filter(|d| is_active(d.status))
+                .count();
             ui.label(format!(
                 "{} {} · {active} {}",
                 self.downloads.len(),
@@ -67,7 +65,6 @@ impl App {
             self.category_filter = None;
         }
 
-        // Catégories dérivées du nom de fichier (« Titre - Ep NNN.mp4 » -> « Titre »).
         let mut cats: Vec<(String, usize)> = Vec::new();
         for d in &self.downloads {
             let cat = category_of(&d.filename);
@@ -79,7 +76,10 @@ impl App {
         cats.sort_by(|a, b| a.0.cmp(&b.0));
         for (cat, n) in cats {
             let selected = self.category_filter.as_deref() == Some(cat.as_str());
-            if ui.selectable_label(selected, format!("🎞 {cat} ({n})")).clicked() {
+            if ui
+                .selectable_label(selected, format!("🎞 {cat} ({n})"))
+                .clicked()
+            {
                 self.category_filter = Some(cat);
             }
         }
@@ -96,7 +96,10 @@ impl App {
                 ui.label(
                     egui::RichText::new(format!(
                         "{} {}",
-                        self.downloads.iter().filter(|d| is_active(d.status)).count(),
+                        self.downloads
+                            .iter()
+                            .filter(|d| is_active(d.status))
+                            .count(),
                         t(self.lang, "status.running")
                     ))
                     .weak(),
@@ -106,7 +109,6 @@ impl App {
     }
 
     pub(crate) fn ui_table(&mut self, ui: &mut egui::Ui) {
-        // Filtre : recherche + catégorie sélectionnée.
         let query = self.search_query.to_lowercase();
         let visible: Vec<u64> = self
             .downloads
@@ -129,10 +131,7 @@ impl App {
                         .weak(),
                 );
                 ui.add_space(6.0);
-                ui.label(
-                    egui::RichText::new(t(self.lang, "table.empty_hint"))
-                    .weak(),
-                );
+                ui.label(egui::RichText::new(t(self.lang, "table.empty_hint")).weak());
             });
             return;
         }
@@ -145,11 +144,11 @@ impl App {
             .striped(true)
             .resizable(true)
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-            .column(Column::exact(24.0)) // icône
-            .column(Column::initial(210.0).at_least(130.0).clip(true)) // fichier
-            .column(Column::exact(110.0)) // état
-            .column(Column::exact(150.0)) // progression
-            .column(Column::remainder().at_least(60.0)) // vitesse (dernière -> absorbe le reste)
+            .column(Column::exact(24.0))
+            .column(Column::initial(210.0).at_least(130.0).clip(true))
+            .column(Column::exact(110.0))
+            .column(Column::exact(150.0))
+            .column(Column::remainder().at_least(60.0))
             .header(22.0, |mut header| {
                 for title in [
                     "",
@@ -216,7 +215,6 @@ fn status_label(lang: Lang, s: DownloadStatus) -> &'static str {
     }
 }
 
-/// Catégorie d'un fichier = partie avant « - Ep » (le titre de l'animé).
 fn category_of(filename: &str) -> String {
     filename
         .split(" - Ep")

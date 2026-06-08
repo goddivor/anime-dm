@@ -1,6 +1,3 @@
-//! Téléchargement via ffmpeg (gère MP4 direct **et** HLS `.m3u8`), avec progression réelle
-//! lue sur la sortie stderr de ffmpeg.
-
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::mpsc::Sender;
@@ -13,8 +10,6 @@ use super::net::UA;
 use super::WorkerMsg;
 use crate::model::{DownloadStatus, VideoSource};
 
-/// Télécharge `source` vers `out`, avec une 2ᵉ tentative en cas d'échec : certains CDN
-/// (mail.ru notamment) renvoient une erreur d'I/O transitoire au premier accès.
 pub async fn download(
     source: VideoSource,
     out: PathBuf,
@@ -37,7 +32,6 @@ pub async fn download(
     Err(last)
 }
 
-/// Une tentative ffmpeg : émet les `WorkerMsg::Progress` et remonte l'échec éventuel.
 async fn run_ffmpeg(
     source: &VideoSource,
     out: &PathBuf,
@@ -45,7 +39,6 @@ async fn run_ffmpeg(
     tx: &Sender<WorkerMsg>,
     ctx: &eframe::egui::Context,
 ) -> Result<(), String> {
-    // En-têtes exigés par certains hébergeurs (Referer/Origin/Cookie), passés à ffmpeg.
     let mut headers = String::new();
     if let Some(r) = &source.referer {
         headers.push_str(&format!("Referer: {r}\r\n"));
@@ -58,15 +51,11 @@ async fn run_ffmpeg(
     }
 
     let mut cmd = Command::new("ffmpeg");
-    cmd.arg("-y")
-        .arg("-hide_banner")
-        .arg("-user_agent")
-        .arg(UA);
+    cmd.arg("-y").arg("-hide_banner").arg("-user_agent").arg(UA);
     if !headers.is_empty() {
         cmd.arg("-headers").arg(&headers);
     }
     cmd.arg("-i").arg(&source.url).arg("-c").arg("copy");
-    // Le filtre AAC ADTS->ASC n'est requis (et valide) que pour un flux HLS.
     if source.url.contains(".m3u8") {
         cmd.arg("-bsf:a").arg("aac_adtstoasc");
     }
@@ -90,7 +79,6 @@ async fn run_ffmpeg(
     let mut tail = String::new();
     let mut buf: Vec<u8> = Vec::new();
 
-    // ffmpeg sépare ses lignes de stats par '\r' : on lit segment par segment.
     loop {
         buf.clear();
         let n = reader.read_until(b'\r', &mut buf).await.unwrap_or(0);
@@ -99,7 +87,6 @@ async fn run_ffmpeg(
         }
         let chunk = String::from_utf8_lossy(&buf);
 
-        // On garde une fenêtre des derniers messages pour diagnostiquer un échec.
         tail.push_str(&chunk);
         if tail.len() > 4000 {
             let cut = tail.len() - 4000;
@@ -151,7 +138,6 @@ async fn run_ffmpeg(
     }
 }
 
-/// Convertit une capture `(h, m, s)` en secondes.
 fn hms(c: &regex::Captures) -> f32 {
     let h: f32 = c[1].parse().unwrap_or(0.0);
     let m: f32 = c[2].parse().unwrap_or(0.0);

@@ -1,6 +1,3 @@
-//! Anime Download Manager — gestionnaire de téléchargement type IDM pour sites d'animés.
-//! Premier site pris en charge : voir-anime.to (architecture pensée pour en accueillir d'autres).
-
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod gui;
@@ -11,7 +8,6 @@ mod worker;
 use eframe::egui;
 
 fn main() -> eframe::Result<()> {
-    // Mode diagnostic sans GUI : valide la chaîne scrape -> extract -> ffmpeg en réseau réel.
     if std::env::args().any(|a| a == "--selftest") {
         std::process::exit(selftest());
     }
@@ -31,10 +27,7 @@ fn main() -> eframe::Result<()> {
     )
 }
 
-/// Diagnostic de bout en bout (sans interface) : utilisé pour vérifier la logique réseau.
-/// Renvoie le code de sortie process (0 = succès).
 fn selftest() -> i32 {
-    // URL d'animé optionnelle après --selftest (les épisodes récents ont des liens plus frais).
     let url = std::env::args()
         .skip_while(|a| a != "--selftest")
         .nth(1)
@@ -45,7 +38,6 @@ fn selftest() -> i32 {
     rt.block_on(async {
         let http = worker::net::client().unwrap();
 
-        // Accepte soit une URL d'animé (on prend l'ep 1), soit directement une URL d'épisode.
         let is_episode = url.trim_end_matches('/').split('/').count() >= 6;
         let episode_url = if is_episode {
             println!("[1/4] URL d'épisode fournie directement");
@@ -59,7 +51,11 @@ fn selftest() -> i32 {
                     return 1;
                 }
             };
-            println!("  OK : « {} » — {} épisodes", anime.title, anime.episodes.len());
+            println!(
+                "  OK : « {} » — {} épisodes",
+                anime.title,
+                anime.episodes.len()
+            );
             let ep1 = &anime.episodes[0];
             println!("  ep[0] = #{} {} -> {}", ep1.number, ep1.name, ep1.url);
             ep1.url.clone()
@@ -77,7 +73,6 @@ fn selftest() -> i32 {
             println!("  - {} -> {}", p.name, p.iframe_url);
         }
 
-        // On valide chaque extracteur HTTP supporté : resolve + extraction ffmpeg de 8 s.
         let to_test = ["LECTEUR myTV", "LECTEUR Stape", "LECTEUR FHD1"];
         let mut ok = 0;
         for (idx, want) in to_test.iter().enumerate() {
@@ -110,9 +105,16 @@ fn selftest() -> i32 {
             }
             println!("[4/4] ffmpeg 8 s -> {out}");
             let mut cmd = std::process::Command::new("ffmpeg");
-            cmd.args(["-y", "-hide_banner", "-loglevel", "error", "-user_agent", worker::net::UA])
-                .args(["-headers", &headers])
-                .args(["-i", &src.url, "-t", "8", "-c", "copy"]);
+            cmd.args([
+                "-y",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-user_agent",
+                worker::net::UA,
+            ])
+            .args(["-headers", &headers])
+            .args(["-i", &src.url, "-t", "8", "-c", "copy"]);
             if src.url.contains(".m3u8") {
                 cmd.args(["-bsf:a", "aac_adtstoasc"]);
             }
@@ -132,7 +134,6 @@ fn selftest() -> i32 {
             }
         }
 
-        // --- Étape headless : VOE / MOON / SB (sources générées en JS) ---
         println!("\n[headless] lancement de Chrome headless…");
         let hl = match worker::headless::Headless::launch().await {
             Ok(h) => h,
@@ -172,7 +173,14 @@ fn selftest() -> i32 {
                 headers.push_str(&format!("Cookie: {c}\r\n"));
             }
             let status = std::process::Command::new("ffmpeg")
-                .args(["-y", "-hide_banner", "-loglevel", "error", "-user_agent", worker::net::UA])
+                .args([
+                    "-y",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-user_agent",
+                    worker::net::UA,
+                ])
                 .args(["-headers", &headers])
                 .args(["-i", &src.url, "-t", "8", "-c", "copy", &out])
                 .status();

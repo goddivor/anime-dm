@@ -1,7 +1,3 @@
-//! Hébergeur **streamtape** (LECTEUR Stape) — l'URL est fragmentée en JS pour gêner le scraping :
-//! `document.getElementById('robotlink').innerHTML = '//strea' + ('xcdmtape.com/get_video?…').substring(2).substring(1)`
-//! -> URL finale = "https:" + partie_A + partie_B privée des N premiers caractères (somme des `substring`).
-
 use anyhow::anyhow;
 use regex::Regex;
 use reqwest::header::REFERER;
@@ -13,7 +9,6 @@ pub fn matches(url: &str) -> bool {
 }
 
 pub async fn extract(http: &reqwest::Client, url: &str) -> anyhow::Result<Vec<VideoSource>> {
-    // Normalise vers la forme /e/<id>.
     let embed = if url.contains("/e/") {
         url.to_string()
     } else if let Some(id) = url.split('/').nth(4) {
@@ -42,7 +37,6 @@ pub async fn extract(http: &reqwest::Client, url: &str) -> anyhow::Result<Vec<Vi
 
     let part_a = &caps[1];
     let part_b = &caps[2];
-    // Somme des décalages des `.substring(n)` chaînés (appliqués successivement à l'avant).
     let offset: usize = Regex::new(r"substring\((\d+)\)")
         .unwrap()
         .captures_iter(&caps[3])
@@ -53,7 +47,9 @@ pub async fn extract(http: &reqwest::Client, url: &str) -> anyhow::Result<Vec<Vi
     let video_url = format!("https:{part_a}{trimmed_b}");
 
     if !video_url.contains("get_video") {
-        return Err(anyhow!("streamtape : URL reconstruite invalide ({video_url})"));
+        return Err(anyhow!(
+            "streamtape : URL reconstruite invalide ({video_url})"
+        ));
     }
 
     Ok(vec![VideoSource::with_referer(
