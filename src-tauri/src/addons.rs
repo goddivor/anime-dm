@@ -63,5 +63,29 @@ mod tests {
             .expect("episode_list");
         eprintln!("metadata={} episodes={}", addon.metadata.name, episodes.len());
         assert!(!episodes.is_empty());
+
+        let ep = &episodes[0];
+        let hosters: Vec<addon_api::Hoster> = addon
+            .call_json(
+                addon_api::exports::HOSTER_LIST,
+                &addon_api::UrlInput { url: ep.url.clone() },
+            )
+            .expect("hoster_list");
+        eprintln!(
+            "hosters: {:?}",
+            hosters.iter().map(|h| h.name.as_str()).collect::<Vec<_>>()
+        );
+
+        let mut resolved = 0;
+        for h in &hosters {
+            let videos: Vec<addon_api::Video> = addon
+                .call_json(addon_api::exports::VIDEO_LIST, h)
+                .expect("video_list");
+            if let Some(v) = videos.first() {
+                eprintln!("  {} [{}] -> {}", h.name, v.quality, v.url);
+                resolved += 1;
+            }
+        }
+        assert!(resolved > 0, "no HTTP hoster resolved");
     }
 }
