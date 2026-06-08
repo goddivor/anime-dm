@@ -1,25 +1,20 @@
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::sync::mpsc::Sender;
 
 use regex::Regex;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 use super::net::UA;
-use super::WorkerMsg;
-use crate::model::{DownloadStatus, VideoSource};
+use crate::model::VideoSource;
 
-pub async fn download(
-    source: VideoSource,
-    out: PathBuf,
-    id: u64,
-    tx: Sender<WorkerMsg>,
-    ctx: eframe::egui::Context,
-) -> Result<(), String> {
+pub async fn download<F>(source: VideoSource, out: PathBuf, on_progress: F) -> Result<(), String>
+where
+    F: Fn(Option<f32>, Option<String>) + Send,
+{
     let mut last = String::new();
     for attempt in 1..=2 {
-        match run_ffmpeg(&source, &out, id, &tx, &ctx).await {
+        match run_ffmpeg(&source, &out, &on_progress).await {
             Ok(()) => return Ok(()),
             Err(e) => {
                 last = e;
@@ -32,13 +27,10 @@ pub async fn download(
     Err(last)
 }
 
-async fn run_ffmpeg(
-    source: &VideoSource,
-    out: &PathBuf,
-    id: u64,
-    tx: &Sender<WorkerMsg>,
-    ctx: &eframe::egui::Context,
-) -> Result<(), String> {
+async fn run_ffmpeg<F>(source: &VideoSource, out: &PathBuf, on_progress: &F) -> Result<(), String>
+where
+    F: Fn(Option<f32>, Option<String>),
+{
     let mut headers = String::new();
     if let Some(r) = &source.referer {
         headers.push_str(&format!("Referer: {r}\r\n"));
@@ -59,7 +51,7 @@ async fn run_ffmpeg(
     if source.url.contains(".m3u8") {
         cmd.arg("-bsf:a").arg("aac_adtstoasc");
     }
-    cmd.arg(&out)
+    cmd.arg(out)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped());
@@ -106,14 +98,7 @@ async fn run_ffmpeg(
         let speed = speed_re.captures(&chunk).map(|c| format!("{}x", &c[1]));
 
         if progress.is_some() || speed.is_some() {
-            let _ = tx.send(WorkerMsg::Progress {
-                id,
-                status: DownloadStatus::Downloading,
-                progress,
-                speed,
-                total_secs: total,
-            });
-            ctx.request_repaint();
+            on_progress(progress, speed);
         }
     }
 

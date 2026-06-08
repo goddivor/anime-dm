@@ -20,6 +20,20 @@ pub async fn fetch_anime(http: &reqwest::Client, url: &str) -> anyhow::Result<An
             .unwrap_or_else(|| "Animé".to_string())
     };
 
+    let poster_url = {
+        let sel = Selector::parse(".summary_image img").unwrap();
+        doc.select(&sel)
+            .next()
+            .and_then(|e| e.value().attr("src"))
+            .map(|s| {
+                if let Some(rest) = s.strip_prefix("//") {
+                    format!("https:{rest}")
+                } else {
+                    s.to_string()
+                }
+            })
+    };
+
     let li_sel = Selector::parse("li.wp-manga-chapter").unwrap();
     let a_sel = Selector::parse("a").unwrap();
     let num_re = Regex::new(r"\d+(?:\.\d+)?").unwrap();
@@ -71,6 +85,7 @@ pub async fn fetch_anime(http: &reqwest::Client, url: &str) -> anyhow::Result<An
     Ok(Anime {
         title,
         url: url.to_string(),
+        poster_url,
         episodes,
     })
 }
