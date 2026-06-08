@@ -75,10 +75,6 @@ pub struct App {
     pub(crate) show_help: bool,
     pub(crate) show_manual: bool,
     pub(crate) manual_input: String,
-
-    // --- mode capture d'écran (dev/diagnostic, via la variable d'env ANIME_DM_SHOT) ---
-    shot_path: Option<String>,
-    shot_frame: u32,
 }
 
 impl App {
@@ -102,18 +98,11 @@ impl App {
         let worker = Worker::new(tx, cc.egui_ctx.clone())
             .expect("initialisation du worker (runtime tokio + client HTTP)");
 
-        let shot_path = std::env::var("ANIME_DM_SHOT").ok();
-        let downloads = if shot_path.is_some() {
-            demo_items()
-        } else {
-            Vec::new()
-        };
-
         Self {
             worker,
             rx,
-            downloads,
-            next_id: 100,
+            downloads: Vec::new(),
+            next_id: 1,
             out_dir: default_download_dir(),
             show_add: false,
             url_input: String::new(),
@@ -138,8 +127,6 @@ impl App {
             show_help: false,
             show_manual: false,
             manual_input: String::new(),
-            shot_path,
-            shot_frame: 0,
         }
     }
 
@@ -319,30 +306,6 @@ impl App {
         }
     }
 
-    /// En mode capture : demande le screenshot puis l'enregistre en RGBA brut et ferme.
-    fn maybe_screenshot(&mut self, ctx: &egui::Context) {
-        let Some(path) = self.shot_path.clone() else {
-            return;
-        };
-        self.shot_frame += 1;
-        if self.shot_frame == 4 {
-            ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
-        }
-        let captured = ctx.input(|i| {
-            i.events.iter().find_map(|e| match e {
-                egui::Event::Screenshot { image, .. } => Some(image.clone()),
-                _ => None,
-            })
-        });
-        if let Some(image) = captured {
-            let [w, h] = image.size;
-            let _ = std::fs::write(&path, image.as_raw());
-            let _ = std::fs::write(format!("{path}.dim"), format!("{w} {h}"));
-            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-        } else {
-            ctx.request_repaint();
-        }
-    }
 }
 
 impl eframe::App for App {
@@ -369,7 +332,6 @@ impl eframe::App for App {
 
         self.ui_add_dialog(&ctx);
         self.ui_simple_dialogs(&ctx);
-        self.maybe_screenshot(&ctx);
 
         let busy = self.loading_anime || self.downloads.iter().any(|d| is_active(d.status));
         if busy {
@@ -425,24 +387,4 @@ fn sanitize(name: &str) -> String {
             _ => c,
         })
         .collect()
-}
-
-/// Quelques téléchargements factices pour peupler l'UI en mode capture/démo.
-fn demo_items() -> Vec<DownloadItem> {
-    let mk = |id, filename: &str, status, progress, speed: &str| DownloadItem {
-        id,
-        filename: filename.to_string(),
-        status,
-        progress,
-        speed: speed.to_string(),
-        total_secs: 1420.0,
-        error: None,
-    };
-    vec![
-        mk(1, "Dragon Ball (VF) - Ep 001.mp4", DownloadStatus::Completed, 1.0, ""),
-        mk(2, "Dragon Ball (VF) - Ep 002.mp4", DownloadStatus::Downloading, 0.47, "2.4x"),
-        mk(3, "Dragon Ball (VF) - Ep 003.mp4", DownloadStatus::Queued, -1.0, ""),
-        mk(4, "Naruto - Ep 015.mp4", DownloadStatus::Downloading, 0.12, "1.1x"),
-        mk(5, "One Piece - Ep 1080.mp4", DownloadStatus::Failed, 0.0, ""),
-    ]
 }
