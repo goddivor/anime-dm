@@ -29,8 +29,17 @@ body {
   font-size: 13px;
   color: var(--text);
   background: var(--bg);
+  -webkit-user-select: none;
   user-select: none;
+  cursor: default;
   overflow: hidden;
+}
+
+/* Text selection allowed only in editable fields. */
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 button {
@@ -268,7 +277,6 @@ select option {
   max-width: 720px;
   margin: 0 auto;
   padding: 16px 20px;
-  user-select: text;
 }
 .addons-screen h2 {
   margin: 4px 0 16px;
@@ -671,7 +679,6 @@ select option {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  user-select: text;
 }
 .modal-foot {
   display: flex;
@@ -731,6 +738,7 @@ select option {
   color: var(--err);
   padding: 6px 8px;
   border-radius: 3px;
+  -webkit-user-select: text;
   user-select: text;
 }
 .anime-head {
