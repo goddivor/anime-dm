@@ -14,6 +14,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 struct Engine {
     http: reqwest::Client,
     tasks: Arc<Mutex<HashMap<u64, JoinHandle<()>>>>,
+    pids: Arc<Mutex<HashMap<u64, u32>>>,
 }
 
 #[derive(Clone, Serialize)]
@@ -328,6 +329,7 @@ async fn start_download(
     let out = PathBuf::from(&out_path);
     let tasks = engine.tasks.clone();
     let tasks_body = tasks.clone();
+    let pids_body = engine.pids.clone();
 
     let handle = tauri::async_runtime::spawn(async move {
         emit_progress(&app, id, "resolving", None, None, None, None);
@@ -351,12 +353,25 @@ async fn start_download(
 
         let app_cb = app.clone();
         let out_cb = out.clone();
-        let result =
-            worker::downloader::download(video.url, video.headers, out.clone(), move |p, speed| {
+        let pids = pids_body.clone();
+        let result = worker::downloader::download(
+            video.url,
+            video.headers,
+            out.clone(),
+            move |p, speed| {
                 let size = std::fs::metadata(&out_cb).ok().map(|m| m.len());
                 emit_progress(&app_cb, id, "downloading", p, speed, size, None);
-            })
-            .await;
+            },
+            move |pid| match pid {
+                Some(p) => {
+                    pids.lock().unwrap().insert(id, p);
+                }
+                None => {
+                    pids.lock().unwrap().remove(&id);
+                }
+            },
+        )
+        .await;
 
         match result {
             Ok(()) => {
@@ -367,25 +382,74 @@ async fn start_download(
             Err(e) => emit_finished(&app, id, false, Some(e), None),
         }
         tasks_body.lock().unwrap().remove(&id);
+        pids_body.lock().unwrap().remove(&id);
     });
 
     tasks.lock().unwrap().insert(id, handle);
     Ok(())
 }
 
+/// Send a POSIX signal (STOP/CONT/KILL) to a running ffmpeg process.
+fn signal_pid(pid: u32, sig: &str) {
+    let _ = std::process::Command::new("kill")
+        .arg(format!("-{sig}"))
+        .arg(pid.to_string())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status();
+}
+
+/// Pause: suspend the ffmpeg process so the download freezes in place (resumable).
+/// If it hasn't started downloading yet (still resolving), abort the task instead.
 #[tauri::command]
-fn stop_download(engine: State<'_, Engine>, id: u64) {
-    if let Some(h) = engine.tasks.lock().unwrap().remove(&id) {
-        h.abort();
+fn pause_download(engine: State<'_, Engine>, id: u64) {
+    let pid = engine.pids.lock().unwrap().get(&id).copied();
+    match pid {
+        Some(p) => signal_pid(p, "STOP"),
+        None => {
+            if let Some(h) = engine.tasks.lock().unwrap().remove(&id) {
+                h.abort();
+            }
+        }
     }
 }
 
 #[tauri::command]
-fn stop_all(engine: State<'_, Engine>) {
-    let mut tasks = engine.tasks.lock().unwrap();
-    for (_, h) in tasks.drain() {
+fn pause_all(engine: State<'_, Engine>) {
+    let pids: Vec<u32> = engine.pids.lock().unwrap().values().copied().collect();
+    for p in pids {
+        signal_pid(p, "STOP");
+    }
+}
+
+/// Resume a paused download in place. Returns true if it was paused and continued,
+/// false if there is nothing to continue (caller may restart it).
+#[tauri::command]
+fn resume_download(engine: State<'_, Engine>, id: u64) -> bool {
+    let pid = engine.pids.lock().unwrap().get(&id).copied();
+    match pid {
+        Some(p) => {
+            signal_pid(p, "CONT");
+            true
+        }
+        None => false,
+    }
+}
+
+#[tauri::command]
+fn cancel_download(engine: State<'_, Engine>, id: u64) {
+    if let Some(h) = engine.tasks.lock().unwrap().remove(&id) {
         h.abort();
     }
+    engine.pids.lock().unwrap().remove(&id);
+}
+
+#[tauri::command]
+fn cancel_all(engine: State<'_, Engine>) {
+    for (_, h) in engine.tasks.lock().unwrap().drain() {
+        h.abort();
+    }
+    engine.pids.lock().unwrap().clear();
 }
 
 /// Resolve an episode to a downloadable video through the addon (blocking WASM calls).
@@ -470,6 +534,7 @@ pub fn run() {
     let engine = Engine {
         http,
         tasks: Arc::new(Mutex::new(HashMap::new())),
+        pids: Arc::new(Mutex::new(HashMap::new())),
     };
 
     tauri::Builder::default()
@@ -490,8 +555,11 @@ pub fn run() {
             load_anime,
             fetch_image,
             start_download,
-            stop_download,
-            stop_all
+            pause_download,
+            pause_all,
+            resume_download,
+            cancel_download,
+            cancel_all
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
