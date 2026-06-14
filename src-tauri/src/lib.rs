@@ -1,16 +1,19 @@
 mod addons;
 mod worker;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use addon_api::{Episode, Hoster, Preference, UrlInput, Video};
 use addons::{InstalledAddon, StoreEntry, StoreIndex};
 use serde::{Deserialize, Serialize};
+use tauri::async_runtime::JoinHandle;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 struct Engine {
     http: reqwest::Client,
+    tasks: Arc<Mutex<HashMap<u64, JoinHandle<()>>>>,
 }
 
 #[derive(Clone, Serialize)]
@@ -275,6 +278,7 @@ async fn fetch_image(
 #[tauri::command]
 async fn start_download(
     app: AppHandle,
+    engine: State<'_, Engine>,
     addon_id: String,
     id: u64,
     episode_url: String,
@@ -283,8 +287,10 @@ async fn start_download(
 ) -> Result<(), String> {
     let dir = addons_dir(&app)?;
     let out = PathBuf::from(&out_path);
+    let tasks = engine.tasks.clone();
+    let tasks_body = tasks.clone();
 
-    tauri::async_runtime::spawn(async move {
+    let handle = tauri::async_runtime::spawn(async move {
         emit_progress(&app, id, "resolving", None, None, None, None);
 
         let resolved = resolve_video(dir, addon_id, episode_url, player_name).await;
@@ -292,10 +298,12 @@ async fn start_download(
             Ok(Some(v)) => v,
             Ok(None) => {
                 emit_finished(&app, id, false, Some("aucune source vidéo".into()), None);
+                tasks_body.lock().unwrap().remove(&id);
                 return;
             }
             Err(e) => {
                 emit_finished(&app, id, false, Some(e), None);
+                tasks_body.lock().unwrap().remove(&id);
                 return;
             }
         };
@@ -319,9 +327,26 @@ async fn start_download(
             }
             Err(e) => emit_finished(&app, id, false, Some(e), None),
         }
+        tasks_body.lock().unwrap().remove(&id);
     });
 
+    tasks.lock().unwrap().insert(id, handle);
     Ok(())
+}
+
+#[tauri::command]
+fn stop_download(engine: State<'_, Engine>, id: u64) {
+    if let Some(h) = engine.tasks.lock().unwrap().remove(&id) {
+        h.abort();
+    }
+}
+
+#[tauri::command]
+fn stop_all(engine: State<'_, Engine>) {
+    let mut tasks = engine.tasks.lock().unwrap();
+    for (_, h) in tasks.drain() {
+        h.abort();
+    }
 }
 
 /// Resolve an episode to a downloadable video through the addon (blocking WASM calls).
@@ -389,7 +414,10 @@ fn emit_finished(app: &AppHandle, id: u64, ok: bool, error: Option<String>, path
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let http = worker::net::client().expect("HTTP client init");
-    let engine = Engine { http };
+    let engine = Engine {
+        http,
+        tasks: Arc::new(Mutex::new(HashMap::new())),
+    };
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -406,7 +434,9 @@ pub fn run() {
             addon_set_config,
             load_anime,
             fetch_image,
-            start_download
+            start_download,
+            stop_download,
+            stop_all
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

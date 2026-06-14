@@ -56,6 +56,7 @@ where
         cmd.arg("-bsf:a").arg("aac_adtstoasc");
     }
     cmd.arg(out)
+        .kill_on_drop(true)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped());
