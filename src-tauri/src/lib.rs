@@ -44,8 +44,19 @@ fn addon_metadata(path: String) -> Result<addon_api::Metadata, String> {
 }
 
 #[tauri::command]
-fn addon_episode_list(path: String, url: String) -> Result<Vec<addon_api::Episode>, String> {
+fn addon_preferences(path: String) -> Result<Vec<addon_api::Preference>, String> {
     let mut addon = addons::Addon::load(&path).map_err(|e| e.to_string())?;
+    Ok(addon.preferences())
+}
+
+#[tauri::command]
+fn addon_episode_list(
+    path: String,
+    url: String,
+    config: Option<std::collections::BTreeMap<String, String>>,
+) -> Result<Vec<addon_api::Episode>, String> {
+    let mut addon = addons::Addon::load_with_config(&path, &config.unwrap_or_default())
+        .map_err(|e| e.to_string())?;
     addon
         .call_json(addon_api::exports::EPISODE_LIST, &addon_api::UrlInput { url })
         .map_err(|e| e.to_string())
@@ -186,6 +197,7 @@ pub fn run() {
         .manage(engine)
         .invoke_handler(tauri::generate_handler![
             addon_metadata,
+            addon_preferences,
             addon_episode_list,
             load_anime,
             fetch_image,

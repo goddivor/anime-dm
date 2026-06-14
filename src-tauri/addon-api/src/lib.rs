@@ -12,6 +12,7 @@ pub mod exports {
     pub const EPISODE_LIST: &str = "episode_list";
     pub const HOSTER_LIST: &str = "hoster_list";
     pub const VIDEO_LIST: &str = "video_list";
+    pub const PREFERENCES: &str = "preferences";
 }
 
 /// Host functions the plugin imports (capabilities the host provides).
@@ -30,6 +31,32 @@ pub struct Metadata {
     pub version: String,
     #[serde(default)]
     pub nsfw: bool,
+}
+
+/// A configurable setting an addon declares; the host renders it as a settings
+/// field, stores the chosen value, and feeds it back via Extism plugin config.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Preference {
+    pub key: String,
+    pub title: String,
+    #[serde(default)]
+    pub summary: Option<String>,
+    #[serde(default)]
+    pub default: String,
+    #[serde(rename = "type")]
+    pub kind: PreferenceKind,
+    /// For `Select`: the allowed values (label == value).
+    #[serde(default)]
+    pub options: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PreferenceKind {
+    Text,
+    Select,
+    Bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]

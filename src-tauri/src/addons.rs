@@ -1,6 +1,7 @@
+use std::collections::BTreeMap;
 use std::path::Path;
 
-use addon_api::Metadata;
+use addon_api::{Metadata, Preference};
 use anyhow::Result;
 use extism::{Function, Manifest, Plugin, Wasm};
 use serde::de::DeserializeOwned;
@@ -14,13 +15,29 @@ pub struct Addon {
 
 impl Addon {
     pub fn load(path: impl AsRef<Path>) -> Result<Self> {
+        Self::load_with_config(path, &BTreeMap::new())
+    }
+
+    pub fn load_with_config(
+        path: impl AsRef<Path>,
+        config: &BTreeMap<String, String>,
+    ) -> Result<Self> {
         let no_imports: Vec<Function> = Vec::new();
-        let manifest =
+        let mut manifest =
             Manifest::new([Wasm::file(path.as_ref().to_path_buf())]).with_allowed_host("*");
+        for (k, v) in config {
+            manifest = manifest.with_config_key(k, v);
+        }
         let mut plugin = Plugin::new(&manifest, no_imports, true)?;
         let out: Vec<u8> = plugin.call(addon_api::exports::METADATA, b"".as_slice())?;
         let metadata = serde_json::from_slice(&out)?;
         Ok(Self { plugin, metadata })
+    }
+
+    /// The settings schema the addon declares (empty if it exports none).
+    pub fn preferences(&mut self) -> Vec<Preference> {
+        self.call_json(addon_api::exports::PREFERENCES, &())
+            .unwrap_or_default()
     }
 
     pub fn call_json<I: Serialize, O: DeserializeOwned>(
@@ -42,6 +59,25 @@ mod tests {
         env!("CARGO_MANIFEST_DIR"),
         "/../../anime-dm-addons/target/wasm32-unknown-unknown/release/voiranime.wasm"
     );
+
+    #[test]
+    #[ignore = "requires a built addon"]
+    fn voiranime_config_override() {
+        if !std::path::Path::new(VOIRANIME_WASM).exists() {
+            eprintln!("addon wasm not built, skipping");
+            return;
+        }
+        let mut addon = Addon::load(VOIRANIME_WASM).expect("load");
+        let prefs = addon.preferences();
+        eprintln!("preferences: {prefs:?}");
+        assert!(prefs.iter().any(|p| p.key == "base_url"));
+        assert_eq!(addon.metadata.base_url, "https://voir-anime.to");
+
+        let custom = BTreeMap::from([("base_url".to_string(), "https://mirror.example.org".to_string())]);
+        let custom_addon = Addon::load_with_config(VOIRANIME_WASM, &custom).expect("load cfg");
+        eprintln!("overridden base_url = {}", custom_addon.metadata.base_url);
+        assert_eq!(custom_addon.metadata.base_url, "https://mirror.example.org");
+    }
 
     #[test]
     #[ignore = "requires a built addon + network"]
