@@ -1,4 +1,5 @@
 mod addons;
+mod db;
 mod worker;
 
 use std::collections::{BTreeMap, HashMap};
@@ -7,6 +8,8 @@ use std::sync::{Arc, Mutex};
 
 use addon_api::{Episode, Hoster, Preference, UrlInput, Video};
 use addons::{InstalledAddon, StoreEntry, StoreIndex};
+use db::{DownloadRecord, GroupRecord};
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tauri::async_runtime::JoinHandle;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -15,6 +18,46 @@ struct Engine {
     http: reqwest::Client,
     tasks: Arc<Mutex<HashMap<u64, JoinHandle<()>>>>,
     pids: Arc<Mutex<HashMap<u64, u32>>>,
+}
+
+struct Db(Mutex<Connection>);
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PersistedState {
+    downloads: Vec<DownloadRecord>,
+    groups: Vec<GroupRecord>,
+}
+
+#[tauri::command]
+fn state_load(db: State<'_, Db>) -> Result<PersistedState, String> {
+    let conn = db.0.lock().unwrap();
+    Ok(PersistedState {
+        downloads: db::load_downloads(&conn).map_err(|e| e.to_string())?,
+        groups: db::load_groups(&conn).map_err(|e| e.to_string())?,
+    })
+}
+
+#[tauri::command]
+fn download_save(db: State<'_, Db>, record: DownloadRecord) -> Result<(), String> {
+    db::upsert_download(&db.0.lock().unwrap(), &record).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn downloads_delete(db: State<'_, Db>, ids: Vec<u64>) -> Result<(), String> {
+    let conn = db.0.lock().unwrap();
+    db::delete_downloads(&conn, &ids).map_err(|e| e.to_string())?;
+    db::prune_groups(&conn).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn downloads_clear(db: State<'_, Db>) -> Result<(), String> {
+    db::clear_downloads(&db.0.lock().unwrap()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn group_save(db: State<'_, Db>, record: GroupRecord) -> Result<(), String> {
+    db::upsert_group(&db.0.lock().unwrap(), &record).map_err(|e| e.to_string())
 }
 
 #[derive(Clone, Serialize)]
@@ -540,6 +583,13 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(engine)
+        .setup(|app| {
+            let dir = app.path().app_data_dir()?;
+            std::fs::create_dir_all(&dir)?;
+            let conn = db::open(&dir.join("anime-dm.db"))?;
+            app.manage(Db(Mutex::new(conn)));
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_settings,
             add_repo,
@@ -559,7 +609,12 @@ pub fn run() {
             pause_all,
             resume_download,
             cancel_download,
-            cancel_all
+            cancel_all,
+            state_load,
+            download_save,
+            downloads_delete,
+            downloads_clear,
+            group_save
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
