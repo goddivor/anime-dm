@@ -118,8 +118,12 @@ select option {
   cursor: pointer;
   border-radius: 3px;
 }
-.menu-item:hover {
+.menu-item:hover:not(:disabled) {
   background: rgba(120, 160, 220, 0.22);
+}
+.menu-item:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 .menu-item .check {
   width: 14px;
@@ -195,9 +199,13 @@ select option {
   cursor: pointer;
   color: var(--text);
 }
-.tb-btn:hover {
+.tb-btn:hover:not(:disabled) {
   background: rgba(120, 160, 220, 0.16);
   border-color: var(--border);
+}
+.tb-btn:disabled {
+  opacity: 0.38;
+  cursor: default;
 }
 .tb-label {
   font-size: 11px;

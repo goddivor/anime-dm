@@ -284,6 +284,13 @@ export default function App() {
       },
     });
 
+  const sel = rows.filter((r) => selected.has(r.id));
+  const canStop = sel.some((r) => isActive(r.status));
+  const canResume = sel.some((r) => r.status === "stopped" || r.status === "failed");
+  const canDelete = sel.length > 0;
+  const anyActive = rows.some((r) => isActive(r.status));
+  const anyRows = rows.length > 0;
+
   const startDrag = (e: ReactMouseEvent) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -310,6 +317,11 @@ export default function App() {
           onRemoveSelected: removeSelected,
           onRemoveCompleted: removeCompleted,
           onDeleteAll: confirmDeleteAll,
+          canStop,
+          canResume,
+          canDelete,
+          anyActive,
+          anyRows,
           toggleSidebar: () => setSidebarOn((v) => !v),
           sidebarOn,
           toggleSearch: () => setMessage(t("toolbar.search_hint")),
@@ -337,6 +349,11 @@ export default function App() {
         onStopAll={confirmStopAll}
         onRemoveSelected={removeSelected}
         onDeleteAll={confirmDeleteAll}
+        canStop={canStop}
+        canResume={canResume}
+        canDelete={canDelete}
+        anyActive={anyActive}
+        anyRows={anyRows}
         onOpenAddons={() => setView(view === "addons" ? "downloads" : "addons")}
         soon={soon}
         search={search}
