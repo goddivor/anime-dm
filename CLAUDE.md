@@ -1,24 +1,28 @@
 # anime-dm — instructions projet
 
-**Anime Download Manager** : gestionnaire de téléchargement type IDM pour sites d'animés. 1er site : `voir-anime.to`. Stack : **Tauri 2** (backend Rust) + **React 19 + Vite + TypeScript** (frontend). Voir `README.md` / `CONTRIBUTING.md` — ne pas dupliquer ici.
+**Anime Download Manager** : gestionnaire de téléchargement type IDM pour sites d'animés. Stack : **Tauri 2** (backend Rust) + **React 19 + Vite + TS** (frontend). **Modèle d'addons façon Aniyomi** : toute la logique d'une source (scraping + extraction des lecteurs) vit dans un **module WASM séparé** ; l'app ne contient AUCUN code spécifique à une source. Voir `README.md` / `CONTRIBUTING.md`.
 
-> Historique : une 1ʳᵉ version GUI en egui a été abandonnée (rendu non natif) → migration Tauri. Le moteur Rust (`worker/`) a été conservé tel quel.
+> Historique : v1 GUI egui → migration Tauri → extraction de la logique source dans des addons WASM (Extism). Voir-anime n'est plus dans ce repo.
+
+## Deux repos (côte à côte sous `rust-project/`)
+- **`anime-dm`** (ce repo) : l'app (downloader ffmpeg + runtime d'addons + UI + Addon Store). **Zéro logique de source.**
+- **`anime-dm-addons`** (`github.com/goddivor/anime-dm-addons`) : les sources en WASM. `addons/<lang>/<nom>/` (1 crate = 1 `.wasm` : `lib.rs` scraping+extractors, `addon.json` métadonnées store, `icon.png`). `scripts/build-repo.sh` assemble `repo/` (index.min.json + wasm + icônes) → publié sur la **branche `repo`**. Index live : `https://raw.githubusercontent.com/goddivor/anime-dm-addons/repo/index.min.json`. Le contrat partagé `addon-api` vit dans **ce** repo (`src-tauri/addon-api`) et est référencé par chemin depuis les addons.
 
 ## Lancer / vérifier
-- `npm run tauri dev` (app native, fenêtre webview) · `npm run dev` (frontend seul dans le navigateur, sans backend).
-- Vérifs : `npm run build` (tsc + vite, **0 erreur**) côté front · `cd src-tauri && cargo build` (**0 warning**) côté Rust.
-- **Prérequis** : ffmpeg + Google Chrome dans le PATH ; Node ; libs webview Linux (`libwebkit2gtk-4.1-dev`, `libsoup-3.0-dev`, `libjavascriptcoregtk-4.1-dev`, `librsvg2-dev`, …).
+- `npm run tauri dev` · `npm run dev` (front seul).
+- Vérifs : `npm run build` (**0 erreur**) · `cd src-tauri && cargo build` (**0 warning**).
+- Test addon générique (piloté par env, aucune source en dur) : `ADDON_WASM=<path.wasm> [ADDON_ANIME_URL=<url>] cargo test --lib addon_contract_smoke -- --ignored --nocapture`.
+- **Prérequis** : ffmpeg dans le PATH ; Node ; libs webview Linux (`libwebkit2gtk-4.1-dev`, `libsoup-3.0-dev`, …). (Chrome/headless n'est PLUS requis — les addons décodent les lecteurs en pur HTTP, façon Aniyomi.)
 
-## Architecture (Tauri)
-- **`src-tauri/src/`** = backend Rust :
-  - `lib.rs` : `Engine` (state managé : http client + cell headless) ; **commands** `load_anime`, `start_download` ; **events** `download://progress` / `download://finished` (forwardés depuis le moteur).
-  - `worker/` (agnostique du framework) : `mod` (`resolve_source`, `get_headless`), `net`, `scraper` (+ extraction poster `.summary_image img`), `extractors/` (vidmoly, streamtape, mailru), `headless` (chromiumoxide), `downloader` (ffmpeg, prend un **callback** de progression — plus d'egui).
-  - `model.rs` : `Anime`/`Episode` (`Serialize`, camelCase), `Player`, `VideoSource`.
-- **`src/`** = frontend React :
-  - `App.tsx` (état + events temps réel + actions), `api.ts` (bridge `invoke`/`listen` + `defaultOutPath`), `types.ts`, `i18n.ts` (charge `src/locales/*.json`, `translator(lang)`), `format.ts` (tailles/durées/dates + `parseSelection`).
-  - `components/` : `MenuBar`, `Toolbar`, `Sidebar` (arbre Catégories+files, posters via `<img>`), `DownloadsTable` (**TanStack Table** : 11 colonnes redimensionnables/triables, grille CSS), `StatusBar`, `AddDialog`.
-- Flux : frontend `invoke("load_anime"/"start_download")` → `lib.rs` spawn la tâche → `worker` émet la progression via callback → `app.emit(...)` → `listen` côté React met à jour les lignes (ETA/ taille calculés côté JS). Posters : `<img src={posterUrl}>` (le webview charge l'URL, pas de fetch Rust).
-- Args invoke : camelCase JS → snake_case Rust (conversion auto Tauri 2). Permissions dans `src-tauri/capabilities/default.json`.
+## Architecture
+- **`src-tauri/addon-api/`** : contrat partagé (crate). Modèles serde camelCase : `Metadata`, `Anime`, `Episode`, `AnimesPage`, `Hoster`, `Video{url,quality,headers,subtitles}`, `Preference{key,title,default,kind,options}`. Noms des exports plugin (`exports::*`) et host-fns.
+- **`src-tauri/src/`** = backend :
+  - `addons.rs` : `Addon` (loader Extism, `load_with_config` injecte la config via `Manifest::with_config_key`, `call_json`, `preferences`) + **registre disque** (`<app_data>/addons/<id>/` = `addon.wasm`+`meta.json`+`icon.png`+`config.json`) : `installed`, `install`, `remove`, `open`, `read/write_config`.
+  - `lib.rs` : commands **store** (`get_settings`/`set_repo_url`/`store_fetch`/`store_install`), **addons** (`addons_installed`/`addon_remove`/`addon_preferences`/`addon_get/set_config`), **source** (`load_anime(addonId,url)`, `start_download(addonId,…)`, `fetch_image(url,referer?)`). Résolution vidéo via `spawn_blocking` (les appels WASM sont bloquants). Events `download://progress|finished` inchangés.
+  - `worker/` : seulement `downloader` (ffmpeg, prend `url`+`headers: BTreeMap`) + `net` (UA + client). Plus de scraper/extractors/headless/model.
+- **`src/`** = frontend : `App.tsx` (vue `downloads`|`addons`, addons installés, flux routé par `addonId`), `api.ts`, `components/AddonsScreen` (URL dépôt + store + installés + **config par addon**), `AddDialog` (sélecteur de source), `Sidebar`/`DownloadsTable`/`Toolbar`/`MenuBar`/`Poster`.
+- **Flux** : Addon Store → installe un `.wasm` ; `AddDialog` choisit une source → `load_anime(addonId,url)` (= `anime_details`+`episode_list` du plugin) → `start_download(addonId,…)` (= `hoster_list`+`video_list` du plugin → `Video{url,headers}` → ffmpeg). La config utilisateur (ex. URL du site) est réinjectée à chaque chargement de plugin.
+- **Config par addon** (= « personnalisable depuis l'app ») : l'addon **déclare** ses réglages via l'export `preferences()` ; l'app les stocke (`config.json`) et les réinjecte (config Extism) ; l'addon les lit avec `config::get("base_url")`. Calque exact du `setupPreferenceScreen` d'Aniyomi.
 
 ## Règles de travail (IMPORTANT)
 - **Git (PR-only)** : `master`+`dev` protégés (ruleset GitHub). Repo public `github.com/goddivor/anime-dm`, défaut=`dev`. Pour toute tâche : brancher `feature/* | fix/* | refactor/* | chore/* | docs/*` **depuis `dev`**, commiter en local, puis **S'ARRÊTER et DEMANDER avant `git push`/`gh pr create`**. PR ciblent `dev` ; `dev`→`master` pour release. La migration Tauri est sur `feature/tauri-migration`. Cf. mémoire `anime-dm-git-workflow`.
@@ -30,6 +34,8 @@
 - **Aucun placeholder / donnée de démo** (liste vide par défaut).
 
 ## Faits / pièges à retenir
-- **Site** : `voir-anime.to` actif (ancien `v6.voiranime.com` mort). Pas de challenge Cloudflare avec un User-Agent Chrome → HTTP simple suffit.
-- **Hôtes vidéo (vérifiés)** : myTV=vidmoly (HLS, HTTP) · Stape=streamtape (MP4, HTTP) · FHD1=mail.ru (MP4 1080p via `/+/video/meta/?ajax_call=1&ext=1` + **cookie `video_key`**, HTTP) · VOE (HLS via **headless**, NE PAS mettre `Referer: voir-anime.to` → `ERR_BLOCKED_BY_CLIENT`). MOON/SB = SPA « Byse » résistent au headless · YU souvent DMCA. Routage : `extractors::is_http_extractable` sinon headless.
-- **TODO** : i18n des erreurs worker (`anyhow!` FR, remontées via les events `error`) ; files d'attente = regroupement visuel seulement (pas de planificateur) ; MOON/SB via headful+Xvfb ; choix dossier de sortie dans `AddDialog` (pour l'instant `downloadDir()`).
+- **Installation = Addon Store UNIQUEMENT** : on colle l'URL d'un `index.min.json` dans les réglages, l'app liste/installe. Pas d'autre voie. (Import de fichier `.wasm` local = TODO éventuel.)
+- **Aniyomi = PAS de headless** : les lecteurs JS-obfusqués (VOE…) se décodent en pur HTTP dans l'addon (ex. VOE : rot13→base64→shift→reverse→base64→JSON). C'est la réponse à « comment extraire n'importe quel lecteur ». Inspiration : `../../android-project/aniyomi-extension/voiranime/` + extractors `../../StudioProjects/yuzono/aniyomi-extensions/lib/`.
+- **Détails source voiranime** (désormais dans l'addon `anime-dm-addons`, PAS dans l'app) : `voir-anime.to` ; poster `.summary_image img` ; lecteurs `thisChapterSources` ; myTV=vidmoly, Stape=streamtape, FHD1=mail.ru (cookie `video_key`), VOE décodé. Hotlink poster : 403 si pas de `Referer` = origine du site → `fetch_image(url, referer)` côté app passe l'origine de la page.
+- **Pièges Extism** : `Plugin` non-Send → appels WASM dans `spawn_blocking` ; HTTP du plugin gated par `allowed_hosts` du `Manifest` (actuellement `*`) ; `with_config_key` = la config réinjectée.
+- **TODO** : import d'un `.wasm` local ; « lecteur préféré » par addon ; files d'attente = visuel seulement ; choix dossier de sortie (pour l'instant `downloadDir()`) ; signature/vérification des addons du store.
