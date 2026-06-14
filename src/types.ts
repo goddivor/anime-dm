@@ -7,7 +7,13 @@ export type Anime = {
   episodes: Episode[];
 };
 
-export type DownloadStatus = "queued" | "resolving" | "downloading" | "completed" | "failed";
+export type DownloadStatus =
+  | "queued"
+  | "resolving"
+  | "downloading"
+  | "completed"
+  | "failed"
+  | "stopped";
 
 export type Queue = "main" | "sync";
 

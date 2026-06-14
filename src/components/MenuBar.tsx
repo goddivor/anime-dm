@@ -13,8 +13,12 @@ type Item = {
 
 export type MenuActions = {
   onAdd: () => void;
+  onResume: () => void;
+  onStop: () => void;
+  onStopAll: () => void;
   onRemoveSelected: () => void;
   onRemoveCompleted: () => void;
+  onDeleteAll: () => void;
   toggleSidebar: () => void;
   sidebarOn: boolean;
   toggleSearch: () => void;
@@ -82,9 +86,9 @@ export default function MenuBar({ t, a }: { t: T; a: MenuActions }) {
       id: "file",
       title: t("menu.file.title"),
       items: [
-        { key: "start", label: t("menu.file.start"), onClick: () => a.soon(t("menu.file.start")) },
-        { key: "stop", label: t("menu.file.stop"), onClick: () => a.soon(t("menu.file.stop")) },
-        { key: "redl", label: t("menu.file.redownload"), onClick: () => a.soon(t("menu.file.redownload")) },
+        { key: "start", label: t("menu.file.start"), onClick: a.onResume },
+        { key: "stop", label: t("menu.file.stop"), onClick: a.onStop },
+        { key: "redl", label: t("menu.file.redownload"), onClick: a.onResume },
         { key: "s1", sep: true },
         { key: "remove", label: t("menu.file.remove"), onClick: a.onRemoveSelected },
       ],
@@ -93,9 +97,9 @@ export default function MenuBar({ t, a }: { t: T; a: MenuActions }) {
       id: "download",
       title: t("menu.download.title"),
       items: [
-        { key: "pause", label: t("menu.download.pause_all"), onClick: () => a.soon(t("menu.download.pause_all")) },
-        { key: "stopall", label: t("menu.download.stop_all"), onClick: () => a.soon(t("menu.download.stop_all")) },
+        { key: "stopall", label: t("menu.download.stop_all"), onClick: a.onStopAll },
         { key: "rmdone", label: t("menu.download.remove_completed"), onClick: a.onRemoveCompleted },
+        { key: "delall", label: t("menu.download.delete_all"), onClick: a.onDeleteAll },
         { key: "search", label: t("menu.download.search"), shortcut: "Ctrl+F", onClick: a.toggleSearch },
         { key: "s1", sep: true },
         { key: "sched", label: t("menu.download.schedule"), onClick: () => a.soon(t("menu.download.schedule")) },

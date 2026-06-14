@@ -637,6 +637,14 @@ select option {
   opacity: 0.5;
   cursor: not-allowed;
 }
+.btn.danger {
+  background: #7a2f2f;
+  border-color: #9c4040;
+  color: #fff;
+}
+.btn.danger:hover {
+  background: #8c3838;
+}
 .err-box {
   background: rgba(226, 109, 109, 0.12);
   border: 1px solid var(--err);
