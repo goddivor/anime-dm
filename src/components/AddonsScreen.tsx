@@ -14,6 +14,7 @@ import {
 import ExtensionList, { type ExtItem } from "./addons/ExtensionList";
 import ExtensionConfig from "./addons/ExtensionConfig";
 import ReposView from "./addons/ReposView";
+import ConfirmDialog, { type Confirm } from "./ConfirmDialog";
 
 type View = { kind: "list" } | { kind: "repos" } | { kind: "config"; id: string; name: string };
 
@@ -33,6 +34,7 @@ export default function AddonsScreen({
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<Confirm | null>(null);
 
   const loadRepos = () => getSettings().then((s) => setRepos(s.repos)).catch(() => {});
 
@@ -109,6 +111,14 @@ export default function AddonsScreen({
     onChange();
   };
 
+  const confirmRemove = (item: ExtItem) =>
+    setConfirm({
+      title: t("addons.remove_title"),
+      message: t("addons.remove_msg").replace("{name}", item.name),
+      confirmLabel: t("addons.remove"),
+      onConfirm: () => remove(item.id),
+    });
+
   const onAddRepo = async (url: string) => {
     await addRepo(url);
     await loadRepos();
@@ -171,10 +181,14 @@ export default function AddonsScreen({
         items={items}
         busyId={busyId}
         onInstall={install}
-        onRemove={remove}
+        onRemove={confirmRemove}
         onConfigure={(it) => setView({ kind: "config", id: it.id, name: it.name })}
         t={t}
       />
+
+      {confirm && (
+        <ConfirmDialog confirm={confirm} onClose={() => setConfirm(null)} t={t} />
+      )}
     </div>
   );
 }

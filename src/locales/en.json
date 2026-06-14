@@ -8,6 +8,8 @@
   "addons.no_repos": "No repo configured. Click \"Add repo\" and paste an index.min.json URL.",
   "addons.ok": "OK",
   "addons.refresh": "Refresh",
+  "addons.remove_msg": "Remove the \"{name}\" extension? Its configuration will be lost.",
+  "addons.remove_title": "Remove extension",
   "addons.repos_title": "Extension repos",
   "addons.saved": "Saved",
   "addons.install": "Install",

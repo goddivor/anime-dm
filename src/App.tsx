@@ -8,8 +8,11 @@ import {
   onFinished,
   onProgress,
   startDownload,
-  stopAll,
-  stopDownload,
+  pauseDownload,
+  pauseAll,
+  resumeDownload,
+  cancelDownload,
+  cancelAll,
   type FinishedEvent,
   type ProgressEvent,
 } from "./api";
@@ -216,21 +219,37 @@ export default function App() {
     );
   };
 
-  const stopRows = (ids: Set<number>) => {
-    rows.filter((r) => ids.has(r.id) && isActive(r.status)).forEach((r) => stopDownload(r.id));
+  const markStopped = (match: (r: DownloadRow) => boolean) =>
     setRows((rs) =>
-      rs.map((r) =>
-        ids.has(r.id) && isActive(r.status) ? { ...r, status: "stopped", speed: "", eta: undefined } : r,
-      ),
+      rs.map((r) => (match(r) ? { ...r, status: "stopped", speed: "", eta: undefined } : r)),
     );
+
+  // Pause: freeze the ffmpeg process in place (resumable), don't restart.
+  const stopSelected = () => {
+    rows.filter((r) => selected.has(r.id) && isActive(r.status)).forEach((r) => pauseDownload(r.id));
+    markStopped((r) => selected.has(r.id) && isActive(r.status));
   };
 
-  const stopSelected = () => stopRows(selected);
-  const resumeSelected = () =>
-    rows.filter((r) => selected.has(r.id) && !isActive(r.status) && r.status !== "completed").forEach(restart);
+  // Resume: continue in place; only fully restart if there's nothing to continue.
+  const resumeSelected = () => {
+    rows
+      .filter((r) => selected.has(r.id) && r.status === "stopped")
+      .forEach(async (r) => {
+        const continued = await resumeDownload(r.id);
+        if (continued) {
+          setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, status: "downloading" } : x)));
+        } else {
+          restart(r);
+        }
+      });
+    rows
+      .filter((r) => selected.has(r.id) && r.status === "failed")
+      .forEach(restart);
+  };
 
   const removeSelected = () => {
-    stopRows(selected);
+    rows.filter((r) => selected.has(r.id) && isActive(r.status)).forEach((r) => cancelDownload(r.id));
+    rows.filter((r) => selected.has(r.id) && r.status === "stopped").forEach((r) => cancelDownload(r.id));
     setRows((rs) => rs.filter((r) => !selected.has(r.id)));
     setSelected(new Set());
   };
@@ -247,10 +266,8 @@ export default function App() {
       message: t("confirm.stop_all_msg"),
       confirmLabel: t("toolbar.stop_all"),
       onConfirm: () => {
-        stopAll();
-        setRows((rs) =>
-          rs.map((r) => (isActive(r.status) ? { ...r, status: "stopped", speed: "", eta: undefined } : r)),
-        );
+        pauseAll();
+        markStopped((r) => isActive(r.status));
       },
     });
 
@@ -260,7 +277,7 @@ export default function App() {
       message: t("confirm.delete_all_msg"),
       confirmLabel: t("toolbar.delete_all"),
       onConfirm: () => {
-        stopAll();
+        cancelAll();
         setRows([]);
         setGroups([]);
         setSelected(new Set());

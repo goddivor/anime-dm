@@ -22,7 +22,7 @@ export default function ExtensionList({
   items: ExtItem[];
   busyId: string | null;
   onInstall: (item: ExtItem) => void;
-  onRemove: (id: string) => void;
+  onRemove: (item: ExtItem) => void;
   onConfigure: (item: ExtItem) => void;
   t: T;
 }) {
@@ -49,7 +49,7 @@ export default function ExtensionList({
                 <button className="icon-btn" title={t("addons.settings")} onClick={() => onConfigure(it)}>
                   <Settings2 size={18} />
                 </button>
-                <button className="icon-btn" title={t("addons.remove")} onClick={() => onRemove(it.id)}>
+                <button className="icon-btn" title={t("addons.remove")} onClick={() => onRemove(it)}>
                   <Trash2 size={18} />
                 </button>
               </>

@@ -8,6 +8,8 @@
   "addons.no_repos": "Aucun dépôt configuré. Clique sur « Ajouter un dépôt » et colle l'URL d'un index.min.json.",
   "addons.ok": "OK",
   "addons.refresh": "Actualiser",
+  "addons.remove_msg": "Supprimer l'extension « {name} » ? Sa configuration sera perdue.",
+  "addons.remove_title": "Supprimer l'extension",
   "addons.repos_title": "Dépôts d'extensions",
   "addons.saved": "Enregistré",
   "addons.install": "Installer",

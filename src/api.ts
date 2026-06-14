@@ -54,8 +54,11 @@ export const startDownload = (p: {
 export const fetchImage = (url: string, referer?: string) =>
   invoke<string>("fetch_image", { url, referer });
 
-export const stopDownload = (id: number) => invoke<void>("stop_download", { id });
-export const stopAll = () => invoke<void>("stop_all");
+export const pauseDownload = (id: number) => invoke<void>("pause_download", { id });
+export const pauseAll = () => invoke<void>("pause_all");
+export const resumeDownload = (id: number) => invoke<boolean>("resume_download", { id });
+export const cancelDownload = (id: number) => invoke<void>("cancel_download", { id });
+export const cancelAll = () => invoke<void>("cancel_all");
 
 export const onProgress = (cb: (e: ProgressEvent) => void): Promise<UnlistenFn> =>
   listen<ProgressEvent>("download://progress", (e) => cb(e.payload));
