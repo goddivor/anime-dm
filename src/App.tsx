@@ -18,6 +18,8 @@ import {
   downloadsDelete,
   downloadsClear,
   groupSave,
+  getSettings,
+  setLangPref,
   type FinishedEvent,
   type ProgressEvent,
 } from "./api";
@@ -75,6 +77,10 @@ function applyFinished(r: DownloadRow, e: FinishedEvent): DownloadRow {
 export default function App() {
   const [lang, setLang] = useState<Lang>("fr");
   const t = useMemo(() => translator(lang), [lang]);
+  const changeLang = (l: Lang) => {
+    setLang(l);
+    setLangPref(l).catch(() => {});
+  };
 
   const [rows, setRows] = useState<DownloadRow[]>([]);
   const [groups, setGroups] = useState<AnimeGroup[]>([]);
@@ -108,6 +114,11 @@ export default function App() {
 
   // Load persisted state once on startup.
   useEffect(() => {
+    getSettings()
+      .then((s) => {
+        if (s.lang === "fr" || s.lang === "en") setLang(s.lang);
+      })
+      .catch(() => {});
     stateLoad()
       .then(({ downloads, groups: g }) => {
         const terminal = (s: DownloadRow["status"]) =>
@@ -466,7 +477,7 @@ export default function App() {
           sidebarOn,
           toggleSearch: () => setMessage(t("toolbar.search_hint")),
           openAddons: () => setView("addons"),
-          setLang,
+          setLang: changeLang,
           lang,
           onAbout: () =>
             setInfo({

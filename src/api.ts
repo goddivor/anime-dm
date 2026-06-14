@@ -28,7 +28,8 @@ export type FinishedEvent = {
 };
 
 // --- Settings & repos ---
-export const getSettings = () => invoke<{ repos: string[] }>("get_settings");
+export const getSettings = () => invoke<{ repos: string[]; lang: string }>("get_settings");
+export const setLangPref = (lang: string) => invoke<void>("set_lang", { lang });
 export const addRepo = (url: string) => invoke<void>("add_repo", { url });
 export const removeRepo = (url: string) => invoke<void>("remove_repo", { url });
 

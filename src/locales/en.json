@@ -172,7 +172,7 @@
   "table.progress": "Progress",
   "table.queue": "Q",
   "table.size": "Size",
-  "table.speed": "Transfer rate",
+  "table.speed": "Download speed",
   "table.status": "Status",
   "table.time_left": "Time left",
   "toolbar.active": "active",

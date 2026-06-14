@@ -94,6 +94,8 @@ struct AnimeResult {
 struct Settings {
     #[serde(default)]
     repos: Vec<String>,
+    #[serde(default)]
+    lang: String,
 }
 
 fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -128,6 +130,13 @@ fn write_settings(app: &AppHandle, settings: &Settings) -> Result<(), String> {
 #[tauri::command]
 fn get_settings(app: AppHandle) -> Settings {
     read_settings(&app)
+}
+
+#[tauri::command]
+fn set_lang(app: AppHandle, lang: String) -> Result<(), String> {
+    let mut settings = read_settings(&app);
+    settings.lang = lang;
+    write_settings(&app, &settings)
 }
 
 #[tauri::command]
@@ -592,6 +601,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_settings,
+            set_lang,
             add_repo,
             remove_repo,
             store_fetch,
