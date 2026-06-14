@@ -74,6 +74,12 @@ pub struct StoreEntry {
     pub wasm: String,
     #[serde(default)]
     pub icon: Option<String>,
+    /// Filled by the host: which repo index this entry came from.
+    #[serde(default)]
+    pub repo_url: String,
+    /// Filled by the host: absolute icon URL.
+    #[serde(default)]
+    pub icon_url: Option<String>,
     #[serde(default)]
     pub installed: bool,
 }
@@ -96,6 +102,10 @@ fn id_dir(dir: &Path, id: &str) -> PathBuf {
 
 pub fn wasm_path(dir: &Path, id: &str) -> PathBuf {
     id_dir(dir, id).join("addon.wasm")
+}
+
+pub fn icon_path(dir: &Path, id: &str) -> PathBuf {
+    id_dir(dir, id).join("icon.png")
 }
 
 pub fn read_meta(dir: &Path, id: &str) -> Result<InstalledAddon> {

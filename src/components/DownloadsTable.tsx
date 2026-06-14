@@ -7,7 +7,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { CheckCircle2, Clock, Download, Search, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Download, Pause, Search, XCircle } from "lucide-react";
 import type { DownloadRow, DownloadStatus } from "../types";
 import type { T } from "../i18n";
 import { fmtDate, humanDuration, humanSize, dirOf, hostOf } from "../format";
@@ -25,6 +25,8 @@ function StatusIcon({ s }: { s: DownloadStatus }) {
       return <CheckCircle2 size={14} className={`${cls} ok`} />;
     case "failed":
       return <XCircle size={14} className={`${cls} err`} />;
+    case "stopped":
+      return <Pause size={14} className={cls} />;
   }
 }
 
@@ -48,13 +50,15 @@ function ProgressCell({ d, t }: { d: DownloadRow; t: T }) {
 
 export default function DownloadsTable({
   rows,
-  selectedId,
+  selected,
   onSelect,
+  onContext,
   t,
 }: {
   rows: DownloadRow[];
-  selectedId: number | null;
-  onSelect: (id: number) => void;
+  selected: Set<number>;
+  onSelect: (id: number, ctrl: boolean, shift: boolean) => void;
+  onContext: (id: number, x: number, y: number) => void;
   t: T;
 }) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -193,8 +197,13 @@ export default function DownloadsTable({
           {table.getRowModel().rows.map((row) => (
             <tr
               key={row.id}
-              className={row.original.id === selectedId ? "sel" : ""}
-              onClick={() => onSelect(row.original.id)}
+              data-rowid={row.original.id}
+              className={selected.has(row.original.id) ? "sel" : ""}
+              onClick={(e) => onSelect(row.original.id, e.ctrlKey || e.metaKey, e.shiftKey)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                onContext(row.original.id, e.clientX, e.clientY);
+              }}
             >
               {row.getVisibleCells().map((cell) => (
                 <td key={cell.id} style={{ width: cell.column.getSize() }}>

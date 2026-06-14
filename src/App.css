@@ -29,8 +29,17 @@ body {
   font-size: 13px;
   color: var(--text);
   background: var(--bg);
+  -webkit-user-select: none;
   user-select: none;
+  cursor: default;
   overflow: hidden;
+}
+
+/* Text selection allowed only in editable fields. */
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 button {
@@ -118,8 +127,12 @@ select option {
   cursor: pointer;
   border-radius: 3px;
 }
-.menu-item:hover {
+.menu-item:hover:not(:disabled) {
   background: rgba(120, 160, 220, 0.22);
+}
+.menu-item:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 .menu-item .check {
   width: 14px;
@@ -164,6 +177,17 @@ select option {
   margin: 4px 2px;
 }
 
+/* ---------- Context menu ---------- */
+.ctx-menu {
+  position: fixed;
+  z-index: 200;
+  min-width: 190px;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  padding: 4px;
+}
+
 /* ---------- Toolbar ---------- */
 .toolbar {
   display: flex;
@@ -195,9 +219,13 @@ select option {
   cursor: pointer;
   color: var(--text);
 }
-.tb-btn:hover {
+.tb-btn:hover:not(:disabled) {
   background: rgba(120, 160, 220, 0.16);
   border-color: var(--border);
+}
+.tb-btn:disabled {
+  opacity: 0.38;
+  cursor: default;
 }
 .tb-label {
   font-size: 11px;
@@ -260,7 +288,6 @@ select option {
   max-width: 720px;
   margin: 0 auto;
   padding: 16px 20px;
-  user-select: text;
 }
 .addons-screen h2 {
   margin: 4px 0 16px;
@@ -316,10 +343,82 @@ select option {
 .row.end {
   justify-content: flex-end;
 }
-.addons-foot {
-  max-width: 720px;
-  margin: 0 auto 24px;
-  padding: 0 20px;
+.addons-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.addons-header h2 {
+  margin: 0;
+}
+.ext-config-head,
+.repos-view .ext-config-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.ext-config-head h3 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text);
+}
+.ext-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ext-empty {
+  padding: 40px 0;
+  text-align: center;
+}
+.ext-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+.ext-icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+.ext-icon img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+.ext-meta {
+  flex: 1;
+  min-width: 0;
+}
+.ext-name {
+  font-weight: 600;
+}
+.ext-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.repo-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.ext-config {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 /* ---------- Sidebar ---------- */
@@ -591,7 +690,6 @@ select option {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  user-select: text;
 }
 .modal-foot {
   display: flex;
@@ -637,12 +735,21 @@ select option {
   opacity: 0.5;
   cursor: not-allowed;
 }
+.btn.danger {
+  background: #7a2f2f;
+  border-color: #9c4040;
+  color: #fff;
+}
+.btn.danger:hover {
+  background: #8c3838;
+}
 .err-box {
   background: rgba(226, 109, 109, 0.12);
   border: 1px solid var(--err);
   color: var(--err);
   padding: 6px 8px;
   border-radius: 3px;
+  -webkit-user-select: text;
   user-select: text;
 }
 .anime-head {

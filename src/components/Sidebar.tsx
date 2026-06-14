@@ -17,6 +17,7 @@ const statusGlyph: Record<DownloadRow["status"], string> = {
   downloading: "↓",
   completed: "✓",
   failed: "✗",
+  stopped: "■",
 };
 
 export default function Sidebar({
@@ -26,7 +27,7 @@ export default function Sidebar({
   onFilter,
   onToggle,
   onClose,
-  selectedId,
+  selected,
   onSelectRow,
   t,
 }: {
@@ -36,7 +37,7 @@ export default function Sidebar({
   onFilter: (f: Filter) => void;
   onToggle: (id: number) => void;
   onClose: () => void;
-  selectedId: number | null;
+  selected: Set<number>;
   onSelectRow: (id: number) => void;
   t: T;
 }) {
@@ -96,7 +97,7 @@ export default function Sidebar({
                   {eps.map((d) => (
                     <div
                       key={d.id}
-                      className={`tree-row ep ${d.id === selectedId ? "sel" : ""}`}
+                      className={`tree-row ep ${selected.has(d.id) ? "sel" : ""}`}
                       onClick={() => {
                         onSelectRow(d.id);
                         onFilter({ kind: "anime", id: g.id });

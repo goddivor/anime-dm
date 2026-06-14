@@ -8,6 +8,11 @@ import {
   onFinished,
   onProgress,
   startDownload,
+  pauseDownload,
+  pauseAll,
+  resumeDownload,
+  cancelDownload,
+  cancelAll,
   type FinishedEvent,
   type ProgressEvent,
 } from "./api";
@@ -18,6 +23,11 @@ import DownloadsTable from "./components/DownloadsTable";
 import StatusBar from "./components/StatusBar";
 import AddDialog from "./components/AddDialog";
 import AddonsScreen from "./components/AddonsScreen";
+import ConfirmDialog, { type Confirm } from "./components/ConfirmDialog";
+import ContextMenu, { type CtxItem } from "./components/ContextMenu";
+
+const isActive = (s: DownloadRow["status"]) =>
+  s === "downloading" || s === "resolving" || s === "queued";
 
 const pad = (n: number) => String(n).padStart(3, "0");
 const sanitize = (s: string) => s.replace(/[/\\:*?"<>|]/g, "_");
@@ -66,16 +76,26 @@ export default function App() {
   const [addons, setAddons] = useState<InstalledAddon[]>([]);
   const [view, setView] = useState<"downloads" | "addons">("downloads");
   const [filter, setFilter] = useState<Filter>({ kind: "all" });
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [anchor, setAnchor] = useState<number | null>(null);
+  const [cursor, setCursor] = useState<number | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [sidebarOn, setSidebarOn] = useState(true);
   const [sidebarW, setSidebarW] = useState(230);
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [info, setInfo] = useState<{ title: string; lines: string[] } | null>(null);
+  const [confirm, setConfirm] = useState<Confirm | null>(null);
 
   const nextId = useRef(1);
   const nextGroupId = useRef(1);
+  const navRef = useRef<{ ids: number[]; cursor: number | null; anchor: number | null; active: boolean }>({
+    ids: [],
+    cursor: null,
+    anchor: null,
+    active: false,
+  });
 
   const refreshAddons = () => addonsInstalled().then(setAddons).catch(() => {});
 
@@ -147,18 +167,6 @@ export default function App() {
     }
   };
 
-  const removeSelected = () => {
-    if (selectedId == null) return;
-    setRows((rs) => rs.filter((r) => r.id !== selectedId));
-    setSelectedId(null);
-  };
-
-  const removeCompleted = () => {
-    const removed = rows.filter((r) => r.status === "completed").length;
-    setRows((rs) => rs.filter((r) => r.status !== "completed"));
-    setMessage(`${removed} ${t("status.completed_removed")}`);
-  };
-
   const toggleGroup = (id: number) =>
     setGroups((gs) => gs.map((g) => (g.id === id ? { ...g, expanded: !g.expanded } : g)));
 
@@ -172,6 +180,185 @@ export default function App() {
           : d.queue === filter.queue;
     return byFilter && (q === "" || d.filename.toLowerCase().includes(q));
   });
+
+  const selectSingle = (id: number) => {
+    setSelected(new Set([id]));
+    setAnchor(id);
+    setCursor(id);
+  };
+
+  const handleSelect = (id: number, ctrl: boolean, shift: boolean) => {
+    if (shift && anchor != null) {
+      const ids = visible.map((r) => r.id);
+      const a = ids.indexOf(anchor);
+      const b = ids.indexOf(id);
+      if (a >= 0 && b >= 0) {
+        const [lo, hi] = a < b ? [a, b] : [b, a];
+        setSelected(new Set(ids.slice(lo, hi + 1)));
+        setCursor(id);
+        return;
+      }
+    }
+    if (ctrl) {
+      const s = new Set(selected);
+      s.has(id) ? s.delete(id) : s.add(id);
+      setSelected(s);
+      setAnchor(id);
+      setCursor(id);
+      return;
+    }
+    selectSingle(id);
+  };
+
+  const selectAll = () => setSelected(new Set(visible.map((r) => r.id)));
+  const invertSelection = () =>
+    setSelected(new Set(visible.filter((r) => !selected.has(r.id)).map((r) => r.id)));
+
+  const onContext = (id: number, x: number, y: number) => {
+    if (!selected.has(id)) selectSingle(id);
+    setMenu({ x, y });
+  };
+
+  const restart = (r: DownloadRow) => {
+    startDownload({
+      addonId: r.addonId,
+      id: r.id,
+      episodeUrl: r.pageUrl,
+      playerName: "",
+      outPath: r.outPath,
+    }).catch((err) =>
+      setRows((rs) =>
+        rs.map((x) => (x.id === r.id ? { ...x, status: "failed", error: String(err) } : x)),
+      ),
+    );
+    setRows((rs) =>
+      rs.map((x) =>
+        x.id === r.id
+          ? { ...x, status: "queued", progress: -1, speed: "", error: undefined, eta: undefined, _tick: undefined }
+          : x,
+      ),
+    );
+  };
+
+  const markStopped = (match: (r: DownloadRow) => boolean) =>
+    setRows((rs) =>
+      rs.map((r) => (match(r) ? { ...r, status: "stopped", speed: "", eta: undefined } : r)),
+    );
+
+  // Pause: freeze the ffmpeg process in place (resumable), don't restart.
+  const stopSelected = () => {
+    rows.filter((r) => selected.has(r.id) && isActive(r.status)).forEach((r) => pauseDownload(r.id));
+    markStopped((r) => selected.has(r.id) && isActive(r.status));
+  };
+
+  // Resume: continue in place; only fully restart if there's nothing to continue.
+  const resumeSelected = () => {
+    rows
+      .filter((r) => selected.has(r.id) && r.status === "stopped")
+      .forEach(async (r) => {
+        const continued = await resumeDownload(r.id);
+        if (continued) {
+          setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, status: "downloading" } : x)));
+        } else {
+          restart(r);
+        }
+      });
+    rows
+      .filter((r) => selected.has(r.id) && r.status === "failed")
+      .forEach(restart);
+  };
+
+  const removeSelected = () => {
+    rows.filter((r) => selected.has(r.id) && isActive(r.status)).forEach((r) => cancelDownload(r.id));
+    rows.filter((r) => selected.has(r.id) && r.status === "stopped").forEach((r) => cancelDownload(r.id));
+    setRows((rs) => rs.filter((r) => !selected.has(r.id)));
+    setSelected(new Set());
+  };
+
+  const removeCompleted = () => {
+    const removed = rows.filter((r) => r.status === "completed").length;
+    setRows((rs) => rs.filter((r) => r.status !== "completed"));
+    setMessage(`${removed} ${t("status.completed_removed")}`);
+  };
+
+  const confirmStopAll = () =>
+    setConfirm({
+      title: t("confirm.stop_all_title"),
+      message: t("confirm.stop_all_msg"),
+      confirmLabel: t("toolbar.stop_all"),
+      onConfirm: () => {
+        pauseAll();
+        markStopped((r) => isActive(r.status));
+      },
+    });
+
+  const confirmDeleteAll = () =>
+    setConfirm({
+      title: t("confirm.delete_all_title"),
+      message: t("confirm.delete_all_msg"),
+      confirmLabel: t("toolbar.delete_all"),
+      onConfirm: () => {
+        cancelAll();
+        setRows([]);
+        setGroups([]);
+        setSelected(new Set());
+      },
+    });
+
+  navRef.current = {
+    ids: visible.map((r) => r.id),
+    cursor,
+    anchor,
+    active: view === "downloads",
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        (document.querySelector(".tb-search input") as HTMLInputElement | null)?.focus();
+        return;
+      }
+      const { ids, cursor, anchor, active } = navRef.current;
+      if (!active || ids.length === 0) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        setSelected(new Set(ids));
+        return;
+      }
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const dir = e.key === "ArrowDown" ? 1 : -1;
+        const at = cursor != null ? ids.indexOf(cursor) : -1;
+        const next = at < 0 ? (dir > 0 ? 0 : ids.length - 1) : Math.min(ids.length - 1, Math.max(0, at + dir));
+        const nextId = ids[next];
+        setCursor(nextId);
+        if (e.shiftKey && anchor != null) {
+          const a = ids.indexOf(anchor);
+          const [lo, hi] = a < next ? [a, next] : [next, a];
+          setSelected(new Set(ids.slice(lo, hi + 1)));
+        } else {
+          setSelected(new Set([nextId]));
+          setAnchor(nextId);
+        }
+        requestAnimationFrame(() =>
+          document.querySelector(`[data-rowid="${nextId}"]`)?.scrollIntoView({ block: "nearest" }),
+        );
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const sel = rows.filter((r) => selected.has(r.id));
+  const canStop = sel.some((r) => isActive(r.status));
+  const canResume = sel.some((r) => r.status === "stopped" || r.status === "failed");
+  const canDelete = sel.length > 0;
+  const anyActive = rows.some((r) => isActive(r.status));
+  const anyRows = rows.length > 0;
 
   const startDrag = (e: ReactMouseEvent) => {
     e.preventDefault();
@@ -193,8 +380,17 @@ export default function App() {
         t={t}
         a={{
           onAdd: () => setShowAdd(true),
+          onResume: resumeSelected,
+          onStop: stopSelected,
+          onStopAll: confirmStopAll,
           onRemoveSelected: removeSelected,
           onRemoveCompleted: removeCompleted,
+          onDeleteAll: confirmDeleteAll,
+          canStop,
+          canResume,
+          canDelete,
+          anyActive,
+          anyRows,
           toggleSidebar: () => setSidebarOn((v) => !v),
           sidebarOn,
           toggleSearch: () => setMessage(t("toolbar.search_hint")),
@@ -217,8 +413,16 @@ export default function App() {
       <Toolbar
         t={t}
         onAdd={() => setShowAdd(true)}
+        onResume={resumeSelected}
+        onStop={stopSelected}
+        onStopAll={confirmStopAll}
         onRemoveSelected={removeSelected}
-        onRemoveCompleted={removeCompleted}
+        onDeleteAll={confirmDeleteAll}
+        canStop={canStop}
+        canResume={canResume}
+        canDelete={canDelete}
+        anyActive={anyActive}
+        anyRows={anyRows}
         onOpenAddons={() => setView(view === "addons" ? "downloads" : "addons")}
         soon={soon}
         search={search}
@@ -227,16 +431,7 @@ export default function App() {
       {view === "addons" ? (
         <div className="main">
           <div className="content scroll">
-            <AddonsScreen
-              installed={addons}
-              onChange={refreshAddons}
-              t={t}
-            />
-            <div className="addons-foot">
-              <button className="btn" onClick={() => setView("downloads")}>
-                {t("addons.back")}
-              </button>
-            </div>
+            <AddonsScreen installed={addons} onChange={refreshAddons} t={t} />
           </div>
         </div>
       ) : (
@@ -251,8 +446,8 @@ export default function App() {
                   onFilter={setFilter}
                   onToggle={toggleGroup}
                   onClose={() => setSidebarOn(false)}
-                  selectedId={selectedId}
-                  onSelectRow={setSelectedId}
+                  selected={selected}
+                  onSelectRow={selectSingle}
                   t={t}
                 />
               </div>
@@ -260,12 +455,38 @@ export default function App() {
             </>
           )}
           <div className="content">
-            <DownloadsTable rows={visible} selectedId={selectedId} onSelect={setSelectedId} t={t} />
+            <DownloadsTable
+              rows={visible}
+              selected={selected}
+              onSelect={handleSelect}
+              onContext={onContext}
+              t={t}
+            />
           </div>
         </div>
       )}
       <StatusBar rows={rows} message={message} t={t} />
 
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={
+            [
+              { key: "resume", label: t("toolbar.resume"), onClick: resumeSelected, disabled: !canResume },
+              { key: "stop", label: t("toolbar.stop"), onClick: stopSelected, disabled: !canStop },
+              { key: "del", label: t("toolbar.delete"), onClick: removeSelected, disabled: !canDelete },
+              { key: "s1", sep: true },
+              { key: "all", label: t("ctx.select_all"), onClick: selectAll, disabled: !anyRows },
+              { key: "inv", label: t("ctx.invert"), onClick: invertSelection, disabled: !anyRows },
+            ] as CtxItem[]
+          }
+        />
+      )}
+      {confirm && (
+        <ConfirmDialog confirm={confirm} onClose={() => setConfirm(null)} t={t} />
+      )}
       {showAdd && (
         <AddDialog
           addons={addons}

@@ -1,16 +1,20 @@
 mod addons;
 mod worker;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use addon_api::{Episode, Hoster, Preference, UrlInput, Video};
 use addons::{InstalledAddon, StoreEntry, StoreIndex};
 use serde::{Deserialize, Serialize};
+use tauri::async_runtime::JoinHandle;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 struct Engine {
     http: reqwest::Client,
+    tasks: Arc<Mutex<HashMap<u64, JoinHandle<()>>>>,
+    pids: Arc<Mutex<HashMap<u64, u32>>>,
 }
 
 #[derive(Clone, Serialize)]
@@ -45,7 +49,8 @@ struct AnimeResult {
 #[derive(Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 struct Settings {
-    repo_url: String,
+    #[serde(default)]
+    repos: Vec<String>,
 }
 
 fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -69,19 +74,37 @@ fn read_settings(app: &AppHandle) -> Settings {
         .unwrap_or_default()
 }
 
+fn write_settings(app: &AppHandle, settings: &Settings) -> Result<(), String> {
+    let base = data_dir(app)?;
+    std::fs::create_dir_all(&base).map_err(|e| e.to_string())?;
+    let path = settings_path(app)?;
+    std::fs::write(path, serde_json::to_vec_pretty(settings).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn get_settings(app: AppHandle) -> Settings {
     read_settings(&app)
 }
 
 #[tauri::command]
-fn set_repo_url(app: AppHandle, url: String) -> Result<(), String> {
-    let base = data_dir(&app)?;
-    std::fs::create_dir_all(&base).map_err(|e| e.to_string())?;
-    let settings = Settings { repo_url: url };
-    let path = settings_path(&app)?;
-    std::fs::write(path, serde_json::to_vec_pretty(&settings).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())
+fn add_repo(app: AppHandle, url: String) -> Result<(), String> {
+    let url = url.trim().to_string();
+    if url.is_empty() {
+        return Err("URL vide".to_string());
+    }
+    let mut settings = read_settings(&app);
+    if !settings.repos.iter().any(|r| r == &url) {
+        settings.repos.push(url);
+    }
+    write_settings(&app, &settings)
+}
+
+#[tauri::command]
+fn remove_repo(app: AppHandle, url: String) -> Result<(), String> {
+    let mut settings = read_settings(&app);
+    settings.repos.retain(|r| r != &url);
+    write_settings(&app, &settings)
 }
 
 /// Resolve a relative store asset (wasm/icon) against the index URL.
@@ -111,30 +134,36 @@ async fn fetch_index(http: &reqwest::Client, url: &str) -> Result<StoreIndex, St
 
 #[tauri::command]
 async fn store_fetch(app: AppHandle, engine: State<'_, Engine>) -> Result<Vec<StoreEntry>, String> {
-    let url = read_settings(&app).repo_url;
-    if url.is_empty() {
-        return Err("aucune URL de dépôt configurée".to_string());
-    }
+    let repos = read_settings(&app).repos;
     let dir = addons_dir(&app)?;
     let installed: Vec<String> = addons::installed(&dir).into_iter().map(|a| a.id).collect();
-    let index = fetch_index(&engine.http, &url).await?;
-    Ok(index
-        .addons
-        .into_iter()
-        .map(|mut e| {
+
+    let mut out: Vec<StoreEntry> = Vec::new();
+    for url in &repos {
+        let Ok(index) = fetch_index(&engine.http, url).await else {
+            continue;
+        };
+        for mut e in index.addons {
+            if out.iter().any(|x| x.id == e.id) {
+                continue;
+            }
             e.installed = installed.contains(&e.id);
-            e
-        })
-        .collect())
+            e.icon_url = e.icon.as_ref().map(|rel| resolve_asset(url, rel));
+            e.repo_url = url.clone();
+            out.push(e);
+        }
+    }
+    Ok(out)
 }
 
 #[tauri::command]
 async fn store_install(
     app: AppHandle,
     engine: State<'_, Engine>,
+    repo_url: String,
     id: String,
 ) -> Result<InstalledAddon, String> {
-    let url = read_settings(&app).repo_url;
+    let url = repo_url;
     let index = fetch_index(&engine.http, &url).await?;
     let entry = index
         .addons
@@ -247,6 +276,20 @@ async fn load_anime(app: AppHandle, addon_id: String, url: String) -> Result<Ani
 }
 
 #[tauri::command]
+fn addon_icon(app: AppHandle, id: String) -> Result<Option<String>, String> {
+    use base64::Engine as _;
+    let dir = addons_dir(&app)?;
+    let path = addons::icon_path(&dir, &id);
+    match std::fs::read(&path) {
+        Ok(bytes) => {
+            let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+            Ok(Some(format!("data:image/png;base64,{b64}")))
+        }
+        Err(_) => Ok(None),
+    }
+}
+
+#[tauri::command]
 async fn fetch_image(
     engine: State<'_, Engine>,
     url: String,
@@ -275,6 +318,7 @@ async fn fetch_image(
 #[tauri::command]
 async fn start_download(
     app: AppHandle,
+    engine: State<'_, Engine>,
     addon_id: String,
     id: u64,
     episode_url: String,
@@ -283,8 +327,11 @@ async fn start_download(
 ) -> Result<(), String> {
     let dir = addons_dir(&app)?;
     let out = PathBuf::from(&out_path);
+    let tasks = engine.tasks.clone();
+    let tasks_body = tasks.clone();
+    let pids_body = engine.pids.clone();
 
-    tauri::async_runtime::spawn(async move {
+    let handle = tauri::async_runtime::spawn(async move {
         emit_progress(&app, id, "resolving", None, None, None, None);
 
         let resolved = resolve_video(dir, addon_id, episode_url, player_name).await;
@@ -292,10 +339,12 @@ async fn start_download(
             Ok(Some(v)) => v,
             Ok(None) => {
                 emit_finished(&app, id, false, Some("aucune source vidéo".into()), None);
+                tasks_body.lock().unwrap().remove(&id);
                 return;
             }
             Err(e) => {
                 emit_finished(&app, id, false, Some(e), None);
+                tasks_body.lock().unwrap().remove(&id);
                 return;
             }
         };
@@ -304,12 +353,25 @@ async fn start_download(
 
         let app_cb = app.clone();
         let out_cb = out.clone();
-        let result =
-            worker::downloader::download(video.url, video.headers, out.clone(), move |p, speed| {
+        let pids = pids_body.clone();
+        let result = worker::downloader::download(
+            video.url,
+            video.headers,
+            out.clone(),
+            move |p, speed| {
                 let size = std::fs::metadata(&out_cb).ok().map(|m| m.len());
                 emit_progress(&app_cb, id, "downloading", p, speed, size, None);
-            })
-            .await;
+            },
+            move |pid| match pid {
+                Some(p) => {
+                    pids.lock().unwrap().insert(id, p);
+                }
+                None => {
+                    pids.lock().unwrap().remove(&id);
+                }
+            },
+        )
+        .await;
 
         match result {
             Ok(()) => {
@@ -319,12 +381,79 @@ async fn start_download(
             }
             Err(e) => emit_finished(&app, id, false, Some(e), None),
         }
+        tasks_body.lock().unwrap().remove(&id);
+        pids_body.lock().unwrap().remove(&id);
     });
 
+    tasks.lock().unwrap().insert(id, handle);
     Ok(())
 }
 
+/// Send a POSIX signal (STOP/CONT/KILL) to a running ffmpeg process.
+fn signal_pid(pid: u32, sig: &str) {
+    let _ = std::process::Command::new("kill")
+        .arg(format!("-{sig}"))
+        .arg(pid.to_string())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status();
+}
+
+/// Pause: suspend the ffmpeg process so the download freezes in place (resumable).
+/// If it hasn't started downloading yet (still resolving), abort the task instead.
+#[tauri::command]
+fn pause_download(engine: State<'_, Engine>, id: u64) {
+    let pid = engine.pids.lock().unwrap().get(&id).copied();
+    match pid {
+        Some(p) => signal_pid(p, "STOP"),
+        None => {
+            if let Some(h) = engine.tasks.lock().unwrap().remove(&id) {
+                h.abort();
+            }
+        }
+    }
+}
+
+#[tauri::command]
+fn pause_all(engine: State<'_, Engine>) {
+    let pids: Vec<u32> = engine.pids.lock().unwrap().values().copied().collect();
+    for p in pids {
+        signal_pid(p, "STOP");
+    }
+}
+
+/// Resume a paused download in place. Returns true if it was paused and continued,
+/// false if there is nothing to continue (caller may restart it).
+#[tauri::command]
+fn resume_download(engine: State<'_, Engine>, id: u64) -> bool {
+    let pid = engine.pids.lock().unwrap().get(&id).copied();
+    match pid {
+        Some(p) => {
+            signal_pid(p, "CONT");
+            true
+        }
+        None => false,
+    }
+}
+
+#[tauri::command]
+fn cancel_download(engine: State<'_, Engine>, id: u64) {
+    if let Some(h) = engine.tasks.lock().unwrap().remove(&id) {
+        h.abort();
+    }
+    engine.pids.lock().unwrap().remove(&id);
+}
+
+#[tauri::command]
+fn cancel_all(engine: State<'_, Engine>) {
+    for (_, h) in engine.tasks.lock().unwrap().drain() {
+        h.abort();
+    }
+    engine.pids.lock().unwrap().clear();
+}
+
 /// Resolve an episode to a downloadable video through the addon (blocking WASM calls).
+/// Tries the preferred player first, then falls back through every hoster until one yields a video.
 async fn resolve_video(
     dir: PathBuf,
     addon_id: String,
@@ -336,16 +465,29 @@ async fn resolve_video(
         let hosters: Vec<Hoster> = addon
             .call_json(addon_api::exports::HOSTER_LIST, &UrlInput { url: episode_url })
             .map_err(|e| e.to_string())?;
-        let hoster = hosters
-            .iter()
-            .find(|h| h.name.eq_ignore_ascii_case(&player_name))
-            .or_else(|| hosters.first())
-            .ok_or_else(|| "aucun lecteur sur cet épisode".to_string())?
-            .clone();
-        let videos: Vec<Video> = addon
-            .call_json(addon_api::exports::VIDEO_LIST, &hoster)
-            .map_err(|e| e.to_string())?;
-        Ok(videos.into_iter().next())
+        if hosters.is_empty() {
+            return Err("aucun lecteur sur cet épisode".to_string());
+        }
+
+        let mut order: Vec<usize> = (0..hosters.len()).collect();
+        if !player_name.is_empty() {
+            if let Some(p) = hosters.iter().position(|h| h.name.eq_ignore_ascii_case(&player_name)) {
+                order.retain(|&i| i != p);
+                order.insert(0, p);
+            }
+        }
+
+        for i in order {
+            if let Ok(videos) = addon.call_json::<_, Vec<Video>>(
+                addon_api::exports::VIDEO_LIST,
+                &hosters[i],
+            ) {
+                if let Some(v) = videos.into_iter().next() {
+                    return Ok(Some(v));
+                }
+            }
+        }
+        Ok(None)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -389,24 +531,35 @@ fn emit_finished(app: &AppHandle, id: u64, ok: bool, error: Option<String>, path
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let http = worker::net::client().expect("HTTP client init");
-    let engine = Engine { http };
+    let engine = Engine {
+        http,
+        tasks: Arc::new(Mutex::new(HashMap::new())),
+        pids: Arc::new(Mutex::new(HashMap::new())),
+    };
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(engine)
         .invoke_handler(tauri::generate_handler![
             get_settings,
-            set_repo_url,
+            add_repo,
+            remove_repo,
             store_fetch,
             store_install,
             addons_installed,
             addon_remove,
+            addon_icon,
             addon_preferences,
             addon_get_config,
             addon_set_config,
             load_anime,
             fetch_image,
-            start_download
+            start_download,
+            pause_download,
+            pause_all,
+            resume_download,
+            cancel_download,
+            cancel_all
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

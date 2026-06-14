@@ -19,15 +19,20 @@ export type FinishedEvent = {
   path: string | null;
 };
 
-// --- Settings & store ---
-export const getSettings = () => invoke<{ repoUrl: string }>("get_settings");
-export const setRepoUrl = (url: string) => invoke<void>("set_repo_url", { url });
+// --- Settings & repos ---
+export const getSettings = () => invoke<{ repos: string[] }>("get_settings");
+export const addRepo = (url: string) => invoke<void>("add_repo", { url });
+export const removeRepo = (url: string) => invoke<void>("remove_repo", { url });
+
+// --- Store ---
 export const storeFetch = () => invoke<StoreEntry[]>("store_fetch");
-export const storeInstall = (id: string) => invoke<InstalledAddon>("store_install", { id });
+export const storeInstall = (repoUrl: string, id: string) =>
+  invoke<InstalledAddon>("store_install", { repoUrl, id });
 
 // --- Installed addons ---
 export const addonsInstalled = () => invoke<InstalledAddon[]>("addons_installed");
 export const addonRemove = (id: string) => invoke<void>("addon_remove", { id });
+export const addonIcon = (id: string) => invoke<string | null>("addon_icon", { id });
 export const addonPreferences = (id: string) => invoke<Preference[]>("addon_preferences", { id });
 export const addonGetConfig = (id: string) =>
   invoke<Record<string, string>>("addon_get_config", { id });
@@ -48,6 +53,12 @@ export const startDownload = (p: {
 
 export const fetchImage = (url: string, referer?: string) =>
   invoke<string>("fetch_image", { url, referer });
+
+export const pauseDownload = (id: number) => invoke<void>("pause_download", { id });
+export const pauseAll = () => invoke<void>("pause_all");
+export const resumeDownload = (id: number) => invoke<boolean>("resume_download", { id });
+export const cancelDownload = (id: number) => invoke<void>("cancel_download", { id });
+export const cancelAll = () => invoke<void>("cancel_all");
 
 export const onProgress = (cb: (e: ProgressEvent) => void): Promise<UnlistenFn> =>
   listen<ProgressEvent>("download://progress", (e) => cb(e.payload));

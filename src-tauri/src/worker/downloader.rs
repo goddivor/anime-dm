@@ -8,18 +8,20 @@ use tokio::process::Command;
 
 use super::net::UA;
 
-pub async fn download<F>(
+pub async fn download<F, P>(
     url: String,
     headers: BTreeMap<String, String>,
     out: PathBuf,
     on_progress: F,
+    on_pid: P,
 ) -> Result<(), String>
 where
     F: Fn(Option<f32>, Option<String>) + Send,
+    P: Fn(Option<u32>) + Send,
 {
     let mut last = String::new();
     for attempt in 1..=2 {
-        match run_ffmpeg(&url, &headers, &out, &on_progress).await {
+        match run_ffmpeg(&url, &headers, &out, &on_progress, &on_pid).await {
             Ok(()) => return Ok(()),
             Err(e) => {
                 last = e;
@@ -32,14 +34,16 @@ where
     Err(last)
 }
 
-async fn run_ffmpeg<F>(
+async fn run_ffmpeg<F, P>(
     url: &str,
     headers: &BTreeMap<String, String>,
     out: &PathBuf,
     on_progress: &F,
+    on_pid: &P,
 ) -> Result<(), String>
 where
     F: Fn(Option<f32>, Option<String>),
+    P: Fn(Option<u32>),
 {
     let mut header_str = String::new();
     for (k, v) in headers {
@@ -56,6 +60,7 @@ where
         cmd.arg("-bsf:a").arg("aac_adtstoasc");
     }
     cmd.arg(out)
+        .kill_on_drop(true)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped());
@@ -63,6 +68,8 @@ where
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("ffmpeg introuvable ou non lançable : {e}"))?;
+
+    on_pid(child.id());
 
     let stderr = child.stderr.take().expect("stderr piped");
     let mut reader = BufReader::new(stderr);
@@ -110,6 +117,7 @@ where
         .wait()
         .await
         .map_err(|e| format!("attente du process ffmpeg : {e}"))?;
+    on_pid(None);
 
     if status.success() {
         Ok(())

@@ -1,5 +1,7 @@
 export type Episode = { number: number; name: string; url: string };
 
+export type Hoster = { url: string; name: string };
+
 export type Anime = {
   title: string;
   url: string;
@@ -7,7 +9,13 @@ export type Anime = {
   episodes: Episode[];
 };
 
-export type DownloadStatus = "queued" | "resolving" | "downloading" | "completed" | "failed";
+export type DownloadStatus =
+  | "queued"
+  | "resolving"
+  | "downloading"
+  | "completed"
+  | "failed"
+  | "stopped";
 
 export type Queue = "main" | "sync";
 
@@ -63,6 +71,8 @@ export type StoreEntry = {
   nsfw: boolean;
   wasm: string;
   icon?: string | null;
+  repoUrl: string;
+  iconUrl?: string | null;
   installed: boolean;
 };
 
