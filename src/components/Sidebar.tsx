@@ -76,7 +76,12 @@ export default function Sidebar({
                 >
                   {g.expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </button>
-                <Poster url={g.posterUrl} className="poster" fallback={<Film size={15} />} />
+                <Poster
+                  url={g.posterUrl}
+                  referer={g.url}
+                  className="poster"
+                  fallback={<Film size={15} />}
+                />
                 <span
                   className={`tree-label clickable ${animeSel ? "sel-text" : ""}`}
                   onClick={() => onFilter({ kind: "anime", id: g.id })}

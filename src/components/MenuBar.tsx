@@ -18,6 +18,7 @@ export type MenuActions = {
   toggleSidebar: () => void;
   sidebarOn: boolean;
   toggleSearch: () => void;
+  openAddons: () => void;
   setLang: (l: Lang) => void;
   lang: Lang;
   onAbout: () => void;
@@ -116,6 +117,8 @@ export default function MenuBar({ t, a }: { t: T; a: MenuActions }) {
       id: "view",
       title: t("menu.view.title"),
       items: [
+        { key: "addons", label: t("menu.view.addons"), onClick: a.openAddons },
+        { key: "s0", sep: true },
         { key: "cats", label: t("menu.view.categories"), check: a.sidebarOn, onClick: a.toggleSidebar },
         { key: "sort", label: t("menu.view.sort"), sub: sortKeys.map((k) => ({ key: k, label: t(k), onClick: () => a.soon(t(k)) })) },
         {

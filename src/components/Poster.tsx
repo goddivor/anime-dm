@@ -5,10 +5,12 @@ const cache = new Map<string, string>();
 
 export default function Poster({
   url,
+  referer,
   className,
   fallback,
 }: {
   url?: string | null;
+  referer?: string;
   className?: string;
   fallback: ReactNode;
 }) {
@@ -25,7 +27,8 @@ export default function Poster({
       return;
     }
     let alive = true;
-    fetchImage(url)
+    const ref = referer ? safeOrigin(referer) : undefined;
+    fetchImage(url, ref)
       .then((d) => {
         cache.set(url, d);
         if (alive) setSrc(d);
@@ -34,8 +37,16 @@ export default function Poster({
     return () => {
       alive = false;
     };
-  }, [url]);
+  }, [url, referer]);
 
   if (src) return <img className={className} src={src} alt="" />;
   return <>{fallback}</>;
+}
+
+function safeOrigin(u: string): string | undefined {
+  try {
+    return new URL(u).origin + "/";
+  } catch {
+    return undefined;
+  }
 }

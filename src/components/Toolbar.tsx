@@ -4,6 +4,7 @@ import {
   OctagonX,
   Play,
   Plus,
+  Puzzle,
   Search,
   Settings,
   Timer,
@@ -19,6 +20,7 @@ export default function Toolbar({
   onAdd,
   onRemoveSelected,
   onRemoveCompleted,
+  onOpenAddons,
   soon,
   search,
   onSearch,
@@ -27,6 +29,7 @@ export default function Toolbar({
   onAdd: () => void;
   onRemoveSelected: () => void;
   onRemoveCompleted: () => void;
+  onOpenAddons: () => void;
   soon: (l: string) => void;
   search: string;
   onSearch: (v: string) => void;
@@ -39,7 +42,8 @@ export default function Toolbar({
     { key: "del", icon: <Trash2 size={20} />, label: t("toolbar.delete"), tip: t("tooltip.delete"), onClick: onRemoveSelected },
     { key: "delall", icon: <ListX size={20} />, label: t("toolbar.delete_all"), tip: t("tooltip.delete_all"), onClick: onRemoveCompleted, sep: true },
     { key: "opts", icon: <Settings size={20} />, label: t("toolbar.options"), tip: t("tooltip.options"), onClick: () => soon(t("toolbar.options")) },
-    { key: "sched", icon: <Timer size={20} />, label: t("toolbar.scheduler"), tip: t("tooltip.scheduler"), onClick: () => soon(t("toolbar.scheduler")) },
+    { key: "sched", icon: <Timer size={20} />, label: t("toolbar.scheduler"), tip: t("tooltip.scheduler"), onClick: () => soon(t("toolbar.scheduler")), sep: true },
+    { key: "addons", icon: <Puzzle size={20} />, label: t("toolbar.addons"), tip: t("tooltip.addons"), onClick: onOpenAddons },
   ];
 
   return (
