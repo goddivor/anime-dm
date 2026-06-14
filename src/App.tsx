@@ -13,6 +13,11 @@ import {
   resumeDownload,
   cancelDownload,
   cancelAll,
+  stateLoad,
+  downloadSave,
+  downloadsDelete,
+  downloadsClear,
+  groupSave,
   type FinishedEvent,
   type ProgressEvent,
 } from "./api";
@@ -98,6 +103,28 @@ export default function App() {
   });
 
   const refreshAddons = () => addonsInstalled().then(setAddons).catch(() => {});
+  const persistRow = (r: DownloadRow) => downloadSave(r).catch(() => {});
+  const persistGroup = (g: AnimeGroup) => groupSave(g).catch(() => {});
+
+  // Load persisted state once on startup.
+  useEffect(() => {
+    stateLoad()
+      .then(({ downloads, groups: g }) => {
+        const terminal = (s: DownloadRow["status"]) =>
+          s === "completed" || s === "failed" || s === "stopped";
+        const loaded: DownloadRow[] = downloads.map((d) => ({
+          ...d,
+          status: terminal(d.status) ? d.status : "stopped",
+          progress: d.status === "completed" ? 1 : -1,
+          speed: "",
+        }));
+        setRows(loaded);
+        setGroups(g);
+        nextId.current = loaded.reduce((m, r) => Math.max(m, r.id), 0) + 1;
+        nextGroupId.current = g.reduce((m, x) => Math.max(m, x.id), 0) + 1;
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     refreshAddons();
@@ -105,7 +132,14 @@ export default function App() {
       setRows((rs) => rs.map((r) => (r.id === e.id ? applyProgress(r, e) : r))),
     );
     const fs = onFinished((e) =>
-      setRows((rs) => rs.map((r) => (r.id === e.id ? applyFinished(r, e) : r))),
+      setRows((rs) =>
+        rs.map((r) => {
+          if (r.id !== e.id) return r;
+          const nr = applyFinished(r, e);
+          persistRow(nr);
+          return nr;
+        }),
+      ),
     );
     return () => {
       ps.then((u) => u());
@@ -130,10 +164,15 @@ export default function App() {
       animeId = existing.id;
     } else {
       animeId = nextGroupId.current++;
-      setGroups((gs) => [
-        ...gs,
-        { id: animeId, title: anime.title, url: anime.url, posterUrl: anime.posterUrl, expanded: true },
-      ]);
+      const group: AnimeGroup = {
+        id: animeId,
+        title: anime.title,
+        url: anime.url,
+        posterUrl: anime.posterUrl,
+        expanded: true,
+      };
+      setGroups((gs) => [...gs, group]);
+      persistGroup(group);
     }
     for (const n of numbers) {
       const ep = anime.episodes.find((e) => Math.round(e.number) === n);
@@ -141,24 +180,23 @@ export default function App() {
       const id = nextId.current++;
       const filename = sanitize(`${anime.title} - Ep ${pad(n)}.mp4`);
       const outPath = await defaultOutPath(filename);
-      setRows((rs) => [
-        ...rs,
-        {
-          id,
-          addonId,
-          animeId,
-          animeTitle: anime.title,
-          episodeNumber: ep.number,
-          filename,
-          pageUrl: ep.url,
-          queue: "main",
-          status: "queued",
-          progress: -1,
-          speed: "",
-          addedAt: Date.now(),
-          outPath,
-        },
-      ]);
+      const row: DownloadRow = {
+        id,
+        addonId,
+        animeId,
+        animeTitle: anime.title,
+        episodeNumber: ep.number,
+        filename,
+        pageUrl: ep.url,
+        queue: "main",
+        status: "queued",
+        progress: -1,
+        speed: "",
+        addedAt: Date.now(),
+        outPath,
+      };
+      setRows((rs) => [...rs, row]);
+      persistRow(row);
       startDownload({ addonId, id, episodeUrl: ep.url, playerName: "", outPath }).catch((err) =>
         setRows((rs) =>
           rs.map((r) => (r.id === id ? { ...r, status: "failed", error: String(err) } : r)),
@@ -168,7 +206,14 @@ export default function App() {
   };
 
   const toggleGroup = (id: number) =>
-    setGroups((gs) => gs.map((g) => (g.id === id ? { ...g, expanded: !g.expanded } : g)));
+    setGroups((gs) =>
+      gs.map((g) => {
+        if (g.id !== id) return g;
+        const ng = { ...g, expanded: !g.expanded };
+        persistGroup(ng);
+        return ng;
+      }),
+    );
 
   const q = search.toLowerCase();
   const visible = rows.filter((d) => {
@@ -232,17 +277,31 @@ export default function App() {
       ),
     );
     setRows((rs) =>
-      rs.map((x) =>
-        x.id === r.id
-          ? { ...x, status: "queued", progress: -1, speed: "", error: undefined, eta: undefined, _tick: undefined }
-          : x,
-      ),
+      rs.map((x) => {
+        if (x.id !== r.id) return x;
+        const nr: DownloadRow = {
+          ...x,
+          status: "queued",
+          progress: -1,
+          speed: "",
+          error: undefined,
+          eta: undefined,
+          _tick: undefined,
+        };
+        persistRow(nr);
+        return nr;
+      }),
     );
   };
 
   const markStopped = (match: (r: DownloadRow) => boolean) =>
     setRows((rs) =>
-      rs.map((r) => (match(r) ? { ...r, status: "stopped", speed: "", eta: undefined } : r)),
+      rs.map((r) => {
+        if (!match(r)) return r;
+        const nr: DownloadRow = { ...r, status: "stopped", speed: "", eta: undefined };
+        persistRow(nr);
+        return nr;
+      }),
     );
 
   // Pause: freeze the ffmpeg process in place (resumable), don't restart.
@@ -258,7 +317,14 @@ export default function App() {
       .forEach(async (r) => {
         const continued = await resumeDownload(r.id);
         if (continued) {
-          setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, status: "downloading" } : x)));
+          setRows((rs) =>
+            rs.map((x) => {
+              if (x.id !== r.id) return x;
+              const nr: DownloadRow = { ...x, status: "downloading" };
+              persistRow(nr);
+              return nr;
+            }),
+          );
         } else {
           restart(r);
         }
@@ -269,16 +335,20 @@ export default function App() {
   };
 
   const removeSelected = () => {
-    rows.filter((r) => selected.has(r.id) && isActive(r.status)).forEach((r) => cancelDownload(r.id));
-    rows.filter((r) => selected.has(r.id) && r.status === "stopped").forEach((r) => cancelDownload(r.id));
+    const ids = rows.filter((r) => selected.has(r.id)).map((r) => r.id);
+    rows
+      .filter((r) => selected.has(r.id) && (isActive(r.status) || r.status === "stopped"))
+      .forEach((r) => cancelDownload(r.id));
     setRows((rs) => rs.filter((r) => !selected.has(r.id)));
     setSelected(new Set());
+    if (ids.length) downloadsDelete(ids).catch(() => {});
   };
 
   const removeCompleted = () => {
-    const removed = rows.filter((r) => r.status === "completed").length;
+    const done = rows.filter((r) => r.status === "completed").map((r) => r.id);
     setRows((rs) => rs.filter((r) => r.status !== "completed"));
-    setMessage(`${removed} ${t("status.completed_removed")}`);
+    if (done.length) downloadsDelete(done).catch(() => {});
+    setMessage(`${done.length} ${t("status.completed_removed")}`);
   };
 
   const confirmStopAll = () =>
@@ -302,6 +372,7 @@ export default function App() {
         setRows([]);
         setGroups([]);
         setSelected(new Set());
+        downloadsClear().catch(() => {});
       },
     });
 

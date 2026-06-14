@@ -49,6 +49,25 @@ export type AnimeGroup = {
   expanded: boolean;
 };
 
+/// Persisted subset of a DownloadRow (what SQLite stores).
+export type DownloadRecord = {
+  id: number;
+  addonId: string;
+  animeId: number;
+  animeTitle: string;
+  episodeNumber: number;
+  filename: string;
+  pageUrl: string;
+  queue: Queue;
+  status: DownloadStatus;
+  sizeBytes?: number;
+  addedAt: number;
+  lastTry?: number;
+  outPath: string;
+  address?: string;
+  error?: string;
+};
+
 export type Filter =
   | { kind: "all" }
   | { kind: "anime"; id: number }
