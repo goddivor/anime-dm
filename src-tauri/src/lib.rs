@@ -48,7 +48,8 @@ struct AnimeResult {
 #[derive(Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 struct Settings {
-    repo_url: String,
+    #[serde(default)]
+    repos: Vec<String>,
 }
 
 fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -72,19 +73,37 @@ fn read_settings(app: &AppHandle) -> Settings {
         .unwrap_or_default()
 }
 
+fn write_settings(app: &AppHandle, settings: &Settings) -> Result<(), String> {
+    let base = data_dir(app)?;
+    std::fs::create_dir_all(&base).map_err(|e| e.to_string())?;
+    let path = settings_path(app)?;
+    std::fs::write(path, serde_json::to_vec_pretty(settings).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn get_settings(app: AppHandle) -> Settings {
     read_settings(&app)
 }
 
 #[tauri::command]
-fn set_repo_url(app: AppHandle, url: String) -> Result<(), String> {
-    let base = data_dir(&app)?;
-    std::fs::create_dir_all(&base).map_err(|e| e.to_string())?;
-    let settings = Settings { repo_url: url };
-    let path = settings_path(&app)?;
-    std::fs::write(path, serde_json::to_vec_pretty(&settings).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())
+fn add_repo(app: AppHandle, url: String) -> Result<(), String> {
+    let url = url.trim().to_string();
+    if url.is_empty() {
+        return Err("URL vide".to_string());
+    }
+    let mut settings = read_settings(&app);
+    if !settings.repos.iter().any(|r| r == &url) {
+        settings.repos.push(url);
+    }
+    write_settings(&app, &settings)
+}
+
+#[tauri::command]
+fn remove_repo(app: AppHandle, url: String) -> Result<(), String> {
+    let mut settings = read_settings(&app);
+    settings.repos.retain(|r| r != &url);
+    write_settings(&app, &settings)
 }
 
 /// Resolve a relative store asset (wasm/icon) against the index URL.
@@ -114,30 +133,36 @@ async fn fetch_index(http: &reqwest::Client, url: &str) -> Result<StoreIndex, St
 
 #[tauri::command]
 async fn store_fetch(app: AppHandle, engine: State<'_, Engine>) -> Result<Vec<StoreEntry>, String> {
-    let url = read_settings(&app).repo_url;
-    if url.is_empty() {
-        return Err("aucune URL de dépôt configurée".to_string());
-    }
+    let repos = read_settings(&app).repos;
     let dir = addons_dir(&app)?;
     let installed: Vec<String> = addons::installed(&dir).into_iter().map(|a| a.id).collect();
-    let index = fetch_index(&engine.http, &url).await?;
-    Ok(index
-        .addons
-        .into_iter()
-        .map(|mut e| {
+
+    let mut out: Vec<StoreEntry> = Vec::new();
+    for url in &repos {
+        let Ok(index) = fetch_index(&engine.http, url).await else {
+            continue;
+        };
+        for mut e in index.addons {
+            if out.iter().any(|x| x.id == e.id) {
+                continue;
+            }
             e.installed = installed.contains(&e.id);
-            e
-        })
-        .collect())
+            e.icon_url = e.icon.as_ref().map(|rel| resolve_asset(url, rel));
+            e.repo_url = url.clone();
+            out.push(e);
+        }
+    }
+    Ok(out)
 }
 
 #[tauri::command]
 async fn store_install(
     app: AppHandle,
     engine: State<'_, Engine>,
+    repo_url: String,
     id: String,
 ) -> Result<InstalledAddon, String> {
-    let url = read_settings(&app).repo_url;
+    let url = repo_url;
     let index = fetch_index(&engine.http, &url).await?;
     let entry = index
         .addons
@@ -250,23 +275,17 @@ async fn load_anime(app: AppHandle, addon_id: String, url: String) -> Result<Ani
 }
 
 #[tauri::command]
-async fn addon_hosters(
-    app: AppHandle,
-    addon_id: String,
-    episode_url: String,
-) -> Result<Vec<Hoster>, String> {
+fn addon_icon(app: AppHandle, id: String) -> Result<Option<String>, String> {
+    use base64::Engine as _;
     let dir = addons_dir(&app)?;
-    tauri::async_runtime::spawn_blocking(move || {
-        let mut addon = addons::open(&dir, &addon_id).map_err(|e| e.to_string())?;
-        addon
-            .call_json::<_, Vec<Hoster>>(
-                addon_api::exports::HOSTER_LIST,
-                &UrlInput { url: episode_url },
-            )
-            .map_err(|e| e.to_string())
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    let path = addons::icon_path(&dir, &id);
+    match std::fs::read(&path) {
+        Ok(bytes) => {
+            let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+            Ok(Some(format!("data:image/png;base64,{b64}")))
+        }
+        Err(_) => Ok(None),
+    }
 }
 
 #[tauri::command]
@@ -458,16 +477,17 @@ pub fn run() {
         .manage(engine)
         .invoke_handler(tauri::generate_handler![
             get_settings,
-            set_repo_url,
+            add_repo,
+            remove_repo,
             store_fetch,
             store_install,
             addons_installed,
             addon_remove,
+            addon_icon,
             addon_preferences,
             addon_get_config,
             addon_set_config,
             load_anime,
-            addon_hosters,
             fetch_image,
             start_download,
             stop_download,

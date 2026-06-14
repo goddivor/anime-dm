@@ -316,10 +316,82 @@ select option {
 .row.end {
   justify-content: flex-end;
 }
-.addons-foot {
-  max-width: 720px;
-  margin: 0 auto 24px;
-  padding: 0 20px;
+.addons-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.addons-header h2 {
+  margin: 0;
+}
+.ext-config-head,
+.repos-view .ext-config-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.ext-config-head h3 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text);
+}
+.ext-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ext-empty {
+  padding: 40px 0;
+  text-align: center;
+}
+.ext-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+.ext-icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+.ext-icon img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+.ext-meta {
+  flex: 1;
+  min-width: 0;
+}
+.ext-name {
+  font-weight: 600;
+}
+.ext-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.repo-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.ext-config {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 /* ---------- Sidebar ---------- */

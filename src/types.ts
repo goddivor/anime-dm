@@ -71,6 +71,8 @@ export type StoreEntry = {
   nsfw: boolean;
   wasm: string;
   icon?: string | null;
+  repoUrl: string;
+  iconUrl?: string | null;
   installed: boolean;
 };
 

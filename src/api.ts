@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { downloadDir, join } from "@tauri-apps/api/path";
-import type { Anime, Hoster, InstalledAddon, Preference, StoreEntry } from "./types";
+import type { Anime, InstalledAddon, Preference, StoreEntry } from "./types";
 
 export type ProgressEvent = {
   id: number;
@@ -19,15 +19,20 @@ export type FinishedEvent = {
   path: string | null;
 };
 
-// --- Settings & store ---
-export const getSettings = () => invoke<{ repoUrl: string }>("get_settings");
-export const setRepoUrl = (url: string) => invoke<void>("set_repo_url", { url });
+// --- Settings & repos ---
+export const getSettings = () => invoke<{ repos: string[] }>("get_settings");
+export const addRepo = (url: string) => invoke<void>("add_repo", { url });
+export const removeRepo = (url: string) => invoke<void>("remove_repo", { url });
+
+// --- Store ---
 export const storeFetch = () => invoke<StoreEntry[]>("store_fetch");
-export const storeInstall = (id: string) => invoke<InstalledAddon>("store_install", { id });
+export const storeInstall = (repoUrl: string, id: string) =>
+  invoke<InstalledAddon>("store_install", { repoUrl, id });
 
 // --- Installed addons ---
 export const addonsInstalled = () => invoke<InstalledAddon[]>("addons_installed");
 export const addonRemove = (id: string) => invoke<void>("addon_remove", { id });
+export const addonIcon = (id: string) => invoke<string | null>("addon_icon", { id });
 export const addonPreferences = (id: string) => invoke<Preference[]>("addon_preferences", { id });
 export const addonGetConfig = (id: string) =>
   invoke<Record<string, string>>("addon_get_config", { id });
@@ -37,9 +42,6 @@ export const addonSetConfig = (id: string, config: Record<string, string>) =>
 // --- Source operations (through an addon) ---
 export const loadAnime = (addonId: string, url: string) =>
   invoke<Anime>("load_anime", { addonId, url });
-
-export const addonHosters = (addonId: string, episodeUrl: string) =>
-  invoke<Hoster[]>("addon_hosters", { addonId, episodeUrl });
 
 export const startDownload = (p: {
   addonId: string;
