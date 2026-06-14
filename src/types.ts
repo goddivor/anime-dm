@@ -13,6 +13,7 @@ export type Queue = "main" | "sync";
 
 export type DownloadRow = {
   id: number;
+  addonId: string;
   animeId: number;
   animeTitle: string;
   episodeNumber: number;
@@ -44,3 +45,34 @@ export type Filter =
   | { kind: "all" }
   | { kind: "anime"; id: number }
   | { kind: "queue"; queue: Queue };
+
+export type InstalledAddon = {
+  id: string;
+  name: string;
+  lang: string;
+  version: string;
+  nsfw: boolean;
+  iconPath?: string | null;
+};
+
+export type StoreEntry = {
+  id: string;
+  name: string;
+  lang: string;
+  version: string;
+  nsfw: boolean;
+  wasm: string;
+  icon?: string | null;
+  installed: boolean;
+};
+
+export type PreferenceKind = "text" | "select" | "bool";
+
+export type Preference = {
+  key: string;
+  title: string;
+  summary?: string | null;
+  default: string;
+  type: PreferenceKind;
+  options: string[];
+};

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import "./App.css";
 import { translator, type Lang } from "./i18n";
-import type { Anime, AnimeGroup, DownloadRow, Filter } from "./types";
+import type { Anime, AnimeGroup, DownloadRow, Filter, InstalledAddon } from "./types";
 import {
+  addonsInstalled,
   defaultOutPath,
   onFinished,
   onProgress,
@@ -16,6 +17,7 @@ import Sidebar from "./components/Sidebar";
 import DownloadsTable from "./components/DownloadsTable";
 import StatusBar from "./components/StatusBar";
 import AddDialog from "./components/AddDialog";
+import AddonsScreen from "./components/AddonsScreen";
 
 const pad = (n: number) => String(n).padStart(3, "0");
 const sanitize = (s: string) => s.replace(/[/\\:*?"<>|]/g, "_");
@@ -61,6 +63,8 @@ export default function App() {
 
   const [rows, setRows] = useState<DownloadRow[]>([]);
   const [groups, setGroups] = useState<AnimeGroup[]>([]);
+  const [addons, setAddons] = useState<InstalledAddon[]>([]);
+  const [view, setView] = useState<"downloads" | "addons">("downloads");
   const [filter, setFilter] = useState<Filter>({ kind: "all" });
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [sidebarOn, setSidebarOn] = useState(true);
@@ -73,7 +77,10 @@ export default function App() {
   const nextId = useRef(1);
   const nextGroupId = useRef(1);
 
+  const refreshAddons = () => addonsInstalled().then(setAddons).catch(() => {});
+
   useEffect(() => {
+    refreshAddons();
     const ps = onProgress((e) =>
       setRows((rs) => rs.map((r) => (r.id === e.id ? applyProgress(r, e) : r))),
     );
@@ -95,7 +102,7 @@ export default function App() {
 
   const soon = (label: string) => setMessage(`« ${label} » — ${t("status.coming_soon")}`);
 
-  const onLaunch = async (anime: Anime, numbers: number[], player: string) => {
+  const onLaunch = async (addonId: string, anime: Anime, numbers: number[]) => {
     setShowAdd(false);
     const existing = groups.find((g) => g.url === anime.url);
     let animeId: number;
@@ -118,6 +125,7 @@ export default function App() {
         ...rs,
         {
           id,
+          addonId,
           animeId,
           animeTitle: anime.title,
           episodeNumber: ep.number,
@@ -131,7 +139,7 @@ export default function App() {
           outPath,
         },
       ]);
-      startDownload({ id, episodeUrl: ep.url, playerName: player, outPath }).catch((err) =>
+      startDownload({ addonId, id, episodeUrl: ep.url, playerName: "", outPath }).catch((err) =>
         setRows((rs) =>
           rs.map((r) => (r.id === id ? { ...r, status: "failed", error: String(err) } : r)),
         ),
@@ -190,6 +198,7 @@ export default function App() {
           toggleSidebar: () => setSidebarOn((v) => !v),
           sidebarOn,
           toggleSearch: () => setMessage(t("toolbar.search_hint")),
+          openAddons: () => setView("addons"),
           setLang,
           lang,
           onAbout: () =>
@@ -210,36 +219,65 @@ export default function App() {
         onAdd={() => setShowAdd(true)}
         onRemoveSelected={removeSelected}
         onRemoveCompleted={removeCompleted}
+        onOpenAddons={() => setView(view === "addons" ? "downloads" : "addons")}
         soon={soon}
         search={search}
         onSearch={setSearch}
       />
-      <div className="main">
-        {sidebarOn && (
-          <>
-            <div className="sidebar-wrap" style={{ width: sidebarW }}>
-              <Sidebar
-                groups={groups}
-                rows={rows}
-                filter={filter}
-                onFilter={setFilter}
-                onToggle={toggleGroup}
-                onClose={() => setSidebarOn(false)}
-                selectedId={selectedId}
-                onSelectRow={setSelectedId}
-                t={t}
-              />
+      {view === "addons" ? (
+        <div className="main">
+          <div className="content scroll">
+            <AddonsScreen
+              installed={addons}
+              onChange={refreshAddons}
+              t={t}
+            />
+            <div className="addons-foot">
+              <button className="btn" onClick={() => setView("downloads")}>
+                {t("addons.back")}
+              </button>
             </div>
-            <div className="splitter" onMouseDown={startDrag} />
-          </>
-        )}
-        <div className="content">
-          <DownloadsTable rows={visible} selectedId={selectedId} onSelect={setSelectedId} t={t} />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="main">
+          {sidebarOn && (
+            <>
+              <div className="sidebar-wrap" style={{ width: sidebarW }}>
+                <Sidebar
+                  groups={groups}
+                  rows={rows}
+                  filter={filter}
+                  onFilter={setFilter}
+                  onToggle={toggleGroup}
+                  onClose={() => setSidebarOn(false)}
+                  selectedId={selectedId}
+                  onSelectRow={setSelectedId}
+                  t={t}
+                />
+              </div>
+              <div className="splitter" onMouseDown={startDrag} />
+            </>
+          )}
+          <div className="content">
+            <DownloadsTable rows={visible} selectedId={selectedId} onSelect={setSelectedId} t={t} />
+          </div>
+        </div>
+      )}
       <StatusBar rows={rows} message={message} t={t} />
 
-      {showAdd && <AddDialog onClose={() => setShowAdd(false)} onLaunch={onLaunch} t={t} />}
+      {showAdd && (
+        <AddDialog
+          addons={addons}
+          onClose={() => setShowAdd(false)}
+          onLaunch={onLaunch}
+          onOpenAddons={() => {
+            setShowAdd(false);
+            setView("addons");
+          }}
+          t={t}
+        />
+      )}
       {info && (
         <div className="modal-backdrop" onMouseDown={() => setInfo(null)}>
           <div className="modal sm" onMouseDown={(e) => e.stopPropagation()}>

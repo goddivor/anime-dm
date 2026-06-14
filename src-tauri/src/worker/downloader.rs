@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::Stdio;
 
@@ -6,15 +7,19 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 use super::net::UA;
-use crate::model::VideoSource;
 
-pub async fn download<F>(source: VideoSource, out: PathBuf, on_progress: F) -> Result<(), String>
+pub async fn download<F>(
+    url: String,
+    headers: BTreeMap<String, String>,
+    out: PathBuf,
+    on_progress: F,
+) -> Result<(), String>
 where
     F: Fn(Option<f32>, Option<String>) + Send,
 {
     let mut last = String::new();
     for attempt in 1..=2 {
-        match run_ffmpeg(&source, &out, &on_progress).await {
+        match run_ffmpeg(&url, &headers, &out, &on_progress).await {
             Ok(()) => return Ok(()),
             Err(e) => {
                 last = e;
@@ -27,28 +32,27 @@ where
     Err(last)
 }
 
-async fn run_ffmpeg<F>(source: &VideoSource, out: &PathBuf, on_progress: &F) -> Result<(), String>
+async fn run_ffmpeg<F>(
+    url: &str,
+    headers: &BTreeMap<String, String>,
+    out: &PathBuf,
+    on_progress: &F,
+) -> Result<(), String>
 where
     F: Fn(Option<f32>, Option<String>),
 {
-    let mut headers = String::new();
-    if let Some(r) = &source.referer {
-        headers.push_str(&format!("Referer: {r}\r\n"));
-    }
-    if let Some(o) = &source.origin {
-        headers.push_str(&format!("Origin: {o}\r\n"));
-    }
-    if let Some(c) = &source.cookie {
-        headers.push_str(&format!("Cookie: {c}\r\n"));
+    let mut header_str = String::new();
+    for (k, v) in headers {
+        header_str.push_str(&format!("{k}: {v}\r\n"));
     }
 
     let mut cmd = Command::new("ffmpeg");
     cmd.arg("-y").arg("-hide_banner").arg("-user_agent").arg(UA);
-    if !headers.is_empty() {
-        cmd.arg("-headers").arg(&headers);
+    if !header_str.is_empty() {
+        cmd.arg("-headers").arg(&header_str);
     }
-    cmd.arg("-i").arg(&source.url).arg("-c").arg("copy");
-    if source.url.contains(".m3u8") {
+    cmd.arg("-i").arg(url).arg("-c").arg("copy");
+    if url.contains(".m3u8") {
         cmd.arg("-bsf:a").arg("aac_adtstoasc");
     }
     cmd.arg(out)
