@@ -177,6 +177,17 @@ select option {
   margin: 4px 2px;
 }
 
+/* ---------- Context menu ---------- */
+.ctx-menu {
+  position: fixed;
+  z-index: 200;
+  min-width: 190px;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  padding: 4px;
+}
+
 /* ---------- Toolbar ---------- */
 .toolbar {
   display: flex;

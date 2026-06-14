@@ -67,6 +67,8 @@
   "menu.download.delete_all": "Delete all",
   "menu.download.stop_all": "Stop all",
   "confirm.cancel": "Cancel",
+  "ctx.invert": "Invert selection",
+  "ctx.select_all": "Select all",
   "confirm.delete_all_msg": "Remove all downloads from the list? Active downloads will be stopped.",
   "confirm.delete_all_title": "Delete all",
   "confirm.stop_all_msg": "Stop all active downloads?",

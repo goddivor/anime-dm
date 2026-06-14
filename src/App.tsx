@@ -24,6 +24,7 @@ import StatusBar from "./components/StatusBar";
 import AddDialog from "./components/AddDialog";
 import AddonsScreen from "./components/AddonsScreen";
 import ConfirmDialog, { type Confirm } from "./components/ConfirmDialog";
+import ContextMenu, { type CtxItem } from "./components/ContextMenu";
 
 const isActive = (s: DownloadRow["status"]) =>
   s === "downloading" || s === "resolving" || s === "queued";
@@ -77,6 +78,8 @@ export default function App() {
   const [filter, setFilter] = useState<Filter>({ kind: "all" });
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [anchor, setAnchor] = useState<number | null>(null);
+  const [cursor, setCursor] = useState<number | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [sidebarOn, setSidebarOn] = useState(true);
   const [sidebarW, setSidebarW] = useState(230);
   const [search, setSearch] = useState("");
@@ -87,6 +90,12 @@ export default function App() {
 
   const nextId = useRef(1);
   const nextGroupId = useRef(1);
+  const navRef = useRef<{ ids: number[]; cursor: number | null; anchor: number | null; active: boolean }>({
+    ids: [],
+    cursor: null,
+    anchor: null,
+    active: false,
+  });
 
   const refreshAddons = () => addonsInstalled().then(setAddons).catch(() => {});
 
@@ -175,6 +184,7 @@ export default function App() {
   const selectSingle = (id: number) => {
     setSelected(new Set([id]));
     setAnchor(id);
+    setCursor(id);
   };
 
   const handleSelect = (id: number, ctrl: boolean, shift: boolean) => {
@@ -185,6 +195,7 @@ export default function App() {
       if (a >= 0 && b >= 0) {
         const [lo, hi] = a < b ? [a, b] : [b, a];
         setSelected(new Set(ids.slice(lo, hi + 1)));
+        setCursor(id);
         return;
       }
     }
@@ -193,9 +204,19 @@ export default function App() {
       s.has(id) ? s.delete(id) : s.add(id);
       setSelected(s);
       setAnchor(id);
+      setCursor(id);
       return;
     }
     selectSingle(id);
+  };
+
+  const selectAll = () => setSelected(new Set(visible.map((r) => r.id)));
+  const invertSelection = () =>
+    setSelected(new Set(visible.filter((r) => !selected.has(r.id)).map((r) => r.id)));
+
+  const onContext = (id: number, x: number, y: number) => {
+    if (!selected.has(id)) selectSingle(id);
+    setMenu({ x, y });
   };
 
   const restart = (r: DownloadRow) => {
@@ -283,6 +304,54 @@ export default function App() {
         setSelected(new Set());
       },
     });
+
+  navRef.current = {
+    ids: visible.map((r) => r.id),
+    cursor,
+    anchor,
+    active: view === "downloads",
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        (document.querySelector(".tb-search input") as HTMLInputElement | null)?.focus();
+        return;
+      }
+      const { ids, cursor, anchor, active } = navRef.current;
+      if (!active || ids.length === 0) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        setSelected(new Set(ids));
+        return;
+      }
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const dir = e.key === "ArrowDown" ? 1 : -1;
+        const at = cursor != null ? ids.indexOf(cursor) : -1;
+        const next = at < 0 ? (dir > 0 ? 0 : ids.length - 1) : Math.min(ids.length - 1, Math.max(0, at + dir));
+        const nextId = ids[next];
+        setCursor(nextId);
+        if (e.shiftKey && anchor != null) {
+          const a = ids.indexOf(anchor);
+          const [lo, hi] = a < next ? [a, next] : [next, a];
+          setSelected(new Set(ids.slice(lo, hi + 1)));
+        } else {
+          setSelected(new Set([nextId]));
+          setAnchor(nextId);
+        }
+        requestAnimationFrame(() =>
+          document.querySelector(`[data-rowid="${nextId}"]`)?.scrollIntoView({ block: "nearest" }),
+        );
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const sel = rows.filter((r) => selected.has(r.id));
   const canStop = sel.some((r) => isActive(r.status));
@@ -386,12 +455,35 @@ export default function App() {
             </>
           )}
           <div className="content">
-            <DownloadsTable rows={visible} selected={selected} onSelect={handleSelect} t={t} />
+            <DownloadsTable
+              rows={visible}
+              selected={selected}
+              onSelect={handleSelect}
+              onContext={onContext}
+              t={t}
+            />
           </div>
         </div>
       )}
       <StatusBar rows={rows} message={message} t={t} />
 
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={
+            [
+              { key: "resume", label: t("toolbar.resume"), onClick: resumeSelected, disabled: !canResume },
+              { key: "stop", label: t("toolbar.stop"), onClick: stopSelected, disabled: !canStop },
+              { key: "del", label: t("toolbar.delete"), onClick: removeSelected, disabled: !canDelete },
+              { key: "s1", sep: true },
+              { key: "all", label: t("ctx.select_all"), onClick: selectAll, disabled: !anyRows },
+              { key: "inv", label: t("ctx.invert"), onClick: invertSelection, disabled: !anyRows },
+            ] as CtxItem[]
+          }
+        />
+      )}
       {confirm && (
         <ConfirmDialog confirm={confirm} onClose={() => setConfirm(null)} t={t} />
       )}

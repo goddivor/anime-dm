@@ -67,6 +67,8 @@
   "menu.download.delete_all": "Tout supprimer",
   "menu.download.stop_all": "Tout arrêter",
   "confirm.cancel": "Annuler",
+  "ctx.invert": "Inverser la sélection",
+  "ctx.select_all": "Tout sélectionner",
   "confirm.delete_all_msg": "Supprimer tous les téléchargements de la liste ? Les téléchargements en cours seront arrêtés.",
   "confirm.delete_all_title": "Tout supprimer",
   "confirm.stop_all_msg": "Arrêter tous les téléchargements en cours ?",

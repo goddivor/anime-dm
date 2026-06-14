@@ -52,11 +52,13 @@ export default function DownloadsTable({
   rows,
   selected,
   onSelect,
+  onContext,
   t,
 }: {
   rows: DownloadRow[];
   selected: Set<number>;
   onSelect: (id: number, ctrl: boolean, shift: boolean) => void;
+  onContext: (id: number, x: number, y: number) => void;
   t: T;
 }) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -195,8 +197,13 @@ export default function DownloadsTable({
           {table.getRowModel().rows.map((row) => (
             <tr
               key={row.id}
+              data-rowid={row.original.id}
               className={selected.has(row.original.id) ? "sel" : ""}
               onClick={(e) => onSelect(row.original.id, e.ctrlKey || e.metaKey, e.shiftKey)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                onContext(row.original.id, e.clientX, e.clientY);
+              }}
             >
               {row.getVisibleCells().map((cell) => (
                 <td key={cell.id} style={{ width: cell.column.getSize() }}>
