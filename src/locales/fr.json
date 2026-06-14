@@ -30,6 +30,7 @@
   "dialog.add.fetching": "Récupération des épisodes…",
   "dialog.add.folder_label": "Dossier :",
   "dialog.add.link_label": "Lien de l'animé :",
+  "dialog.add.player_auto": "Auto (premier lecteur qui marche)",
   "dialog.add.player_label": "Lecteur :",
   "dialog.add.title": "Ajouter un téléchargement",
   "dialog.help.step1": "1. Menu Tâches › Ajouter, colle un lien d'animé.",

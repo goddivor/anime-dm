@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { downloadDir, join } from "@tauri-apps/api/path";
-import type { Anime, InstalledAddon, Preference, StoreEntry } from "./types";
+import type { Anime, Hoster, InstalledAddon, Preference, StoreEntry } from "./types";
 
 export type ProgressEvent = {
   id: number;
@@ -37,6 +37,9 @@ export const addonSetConfig = (id: string, config: Record<string, string>) =>
 // --- Source operations (through an addon) ---
 export const loadAnime = (addonId: string, url: string) =>
   invoke<Anime>("load_anime", { addonId, url });
+
+export const addonHosters = (addonId: string, episodeUrl: string) =>
+  invoke<Hoster[]>("addon_hosters", { addonId, episodeUrl });
 
 export const startDownload = (p: {
   addonId: string;

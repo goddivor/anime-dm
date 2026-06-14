@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Download, Loader2 } from "lucide-react";
 import type { Anime, InstalledAddon } from "../types";
 import type { T } from "../i18n";
-import { loadAnime } from "../api";
+import { addonHosters, loadAnime } from "../api";
 import { parseSelection } from "../format";
 import Poster from "./Poster";
 
@@ -15,7 +15,7 @@ export default function AddDialog({
 }: {
   addons: InstalledAddon[];
   onClose: () => void;
-  onLaunch: (addonId: string, anime: Anime, numbers: number[]) => void;
+  onLaunch: (addonId: string, anime: Anime, numbers: number[], player: string) => void;
   onOpenAddons: () => void;
   t: T;
 }) {
@@ -25,6 +25,8 @@ export default function AddDialog({
   const [anime, setAnime] = useState<Anime | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selection, setSelection] = useState("");
+  const [players, setPlayers] = useState<string[]>([]);
+  const [player, setPlayer] = useState("");
 
   if (addons.length === 0) {
     return (
@@ -55,8 +57,16 @@ export default function AddDialog({
     setLoading(true);
     setError(null);
     setAnime(null);
+    setPlayers([]);
+    setPlayer("");
     try {
-      setAnime(await loadAnime(addonId, u));
+      const a = await loadAnime(addonId, u);
+      setAnime(a);
+      if (a.episodes.length > 0) {
+        addonHosters(addonId, a.episodes[0].url)
+          .then((hs) => setPlayers(hs.map((h) => h.name)))
+          .catch(() => {});
+      }
     } catch (e) {
       setError(String(e));
     } finally {
@@ -136,11 +146,21 @@ export default function AddDialog({
                 placeholder="ex : 1-20  ·  1,5,8  ·  vide = tout"
               />
 
+              <label className="field-label">{t("dialog.add.player_label")}</label>
+              <select value={player} onChange={(e) => setPlayer(e.target.value)}>
+                <option value="">{t("dialog.add.player_auto")}</option>
+                {players.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+
               <div className="modal-foot">
                 <button
                   className="btn primary"
                   disabled={numbers.length === 0}
-                  onClick={() => onLaunch(addonId, anime, numbers)}
+                  onClick={() => onLaunch(addonId, anime, numbers, player)}
                 >
                   <Download size={16} /> {t("dialog.add.download_btn")} ({numbers.length})
                 </button>

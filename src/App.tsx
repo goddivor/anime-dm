@@ -110,7 +110,7 @@ export default function App() {
 
   const soon = (label: string) => setMessage(`« ${label} » — ${t("status.coming_soon")}`);
 
-  const onLaunch = async (addonId: string, anime: Anime, numbers: number[]) => {
+  const onLaunch = async (addonId: string, anime: Anime, numbers: number[], player: string) => {
     setShowAdd(false);
     const existing = groups.find((g) => g.url === anime.url);
     let animeId: number;
@@ -147,7 +147,7 @@ export default function App() {
           outPath,
         },
       ]);
-      startDownload({ addonId, id, episodeUrl: ep.url, playerName: "", outPath }).catch((err) =>
+      startDownload({ addonId, id, episodeUrl: ep.url, playerName: player, outPath }).catch((err) =>
         setRows((rs) =>
           rs.map((r) => (r.id === id ? { ...r, status: "failed", error: String(err) } : r)),
         ),

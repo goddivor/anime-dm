@@ -30,6 +30,7 @@
   "dialog.add.fetching": "Fetching episodes…",
   "dialog.add.folder_label": "Folder:",
   "dialog.add.link_label": "Anime link:",
+  "dialog.add.player_auto": "Auto (first working player)",
   "dialog.add.player_label": "Player:",
   "dialog.add.title": "Add a download",
   "dialog.help.step1": "1. Tasks menu › Add, paste an anime link.",

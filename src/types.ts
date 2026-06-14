@@ -1,5 +1,7 @@
 export type Episode = { number: number; name: string; url: string };
 
+export type Hoster = { url: string; name: string };
+
 export type Anime = {
   title: string;
   url: string;

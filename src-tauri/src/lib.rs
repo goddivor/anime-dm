@@ -250,6 +250,26 @@ async fn load_anime(app: AppHandle, addon_id: String, url: String) -> Result<Ani
 }
 
 #[tauri::command]
+async fn addon_hosters(
+    app: AppHandle,
+    addon_id: String,
+    episode_url: String,
+) -> Result<Vec<Hoster>, String> {
+    let dir = addons_dir(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut addon = addons::open(&dir, &addon_id).map_err(|e| e.to_string())?;
+        addon
+            .call_json::<_, Vec<Hoster>>(
+                addon_api::exports::HOSTER_LIST,
+                &UrlInput { url: episode_url },
+            )
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 async fn fetch_image(
     engine: State<'_, Engine>,
     url: String,
@@ -447,6 +467,7 @@ pub fn run() {
             addon_get_config,
             addon_set_config,
             load_anime,
+            addon_hosters,
             fetch_image,
             start_download,
             stop_download,
