@@ -350,6 +350,7 @@ fn stop_all(engine: State<'_, Engine>) {
 }
 
 /// Resolve an episode to a downloadable video through the addon (blocking WASM calls).
+/// Tries the preferred player first, then falls back through every hoster until one yields a video.
 async fn resolve_video(
     dir: PathBuf,
     addon_id: String,
@@ -361,16 +362,29 @@ async fn resolve_video(
         let hosters: Vec<Hoster> = addon
             .call_json(addon_api::exports::HOSTER_LIST, &UrlInput { url: episode_url })
             .map_err(|e| e.to_string())?;
-        let hoster = hosters
-            .iter()
-            .find(|h| h.name.eq_ignore_ascii_case(&player_name))
-            .or_else(|| hosters.first())
-            .ok_or_else(|| "aucun lecteur sur cet épisode".to_string())?
-            .clone();
-        let videos: Vec<Video> = addon
-            .call_json(addon_api::exports::VIDEO_LIST, &hoster)
-            .map_err(|e| e.to_string())?;
-        Ok(videos.into_iter().next())
+        if hosters.is_empty() {
+            return Err("aucun lecteur sur cet épisode".to_string());
+        }
+
+        let mut order: Vec<usize> = (0..hosters.len()).collect();
+        if !player_name.is_empty() {
+            if let Some(p) = hosters.iter().position(|h| h.name.eq_ignore_ascii_case(&player_name)) {
+                order.retain(|&i| i != p);
+                order.insert(0, p);
+            }
+        }
+
+        for i in order {
+            if let Ok(videos) = addon.call_json::<_, Vec<Video>>(
+                addon_api::exports::VIDEO_LIST,
+                &hosters[i],
+            ) {
+                if let Some(v) = videos.into_iter().next() {
+                    return Ok(Some(v));
+                }
+            }
+        }
+        Ok(None)
     })
     .await
     .map_err(|e| e.to_string())?
