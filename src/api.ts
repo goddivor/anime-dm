@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { downloadDir, join } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type {
   Anime,
   AnimeGroup,
@@ -10,6 +11,7 @@ import type {
   Hoster,
   InstalledAddon,
   Preference,
+  RepoInfo,
   StoreEntry,
 } from "./types";
 
@@ -43,6 +45,10 @@ export const applyFolderIcon = (p: { folder: string; posterData: string; templat
   invoke<string>("apply_folder_icon", p);
 export const addRepo = (url: string) => invoke<void>("add_repo", { url });
 export const removeRepo = (url: string) => invoke<void>("remove_repo", { url });
+export const listRepos = () => invoke<RepoInfo[]>("list_repos");
+export const setRepoDisabled = (url: string, disabled: boolean) =>
+  invoke<void>("set_repo_disabled", { url, disabled });
+export const openExternal = (url: string) => openUrl(url);
 
 // --- Store ---
 export const storeFetch = () => invoke<StoreEntry[]>("store_fetch");

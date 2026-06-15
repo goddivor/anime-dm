@@ -96,11 +96,36 @@ struct Settings {
     #[serde(default)]
     repos: Vec<String>,
     #[serde(default)]
+    disabled_repos: Vec<String>,
+    #[serde(default)]
     lang: String,
     #[serde(default)]
     folder_icons: bool,
     #[serde(default)]
     folder_template: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RepoInfo {
+    url: String,
+    name: String,
+    website: Option<String>,
+    icon_url: Option<String>,
+    disabled: bool,
+}
+
+#[derive(Deserialize)]
+struct RepoMetaFile {
+    meta: RepoMeta,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RepoMeta {
+    name: Option<String>,
+    website: Option<String>,
+    icon: Option<String>,
 }
 
 fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -169,7 +194,65 @@ fn add_repo(app: AppHandle, url: String) -> Result<(), String> {
 fn remove_repo(app: AppHandle, url: String) -> Result<(), String> {
     let mut settings = read_settings(&app);
     settings.repos.retain(|r| r != &url);
+    settings.disabled_repos.retain(|r| r != &url);
     write_settings(&app, &settings)
+}
+
+#[tauri::command]
+fn set_repo_disabled(app: AppHandle, url: String, disabled: bool) -> Result<(), String> {
+    let mut settings = read_settings(&app);
+    settings.disabled_repos.retain(|r| r != &url);
+    if disabled {
+        settings.disabled_repos.push(url);
+    }
+    write_settings(&app, &settings)
+}
+
+fn url_host(url: &str) -> String {
+    url.split("://")
+        .nth(1)
+        .and_then(|s| s.split('/').next())
+        .unwrap_or(url)
+        .to_string()
+}
+
+/// Configured repos with their metadata (name/icon/website from `repo.json`).
+#[tauri::command]
+async fn list_repos(app: AppHandle, engine: State<'_, Engine>) -> Result<Vec<RepoInfo>, String> {
+    let settings = read_settings(&app);
+    let mut out = Vec::new();
+    for url in &settings.repos {
+        let disabled = settings.disabled_repos.iter().any(|r| r == url);
+        let meta_url = resolve_asset(url, "repo.json");
+        let meta = engine
+            .http
+            .get(&meta_url)
+            .send()
+            .await
+            .ok()
+            .and_then(|r| r.error_for_status().ok());
+        let (name, website, icon_url) = match meta {
+            Some(resp) => match resp.text().await.ok().and_then(|t| {
+                serde_json::from_str::<RepoMetaFile>(&t).ok()
+            }) {
+                Some(m) => (
+                    m.meta.name.filter(|s| !s.is_empty()).unwrap_or_else(|| url_host(url)),
+                    m.meta.website,
+                    m.meta.icon.map(|i| resolve_asset(url, &i)),
+                ),
+                None => (url_host(url), None, None),
+            },
+            None => (url_host(url), None, None),
+        };
+        out.push(RepoInfo {
+            url: url.clone(),
+            name,
+            website,
+            icon_url,
+            disabled,
+        });
+    }
+    Ok(out)
 }
 
 /// Resolve a relative store asset (wasm/icon) against the index URL.
@@ -199,12 +282,15 @@ async fn fetch_index(http: &reqwest::Client, url: &str) -> Result<StoreIndex, St
 
 #[tauri::command]
 async fn store_fetch(app: AppHandle, engine: State<'_, Engine>) -> Result<Vec<StoreEntry>, String> {
-    let repos = read_settings(&app).repos;
+    let settings = read_settings(&app);
     let dir = addons_dir(&app)?;
     let installed: Vec<String> = addons::installed(&dir).into_iter().map(|a| a.id).collect();
 
     let mut out: Vec<StoreEntry> = Vec::new();
-    for url in &repos {
+    for url in &settings.repos {
+        if settings.disabled_repos.iter().any(|r| r == url) {
+            continue;
+        }
         let Ok(index) = fetch_index(&engine.http, url).await else {
             continue;
         };
@@ -667,6 +753,8 @@ pub fn run() {
             set_folder_icons,
             add_repo,
             remove_repo,
+            set_repo_disabled,
+            list_repos,
             store_fetch,
             store_install,
             addons_installed,

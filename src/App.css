@@ -374,6 +374,58 @@ select option {
   flex-direction: column;
   gap: 8px;
 }
+.repo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.repo-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.repo-card.disabled {
+  opacity: 0.5;
+}
+.repo-icon {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel2);
+  color: var(--muted);
+}
+.repo-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.repo-meta {
+  flex: 1;
+  min-width: 0;
+}
+.repo-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+.repo-card .repo-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.repo-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
 .ext-empty {
   padding: 40px 0;
   text-align: center;

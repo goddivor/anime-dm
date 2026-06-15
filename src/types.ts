@@ -85,6 +85,14 @@ export type InstalledAddon = {
   iconPath?: string | null;
 };
 
+export type RepoInfo = {
+  url: string;
+  name: string;
+  website?: string | null;
+  iconUrl?: string | null;
+  disabled: boolean;
+};
+
 export type StoreEntry = {
   id: string;
   name: string;
