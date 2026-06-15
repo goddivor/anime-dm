@@ -44,7 +44,7 @@ export const applyFolderIcon = (p: {
   posterUrl: string;
   referer?: string;
   template: string;
-}) => invoke<void>("apply_folder_icon", p);
+}) => invoke<string>("apply_folder_icon", p);
 export const addRepo = (url: string) => invoke<void>("add_repo", { url });
 export const removeRepo = (url: string) => invoke<void>("remove_repo", { url });
 

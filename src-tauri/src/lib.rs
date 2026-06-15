@@ -408,7 +408,7 @@ async fn apply_folder_icon(
     poster_url: String,
     referer: Option<String>,
     template: String,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let mut req = engine.http.get(&poster_url);
     if let Some(r) = referer {
         req = req.header("Referer", r);

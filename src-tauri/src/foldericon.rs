@@ -267,11 +267,22 @@ fn imagemagick(assets_dir: &Path) -> Option<String> {
     #[cfg(target_os = "linux")]
     {
         use std::os::unix::fs::PermissionsExt;
-        let bundled = assets_dir.join("bin").join("magick");
-        if bundled.is_file() {
-            // Bundling may strip the executable bit; restore it best-effort.
-            let _ = std::fs::set_permissions(&bundled, std::fs::Permissions::from_mode(0o755));
-            return Some(bundled.to_string_lossy().into_owned());
+        // Try the resolved assets dir, then the source tree (robust in `tauri dev`
+        // where resource_dir may be a stale copy without bin/).
+        let candidates = [
+            assets_dir.join("bin").join("magick"),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("resources")
+                .join("folder-templates")
+                .join("bin")
+                .join("magick"),
+        ];
+        for bundled in candidates {
+            if bundled.is_file() {
+                // Bundling may strip the executable bit; restore it best-effort.
+                let _ = std::fs::set_permissions(&bundled, std::fs::Permissions::from_mode(0o755));
+                return Some(bundled.to_string_lossy().into_owned());
+            }
         }
     }
     for bin in ["magick", "convert"] {
@@ -350,7 +361,7 @@ pub fn generate_and_apply(
     folder: &Path,
     poster_bytes: &[u8],
     template_id: &str,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let bin = imagemagick(assets_dir)
         .ok_or("ImageMagick introuvable — installez « imagemagick » (commande magick/convert).")?;
     let assets_images = assets_dir.join("images");
@@ -361,7 +372,7 @@ pub fn generate_and_apply(
 
     let result = set_for_os(&bin, &assets_images, folder, &src, template_id);
     let _ = std::fs::remove_file(&src);
-    result
+    result.map(|_| bin)
 }
 
 #[cfg(target_os = "linux")]

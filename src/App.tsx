@@ -188,7 +188,7 @@ export default function App() {
     const folder = row.outPath.replace(/[/\\][^/\\]*$/, "");
     setMessage(t("foldericon.generating"));
     applyFolderIcon({ folder, posterUrl: g.posterUrl, referer: g.url, template })
-      .then(() => setMessage(t("foldericon.applied")))
+      .then((bin) => setMessage(`${t("foldericon.applied")} — ${bin}`))
       .catch((e) => setMessage(String(e)));
   };
 
