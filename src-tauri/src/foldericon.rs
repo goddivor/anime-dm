@@ -36,8 +36,7 @@ const TEMPLATES: &[Template] = &[
         id: "dvdcase-bluray",
         name: "Boîtier Blu-ray",
         args: &[
-            "(", "-size", "512x512", "xc:none", ")", "-compose", "Over", "(", "{INPUT}", "-scale",
-            "340x438!", "-background", "none", "-gravity", "Northwest", "-geometry", "+78+48", ")",
+            "(", "-size", "512x512", "xc:none", ")", "-compose", "Over", "(", "{INPUT}", "-resize", "340x438^", "-gravity", "center", "-extent", "340x438", "+repage", "-background", "none", "-gravity", "Northwest", "-geometry", "+78+48", ")",
             "-compose", "Over", "-composite", "(", "{ASSETS}/dvdcase-bluray.png", "-resize",
             "512x512!", ")", "-compose", "Over", "-composite", "(", "+clone", "-background",
             "BLACK", "-shadow", "0x2+2+2.5", ")", "+swap", "-background", "none", "-layers",
@@ -52,8 +51,7 @@ const TEMPLATES: &[Template] = &[
             "512x512!", "-blur", "0x19", "{ASSETS}/folderhorizontal-top.png", ")", "-compose",
             "over", "-composite", "(", "{ASSETS}/folderhorizontal-topfx.png", "-scale", "512x512!",
             ")", "-compose", "over", "-composite", "(", "{ASSETS}/folderhorizontal-topshadow.png",
-            "-scale", "512x512!", ")", "-compose", "over", "-composite", "(", "{INPUT}", "-scale",
-            "495x307!", "-gravity", "Northwest", "-geometry", "+8+141",
+            "-scale", "512x512!", ")", "-compose", "over", "-composite", "(", "{INPUT}", "-resize", "495x307^", "-gravity", "center", "-extent", "495x307", "+repage", "-gravity", "Northwest", "-geometry", "+8+141",
             "{ASSETS}/folderhorizontal-main.png", ")", "-compose", "over", "-composite", "(",
             "{ASSETS}/folderhorizontal-mainfx.png", "-scale", "512x512!", ")", "-compose", "over",
             "-composite",
@@ -67,8 +65,7 @@ const TEMPLATES: &[Template] = &[
             "512x512!", "-blur", "0x19", "{ASSETS}/foldervertical-side.png", ")", "-compose",
             "over", "-composite", "(", "{ASSETS}/foldervertical-sidefx.png", "-scale", "512x512!",
             ")", "-compose", "over", "-composite", "(", "{ASSETS}/foldervertical-sideshadow.png",
-            "-scale", "512x512!", ")", "-compose", "over", "-composite", "(", "{INPUT}", "-scale",
-            "346x490!", "-gravity", "Northwest", "-geometry", "+70+14",
+            "-scale", "512x512!", ")", "-compose", "over", "-composite", "(", "{INPUT}", "-resize", "346x490^", "-gravity", "center", "-extent", "346x490", "+repage", "-gravity", "Northwest", "-geometry", "+70+14",
             "{ASSETS}/foldervertical-main.png", ")", "-compose", "over", "-composite", "(",
             "{ASSETS}/foldervertical-mainfx.png", "-scale", "512x512!", ")", "-compose", "over",
             "-composite",
@@ -78,8 +75,7 @@ const TEMPLATES: &[Template] = &[
         id: "dvdcase-transparent",
         name: "Boîtier plastique transparent",
         args: &[
-            "(", "-size", "512x512", "xc:none", ")", "-compose", "Over", "(", "{INPUT}", "-scale",
-            "336x474!", "-gravity", "Northwest", "-geometry", "+108+14",
+            "(", "-size", "512x512", "xc:none", ")", "-compose", "Over", "(", "{INPUT}", "-resize", "336x474^", "-gravity", "center", "-extent", "336x474", "+repage", "-gravity", "Northwest", "-geometry", "+108+14",
             "{ASSETS}/dvdcase-plastic-mask.png", ")", "-compose", "over", "-composite", "(",
             "{ASSETS}/dvdcase-plastic.png", "-resize", "512x512!", ")", "-compose", "Over",
             "-composite",
@@ -93,7 +89,7 @@ const TEMPLATES: &[Template] = &[
             "{ASSETS}/disc-vinyl.png", "-scale", "340x340!", "-background", "none", "-extent",
             "512x512-164-84", "(", "+clone", "-background", "BLACK", "-shadow", "100x1.3+2+2", ")",
             "+swap", "-background", "none", "-layers", "merge", "-extent", "512x512", ")",
-            "-compose", "Over", "-composite", "(", "{INPUT}", "-scale", "340x483!", "-background",
+            "-compose", "Over", "-composite", "(", "{INPUT}", "-resize", "340x483^", "-gravity", "center", "-extent", "340x483", "+repage", "-background",
             "none", "-gravity", "Northwest", "-geometry", "+7+11", ")", "-compose", "Over",
             "-composite", "(", "{ASSETS}/dvdbox-dark.png", "-resize", "512x512!", ")", "-compose",
             "Over", "-composite",
@@ -107,7 +103,7 @@ const TEMPLATES: &[Template] = &[
             "{ASSETS}/disc-vinyl.png", "-scale", "340x340!", "-background", "none", "-extent",
             "512x512-164-84", "(", "+clone", "-background", "BLACK", "-shadow", "100x1.3+2+2", ")",
             "+swap", "-background", "none", "-layers", "merge", "-extent", "512x512", ")",
-            "-compose", "Over", "-composite", "(", "{INPUT}", "-scale", "340x483!", "-background",
+            "-compose", "Over", "-composite", "(", "{INPUT}", "-resize", "340x483^", "-gravity", "center", "-extent", "340x483", "+repage", "-background",
             "none", "-gravity", "Northwest", "-geometry", "+7+11", ")", "-compose", "Over",
             "-composite", "(", "{ASSETS}/dvdbox-light.png", "-resize", "512x512!", ")", "-compose",
             "Over", "-composite",
@@ -125,17 +121,17 @@ const TEMPLATES: &[Template] = &[
             "2x2!", "-resize", "1000x1000!", "-scale", "390x390!", "-gravity", "Center",
             "-modulate", "100,150", "-blur", "0x25", "-brightness-contrast", "5x20",
             "-brightness-contrast", "-50x10", "{ASSETS}/Win11A-Back-Gradient.png", "-scale",
-            "512x512!", ")", "-compose", "over", "-composite", "(", "{INPUT}", "-scale", "498x320!",
+            "512x512!", ")", "-compose", "over", "-composite", "(", "{INPUT}", "-resize", "498x320^", "-gravity", "center", "-extent", "498x320", "+repage",
             "-gravity", "Northwest", "-geometry", "+5+117", "{ASSETS}/Win11A-Front.png", ")",
-            "-compose", "over", "-composite", "(", "{INPUT}", "-scale", "498x320!", "-gravity",
+            "-compose", "over", "-composite", "(", "{INPUT}", "-resize", "498x320^", "-gravity", "center", "-extent", "498x320", "+repage", "-gravity",
             "Northwest", "-geometry", "+5+117", "-brightness-contrast", "-9x10",
             "{ASSETS}/Win11A-Front-BevelShadow.png", ")", "-compose", "over", "-composite", "(",
-            "{INPUT}", "-scale", "498x320!", "-gravity", "Northwest", "-geometry", "+5+117",
+            "{INPUT}", "-resize", "498x320^", "-gravity", "center", "-extent", "498x320", "+repage", "-gravity", "Northwest", "-geometry", "+5+117",
             "-modulate", "110,110", "-brightness-contrast", "25x10", "{ASSETS}/Win11A-Front-Bevel.png",
-            ")", "-compose", "over", "-composite", "(", "{INPUT}", "-scale", "498x320!", "-gravity",
+            ")", "-compose", "over", "-composite", "(", "{INPUT}", "-resize", "498x320^", "-gravity", "center", "-extent", "498x320", "+repage", "-gravity",
             "Northwest", "-geometry", "+5+117", "-brightness-contrast", "20x10", "-modulate",
             "110,110", "{ASSETS}/Win11A-Front-Gradient.png", ")", "-compose", "over", "-composite",
-            "(", "{INPUT}", "-scale", "498x320!", "-gravity", "Northwest", "-geometry", "+5+117",
+            "(", "{INPUT}", "-resize", "498x320^", "-gravity", "center", "-extent", "498x320", "+repage", "-gravity", "Northwest", "-geometry", "+5+117",
             "-brightness-contrast", "0x10", "-modulate", "94,100",
             "{ASSETS}/Win11A-Front-GradientShadow.png", ")", "-compose", "over", "-composite",
         ],
@@ -150,7 +146,7 @@ const TEMPLATES: &[Template] = &[
             "512x512!", "-gravity", "Center", "-blur", "0x25", "-brightness-contrast", "-5x0",
             "-brightness-contrast", "0x27", "-blur", "0x20", "{ASSETS}/BeOriginal-back.png", ")",
             "-compose", "over", "-composite", "(", "{ASSETS}/BeOriginal-BackFx.png", "-scale",
-            "512x512!", ")", "-compose", "over", "-composite", "(", "{INPUT}", "-scale", "480x318!",
+            "512x512!", ")", "-compose", "over", "-composite", "(", "{INPUT}", "-resize", "480x318^", "-gravity", "center", "-extent", "480x318", "+repage",
             "-gravity", "Northwest", "-geometry", "+18+124", "{ASSETS}/BeOriginal-front.png", ")",
             "-compose", "over", "-composite", "(", "{ASSETS}/BeOriginal-FrontFx.png", "-scale",
             "512x512!", ")", "-compose", "over", "-composite",
@@ -160,8 +156,7 @@ const TEMPLATES: &[Template] = &[
         id: "discart",
         name: "Disque",
         args: &[
-            "(", "-size", "512x512", "xc:none", ")", "-compose", "Over", "(", "{INPUT}", "-scale",
-            "485x485!", "-gravity", "center", "{ASSETS}/DiscArt-Main.png", ")", "-compose", "over",
+            "(", "-size", "512x512", "xc:none", ")", "-compose", "Over", "(", "{INPUT}", "-resize", "485x485^", "-gravity", "center", "-extent", "485x485", "+repage", "-gravity", "center", "{ASSETS}/DiscArt-Main.png", ")", "-compose", "over",
             "-composite", "(", "{ASSETS}/DiscArt-Transparent.png", "-scale", "512x512!", ")",
             "-compose", "over", "-composite", "(", "{ASSETS}/DiscArt-Label.png", "-scale",
             "512x512!", ")", "-compose", "over", "-composite", "(", "{ASSETS}/DiscArt-Logo.png",
@@ -214,8 +209,7 @@ const MULTI_TEMPLATES: &[MultiTemplate] = &[
                 "-resize", "1000x1000!", "-scale", "512x512!", "-modulate", "100,130",
                 "-brightness-contrast", "8x13", "-blur", "0x50", "{ASSETS}/DualTabV-Tab1.png", ")",
                 "-compose", "over", "-composite", "(", "{ASSETS}/DualTabV-Tab1FX.png", "-scale",
-                "512x512!", ")", "-compose", "over", "-composite", "(", "{INPUT}", "-scale",
-                "372x482!", "-brightness-contrast", "5x15", "-modulate", "100,110", "-gravity",
+                "512x512!", ")", "-compose", "over", "-composite", "(", "{INPUT}", "-resize", "372x482^", "-gravity", "center", "-extent", "372x482", "+repage", "-brightness-contrast", "5x15", "-modulate", "100,110", "-gravity",
                 "Northwest", "-geometry", "+51+4", "{ASSETS}/DualTabV-Front.png", ")", "-compose",
                 "over", "-composite", "(", "{ASSETS}/DualTabV-FrontFX.png", "-scale", "512x512!", ")",
                 "-compose", "over", "-composite",
@@ -265,8 +259,21 @@ pub fn assets_dir(app: &AppHandle) -> Result<PathBuf, String> {
     Err("ressources des gabarits introuvables".to_string())
 }
 
-/// `magick` (ImageMagick v7) or `convert` (v6); `None` if neither is installed.
-fn imagemagick() -> Option<&'static str> {
+/// Resolve the ImageMagick binary. Prefer the bundled IM7 `magick` (recipes are
+/// authored for v7; the system `convert` v6 composites differently), then fall
+/// back to a system `magick`, then `convert`.
+#[allow(unused_variables)]
+fn imagemagick(assets_dir: &Path) -> Option<String> {
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let bundled = assets_dir.join("bin").join("magick");
+        if bundled.is_file() {
+            // Bundling may strip the executable bit; restore it best-effort.
+            let _ = std::fs::set_permissions(&bundled, std::fs::Permissions::from_mode(0o755));
+            return Some(bundled.to_string_lossy().into_owned());
+        }
+    }
     for bin in ["magick", "convert"] {
         if Command::new(bin)
             .arg("-version")
@@ -274,7 +281,7 @@ fn imagemagick() -> Option<&'static str> {
             .map(|o| o.status.success())
             .unwrap_or(false)
         {
-            return Some(bin);
+            return Some(bin.to_string());
         }
     }
     None
@@ -344,7 +351,7 @@ pub fn generate_and_apply(
     poster_bytes: &[u8],
     template_id: &str,
 ) -> Result<(), String> {
-    let bin = imagemagick()
+    let bin = imagemagick(assets_dir)
         .ok_or("ImageMagick introuvable — installez « imagemagick » (commande magick/convert).")?;
     let assets_images = assets_dir.join("images");
 
@@ -352,7 +359,7 @@ pub fn generate_and_apply(
     let src = folder.join(".icon-src.tmp");
     std::fs::write(&src, poster_bytes).map_err(|e| e.to_string())?;
 
-    let result = set_for_os(bin, &assets_images, folder, &src, template_id);
+    let result = set_for_os(&bin, &assets_images, folder, &src, template_id);
     let _ = std::fs::remove_file(&src);
     result
 }
