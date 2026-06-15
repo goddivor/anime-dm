@@ -228,6 +228,10 @@ select option {
   background: rgba(120, 160, 220, 0.16);
   border-color: var(--border);
 }
+.tb-btn.active {
+  background: rgba(120, 160, 220, 0.24);
+  border-color: var(--accent);
+}
 .tb-btn:disabled {
   opacity: 0.38;
   cursor: default;

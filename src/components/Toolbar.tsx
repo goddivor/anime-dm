@@ -9,6 +9,7 @@ import {
   Settings,
   Timer,
   Trash2,
+  X,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { T } from "../i18n";
@@ -21,6 +22,7 @@ type Btn = {
   onClick: () => void;
   sep?: boolean;
   disabled?: boolean;
+  active?: boolean;
 };
 
 export default function Toolbar({
@@ -38,6 +40,7 @@ export default function Toolbar({
   anyRows,
   onOpenAddons,
   onOpenSettings,
+  addonsOpen,
   soon,
   search,
   onSearch,
@@ -56,6 +59,7 @@ export default function Toolbar({
   anyRows: boolean;
   onOpenAddons: () => void;
   onOpenSettings: () => void;
+  addonsOpen: boolean;
   soon: (l: string) => void;
   search: string;
   onSearch: (v: string) => void;
@@ -69,14 +73,19 @@ export default function Toolbar({
     { key: "delall", icon: <ListX size={20} />, label: t("toolbar.delete_all"), tip: t("tooltip.delete_all"), onClick: onDeleteAll, sep: true, disabled: !anyRows },
     { key: "opts", icon: <Settings size={20} />, label: t("toolbar.options"), tip: t("tooltip.options"), onClick: onOpenSettings },
     { key: "sched", icon: <Timer size={20} />, label: t("toolbar.scheduler"), tip: t("tooltip.scheduler"), onClick: () => soon(t("toolbar.scheduler")), sep: true },
-    { key: "addons", icon: <Puzzle size={20} />, label: t("toolbar.addons"), tip: t("tooltip.addons"), onClick: onOpenAddons },
+    { key: "addons", icon: addonsOpen ? <X size={20} /> : <Puzzle size={20} />, label: t("toolbar.addons"), tip: t("tooltip.addons"), onClick: onOpenAddons, active: addonsOpen },
   ];
 
   return (
     <div className="toolbar">
       {btns.map((b) => (
         <span key={b.key} className={b.sep ? "tb-wrap tb-sep" : "tb-wrap"}>
-          <button className="tb-btn" title={b.tip} onClick={b.onClick} disabled={b.disabled}>
+          <button
+            className={b.active ? "tb-btn active" : "tb-btn"}
+            title={b.tip}
+            onClick={b.onClick}
+            disabled={b.disabled}
+          >
             {b.icon}
             <span className="tb-label">{b.label}</span>
           </button>

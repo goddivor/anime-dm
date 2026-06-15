@@ -594,6 +594,7 @@ export default function App() {
         anyRows={anyRows}
         onOpenAddons={() => setView(view === "addons" ? "downloads" : "addons")}
         onOpenSettings={() => setShowSettings(true)}
+        addonsOpen={view === "addons"}
         soon={soon}
         search={search}
         onSearch={setSearch}
