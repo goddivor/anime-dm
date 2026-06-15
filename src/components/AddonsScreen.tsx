@@ -2,15 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Library, RefreshCw } from "lucide-react";
 import type { InstalledAddon, StoreEntry } from "../types";
 import type { T } from "../i18n";
-import {
-  addRepo,
-  addonIcon,
-  addonRemove,
-  getSettings,
-  removeRepo,
-  storeFetch,
-  storeInstall,
-} from "../api";
+import { addonIcon, addonRemove, storeFetch, storeInstall } from "../api";
 import ExtensionList, { type ExtItem } from "./addons/ExtensionList";
 import ExtensionConfig from "./addons/ExtensionConfig";
 import ReposView from "./addons/ReposView";
@@ -40,15 +32,12 @@ export default function AddonsScreen({
   t: T;
 }) {
   const [view, setView] = useState<View>({ kind: "list" });
-  const [repos, setRepos] = useState<string[]>([]);
   const [store, setStore] = useState<StoreEntry[]>([]);
   const [diskIcons, setDiskIcons] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
-
-  const loadRepos = () => getSettings().then((s) => setRepos(s.repos)).catch(() => {});
 
   const refresh = async () => {
     setLoading(true);
@@ -63,7 +52,6 @@ export default function AddonsScreen({
   };
 
   useEffect(() => {
-    loadRepos();
     refresh();
   }, []);
 
@@ -136,16 +124,8 @@ export default function AddonsScreen({
       onConfirm: () => remove(item.id),
     });
 
-  const onAddRepo = async (url: string) => {
-    await addRepo(url);
-    await loadRepos();
-    await refresh();
-  };
-
-  const onRemoveRepo = async (url: string) => {
-    await removeRepo(url);
-    await loadRepos();
-    await refresh();
+  const onReposChanged = () => {
+    refresh();
   };
 
   if (view.kind === "config") {
@@ -165,9 +145,7 @@ export default function AddonsScreen({
     return (
       <div className="addons-screen">
         <ReposView
-          repos={repos}
-          onAdd={onAddRepo}
-          onRemove={onRemoveRepo}
+          onChanged={onReposChanged}
           onBack={() => setView({ kind: "list" })}
           t={t}
         />
