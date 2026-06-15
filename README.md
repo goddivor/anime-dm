@@ -1,101 +1,93 @@
 # Anime Download Manager
 
-An **IDM-style** download manager, written in **Rust**, for anime sites.
-**First supported site: `voir-anime.to`** — the architecture is designed to host more
-(each site = its own scraping module + extractors).
+An **IDM-style** download manager for anime sites, built with **Tauri 2** (Rust backend)
+and **React 19 + Vite + TypeScript** (frontend).
 
-GUI (egui): paste an anime link, the app lists the episodes, you pick a range
-(`1-20`, `1,5,8`…) and a player, and downloads run **in parallel**.
+The app itself contains **zero site-specific code**. Every source — how to list an anime's
+episodes and how to extract a playable video from a host — lives in a **sandboxed WebAssembly
+addon**, in the spirit of Aniyomi extensions. You install the sources you want from an
+**Addon Store**, and the app stays small, generic and easy to ship.
 
-## Current status
+## How it works
 
-✅ Paste an anime URL → episode list (title + number)
-✅ Episode selection by range/list (`1-20`, `1,5,8`, empty = all)
-✅ Player selection (dropdown)
-✅ Real video-source extraction and **concurrent** download via ffmpeg
-✅ Downloads table with status, progress bar and speed (parsed from ffmpeg)
+1. **Install a source** from the Addon Store (paste a repo index URL, pick an addon, install).
+2. **Add a download**: choose the source, paste an anime link — the app resolves the title,
+   poster and episode list through the addon.
+3. **Pick episodes** (a `1-20` / `1,5,8` text range, or a visual grid) and, optionally, the
+   **player** and **destination folder**.
+4. Downloads run **concurrently** (with a queue limit) and survive restarts.
 
-### Hosts
+## Sources (addons)
 
-As of June 2026, most hosts moved their source to **runtime-generated JavaScript** to
-defeat HTTP scrapers. Two extraction paths: **direct HTTP** (fast) for hosts that still
-expose the source in the HTML, and a **headless Chrome backend** (`worker/headless.rs`, via
-`chromiumoxide`) that loads the embed, triggers playback and intercepts the network
-manifest for the rest.
+Sources are distributed as a **repo**: an `index.min.json` index plus one `.wasm` module per
+source. You point the app at a repo URL in the Addon Store and install from there.
 
-| Player | Host | Path | Status (verified end-to-end) |
-|--------|------|------|------------------------------|
-| `LECTEUR myTV`  | vidmoly          | HTTP     | ✅ HLS `.m3u8` |
-| `LECTEUR Stape` | streamtape       | HTTP     | ✅ direct MP4 (`get_video`) |
-| `LECTEUR FHD1`  | my.mail.ru       | HTTP     | ✅ **1080p** MP4 (`/+/video/meta/` endpoint + `video_key` cookie) |
-| `LECTEUR VOE`   | voe.sx           | Headless | ✅ HLS `.m3u8` intercepted |
-| `LECTEUR MOON`  | sb*.org "Byse"   | Headless | ⚠️ stubborn SPA (detection) |
-| `LECTEUR SB`    | streamhide       | Headless | ⚠️ same "Byse" family |
-| `LECTEUR YU`    | yourupload       | —        | ⚠️ jwplayer (often DMCA'd) |
+- **Official source repo:** https://github.com/goddivor/anime-dm-addons
+- Live index served from its `repo` branch:
+  `https://raw.githubusercontent.com/goddivor/anime-dm-addons/repo/index.min.json`
 
-**4 working players** (myTV, Stape, FHD1, VOE) — comfortable in practice. The ⚠️ "Byse"
-hosts resist headless automation; possible next step: **headful mode** (Xvfb to stay
-invisible). The mail.ru CDN sometimes returns an I/O error on the first hit, so the
-downloader retries once automatically.
+Each addon **declares its own settings** (site URL, preferred player, quality…) which the app
+renders and stores; the app re-injects them when it loads the module. Addons are **versioned**,
+so the Store shows when an update is available.
+
+Want to write your own source? See the addons repo — the shared contract lives in this repo
+under `src-tauri/addon-api`.
+
+## Features
+
+- Source-agnostic **WASM addon** runtime (Aniyomi-style), with an in-app **Addon Store**
+- Per-addon settings + **addon update detection** (installed vs repo version)
+- Episode selection by **text range** or **visual grid**, with a per-episode **player override**
+  and a global player picker
+- **Destination folder** picker (native dialog)
+- **Concurrent** downloads with a queue limit, **pause / resume** (survives app restart)
+- **SQLite** persistence of downloads and anime groups
+- Downloads table with status, progress and throughput; multi-select, keyboard navigation,
+  context menu
+- Bilingual UI (FR / EN), persisted language
 
 ## Requirements
 
-- **Rust** (edition 2021) and Cargo
-- **ffmpeg** on `PATH` (fetches/remuxes MP4, HLS and DASH)
-- **Google Chrome / Chromium** on `PATH` (headless backend for JS hosts: VOE, mail.ru, …).
-  Not needed for myTV/Stape, which are pure HTTP.
+- **Rust** (edition 2021) and Cargo, **Node.js**
+- **ffmpeg** on `PATH` (fetch / remux of MP4 and HLS)
+- Linux webview libraries: `libwebkit2gtk-4.1-dev`, `libsoup-3.0-dev`, …
+
+No headless browser is required — addons decode the players over plain HTTP.
 
 ## Run
 
 ```bash
-cargo run --release
+npm install
+npm run tauri dev      # full app (Rust + frontend)
+npm run dev            # frontend only
 ```
 
-End-to-end diagnostics without the UI (scrape → HTTP + headless extract → ffmpeg).
-An optional anime URL lets you test against fresh links (more reliable):
+Build checks:
 
 ```bash
-cargo run --release -- --selftest
-cargo run --release -- --selftest "https://voir-anime.to/anime/<slug>/"
+npm run build                       # frontend, 0 error
+cd src-tauri && cargo build         # backend, 0 warning
 ```
 
 ## Architecture
 
-Two layers: `gui/` (UI) and `worker/` (backend logic), with shared types at the crate root.
+- **`src-tauri/addon-api/`** — the shared contract crate (serde models: `Anime`, `Episode`,
+  `Hoster`, `Video`, `Preference`…) referenced by both the app and the addons.
+- **`src-tauri/src/`** — Rust backend:
+  - `addons.rs` — Extism loader + on-disk registry (install / remove / open / config).
+  - `db.rs` — SQLite persistence (`downloads` + `anime_groups`), restored on startup.
+  - `worker/downloader.rs` — fetches the resolved video (MP4 / HLS) via ffmpeg with real progress.
+  - `lib.rs` — Tauri commands: Addon Store, source operations (`load_anime`, `list_hosters`,
+    `start_download`), settings, persistence; emits `download://progress|finished` events.
+- **`src/`** — React frontend: downloads view, Addon Store, add-download dialog, components.
 
-| Module | Role |
-|--------|------|
-| `worker/net.rs`          | Shared HTTP client, browser User-Agent, constants (`BASE`, `UA`) |
-| `worker/scraper.rs`      | `fetch_anime` (episodes via `li.wp-manga-chapter`) and `fetch_players` (`thisChapterSources` JSON) |
-| `worker/extractors/`     | One module per host (vidmoly, streamtape, mailru); `is_http_extractable()` routes the rest to headless |
-| `worker/headless.rs`     | Headless Chrome (chromiumoxide): loads the embed, triggers playback, **intercepts** the network manifest (`.m3u8`/`.mpd`/`.mp4`) |
-| `worker/downloader.rs`   | Async-driven ffmpeg, real progress parsed from stderr (`Duration:` / `time=` / `speed=`) |
-| `worker/mod.rs`          | tokio runtime + `mpsc` channel; orchestrates `load_anime` / `start_download` without blocking the UI |
-| `selection.rs`           | Parses `1-20` / `1,5,8` → list of numbers (unit-tested) |
-| `model.rs`               | Domain types (`Anime`, `Episode`, `Player`, `VideoSource`, `DownloadItem`) |
-| `gui/`                   | egui UI: `app` (state + loop), `menu`, `view`, `dialogs`, `i18n` (FR/EN) |
+### Flow
 
-### Extraction chain
+Addon Store installs a `.wasm` → the add dialog calls `load_anime(addonId, url)` (the addon's
+`anime_details` + `episode_list`) → `start_download(...)` resolves a host via the addon's
+`hoster_list` + `video_list`, then downloads the resulting `Video`. User settings (site URL,
+preferred player, quality) are re-injected into the module on every load.
 
-1. **Anime page** `/anime/{slug}/` → `li.wp-manga-chapter a` → episode list (sorted ascending)
-2. **Episode page** → JS variable `thisChapterSources` = `{ "LECTEUR X": "<iframe src=…>", … }` (parsed as JSON)
-3. **Host iframe** → dedicated extractor → direct `.mp4` or `.m3u8` playlist
-4. **ffmpeg** `-c copy` (+ `-bsf:a aac_adtstoasc` for HLS) → final MP4
+## License
 
-### Concurrency / UI
-
-egui is *immediate-mode* (synchronous). All networking/downloading runs on a
-**multi-thread tokio runtime**; tasks report their state through an `mpsc` channel that the
-UI drains every frame (`WorkerMsg`). No blocking call in the render loop.
-
-## Site notes
-
-- Active domain: **`voir-anime.to`** (the old `v6.voiranime.com` is dead).
-- Cloudflare is present but **does not challenge** a Chrome User-Agent → plain HTTP requests
-  are enough (no headless browser needed to scrape the site itself).
-
-## Roadmap
-
-- Headful (Xvfb) headless backend to unlock the "Byse" hosts (MOON/SB)
-- Quality selector (the `master.m3u8` exposes several resolutions)
-- Pause/resume, download queue with a concurrency limit, automatic renaming
+See repository.

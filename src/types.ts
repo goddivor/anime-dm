@@ -38,6 +38,7 @@ export type DownloadRow = {
   address?: string;
   eta?: number; // secondes restantes
   error?: string;
+  player?: string; // lecteur choisi (vide = préféré de l'extension)
   _tick?: { at: number; p: number };
 };
 
@@ -47,6 +48,25 @@ export type AnimeGroup = {
   url: string;
   posterUrl?: string | null;
   expanded: boolean;
+};
+
+/// Persisted subset of a DownloadRow (what SQLite stores).
+export type DownloadRecord = {
+  id: number;
+  addonId: string;
+  animeId: number;
+  animeTitle: string;
+  episodeNumber: number;
+  filename: string;
+  pageUrl: string;
+  queue: Queue;
+  status: DownloadStatus;
+  sizeBytes?: number;
+  addedAt: number;
+  lastTry?: number;
+  outPath: string;
+  address?: string;
+  error?: string;
 };
 
 export type Filter =

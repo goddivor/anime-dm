@@ -178,6 +178,11 @@ select option {
 }
 
 /* ---------- Context menu ---------- */
+.ctx-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 199;
+}
 .ctx-menu {
   position: fixed;
   z-index: 200;
@@ -766,6 +771,183 @@ select option {
 .anime-title {
   font-size: 15px;
   font-weight: 600;
+}
+
+.ext-update-ver {
+  color: var(--accent);
+}
+
+/* ---------- Poster zoom (hover loupe + lightbox) ---------- */
+.poster-zoom {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+.poster-zoom-btn {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: zoom-in;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.poster-zoom:hover .poster-zoom-btn {
+  opacity: 1;
+}
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  cursor: zoom-out;
+}
+.lightbox img {
+  max-width: 88vw;
+  max-height: 88vh;
+  border-radius: 6px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+/* ---------- Add dialog: source strip + episode grid ---------- */
+.modal-head.drag {
+  cursor: move;
+  user-select: none;
+}
+.src-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.src-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  flex: 1;
+  padding-bottom: 2px;
+}
+.src-icon {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+  color: var(--muted);
+}
+.src-icon:hover {
+  border-color: var(--accent);
+}
+.src-icon.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.src-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.icon-btn.active {
+  color: var(--accent);
+}
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.seg button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--panel2);
+  border: none;
+  padding: 4px 10px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 12px;
+}
+.seg button + button {
+  border-left: 1px solid var(--border);
+}
+.seg button.active {
+  background: var(--accent);
+  color: #fff;
+}
+.ep-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ep-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 2px;
+}
+.ep-cell {
+  position: relative;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 9px 0;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+}
+.dl-foot {
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.dest-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 60%;
+}
+.dest-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+}
+.ep-cell.custom::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffd166;
+}
+.ep-cell:hover {
+  border-color: var(--accent);
+}
+.ep-cell.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 .spin {
   animation: spin 1s linear infinite;

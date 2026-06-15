@@ -1,7 +1,17 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { downloadDir, join } from "@tauri-apps/api/path";
-import type { Anime, InstalledAddon, Preference, StoreEntry } from "./types";
+import { open } from "@tauri-apps/plugin-dialog";
+import type {
+  Anime,
+  AnimeGroup,
+  DownloadRecord,
+  DownloadRow,
+  Hoster,
+  InstalledAddon,
+  Preference,
+  StoreEntry,
+} from "./types";
 
 export type ProgressEvent = {
   id: number;
@@ -20,7 +30,8 @@ export type FinishedEvent = {
 };
 
 // --- Settings & repos ---
-export const getSettings = () => invoke<{ repos: string[] }>("get_settings");
+export const getSettings = () => invoke<{ repos: string[]; lang: string }>("get_settings");
+export const setLangPref = (lang: string) => invoke<void>("set_lang", { lang });
 export const addRepo = (url: string) => invoke<void>("add_repo", { url });
 export const removeRepo = (url: string) => invoke<void>("remove_repo", { url });
 
@@ -42,6 +53,9 @@ export const addonSetConfig = (id: string, config: Record<string, string>) =>
 // --- Source operations (through an addon) ---
 export const loadAnime = (addonId: string, url: string) =>
   invoke<Anime>("load_anime", { addonId, url });
+
+export const listHosters = (addonId: string, url: string) =>
+  invoke<Hoster[]>("list_hosters", { addonId, url });
 
 export const startDownload = (p: {
   addonId: string;
@@ -66,7 +80,20 @@ export const onProgress = (cb: (e: ProgressEvent) => void): Promise<UnlistenFn> 
 export const onFinished = (cb: (e: FinishedEvent) => void): Promise<UnlistenFn> =>
   listen<FinishedEvent>("download://finished", (e) => cb(e.payload));
 
+// --- Persistence (SQLite) ---
+export const stateLoad = () =>
+  invoke<{ downloads: DownloadRecord[]; groups: AnimeGroup[] }>("state_load");
+export const downloadSave = (record: DownloadRow) => invoke<void>("download_save", { record });
+export const downloadsDelete = (ids: number[]) => invoke<void>("downloads_delete", { ids });
+export const downloadsClear = () => invoke<void>("downloads_clear");
+export const groupSave = (record: AnimeGroup) => invoke<void>("group_save", { record });
+
 export async function defaultOutPath(filename: string): Promise<string> {
   const dir = await downloadDir();
   return join(dir, filename);
 }
+
+export const defaultDownloadDir = () => downloadDir();
+export const joinPath = (dir: string, filename: string) => join(dir, filename);
+export const pickDirectory = (defaultPath?: string) =>
+  open({ directory: true, defaultPath }) as Promise<string | null>;
