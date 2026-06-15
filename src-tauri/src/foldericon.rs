@@ -172,6 +172,64 @@ const TEMPLATES: &[Template] = &[
     },
 ];
 
+/// Templates needing several ImageMagick passes; `{TMP}` is a shared scratch image
+/// written by an earlier pass and read by a later one.
+struct MultiTemplate {
+    id: &'static str,
+    name: &'static str,
+    passes: &'static [&'static [&'static str]],
+}
+
+const MULTI_TEMPLATES: &[MultiTemplate] = &[
+    MultiTemplate {
+        id: "windows-11-cover",
+        name: "Windows 11 (pochette)",
+        passes: &[
+            &[
+                "(", "-size", "512x512", "xc:none", ")", "-compose", "Over", "(", "{INPUT}",
+                "-scale", "458x295!", "-gravity", "center", "-geometry", "+1+14",
+                "{ASSETS}/Win11Cover-Front.png", ")", "-compose", "over", "-composite",
+            ],
+            &[
+                "{TMP}", "-brightness-contrast", "0x10", "-modulate", "95,70", "-background",
+                "white", "-channel", "a", "-alpha", "remove", "-channel", "rgb", "-negate",
+                "-alpha", "shape",
+            ],
+            &[
+                "(", "{ASSETS}/Win11Cover.png", "-scale", "512x512!", "-modulate", "50,100",
+                "-brightness-contrast", "-20x35", "{TMP}", ")", "-compose", "Over", "-composite",
+            ],
+        ],
+    },
+    MultiTemplate {
+        id: "dualtab-vertical",
+        name: "Double onglet vertical",
+        passes: &[
+            &[
+                "(", "-size", "512x512", "xc:none", ")", "-compose", "Over", "(", "{INPUT}",
+                "-resize", "3x3!", "-resize", "1000x1000!", "-scale", "512x512!", "-modulate",
+                "100,130", "-brightness-contrast", "8x13", "-blur", "0x50", "{ASSETS}/DualTabV-Tab2.png",
+                ")", "-compose", "over", "-composite", "(", "{ASSETS}/DualTabV-Tab2FX.png", "-scale",
+                "512x512!", ")", "-compose", "over", "-composite", "(", "{INPUT}", "-resize", "3x3!",
+                "-resize", "1000x1000!", "-scale", "512x512!", "-modulate", "100,130",
+                "-brightness-contrast", "8x13", "-blur", "0x50", "{ASSETS}/DualTabV-Tab1.png", ")",
+                "-compose", "over", "-composite", "(", "{ASSETS}/DualTabV-Tab1FX.png", "-scale",
+                "512x512!", ")", "-compose", "over", "-composite", "(", "{INPUT}", "-scale",
+                "372x482!", "-brightness-contrast", "5x15", "-modulate", "100,110", "-gravity",
+                "Northwest", "-geometry", "+51+4", "{ASSETS}/DualTabV-Front.png", ")", "-compose",
+                "over", "-composite", "(", "{ASSETS}/DualTabV-FrontFX.png", "-scale", "512x512!", ")",
+                "-compose", "over", "-composite",
+            ],
+            &[
+                "(", "-size", "512x512", "xc:none", ")", "-compose", "Over", "(",
+                "{ASSETS}/DualTabV-DropShadow.png", "-scale", "512x512!", ")", "-compose", "over",
+                "-composite", "(", "{TMP}", "-scale", "512x512!", ")", "-compose", "over",
+                "-composite",
+            ],
+        ],
+    },
+];
+
 #[derive(Serialize)]
 pub struct TemplateInfo {
     pub id: String,
@@ -181,9 +239,11 @@ pub struct TemplateInfo {
 pub fn template_list() -> Vec<TemplateInfo> {
     TEMPLATES
         .iter()
-        .map(|t| TemplateInfo {
-            id: t.id.to_string(),
-            name: t.name.to_string(),
+        .map(|t| (t.id, t.name))
+        .chain(MULTI_TEMPLATES.iter().map(|t| (t.id, t.name)))
+        .map(|(id, name)| TemplateInfo {
+            id: id.to_string(),
+            name: name.to_string(),
         })
         .collect()
 }
@@ -230,34 +290,49 @@ fn compose(
     out: &Path,
     as_ico: bool,
 ) -> Result<(), String> {
-    let tpl = TEMPLATES
-        .iter()
-        .find(|t| t.id == template_id)
-        .ok_or_else(|| format!("gabarit inconnu : {template_id}"))?;
+    let passes: Vec<&[&str]> = if let Some(t) = TEMPLATES.iter().find(|t| t.id == template_id) {
+        vec![t.args]
+    } else if let Some(m) = MULTI_TEMPLATES.iter().find(|m| m.id == template_id) {
+        m.passes.to_vec()
+    } else {
+        return Err(format!("gabarit inconnu : {template_id}"));
+    };
 
     let input = poster.to_string_lossy();
     let assets = assets_images.to_string_lossy();
-    let mut args: Vec<String> = tpl
-        .args
-        .iter()
-        .map(|a| a.replace("{INPUT}", &input).replace("{ASSETS}", &assets))
-        .collect();
-    if as_ico {
-        args.push("-define".into());
-        args.push("icon:auto-resize=16,32,48,64,128,256".into());
-    }
-    args.push(out.to_string_lossy().into_owned());
+    let tmp = out.with_file_name(".icon-mask.tmp.png");
+    let tmp_s = tmp.to_string_lossy();
+    let last = passes.len() - 1;
 
-    let output = Command::new(bin)
-        .args(&args)
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !output.status.success() {
-        return Err(format!(
-            "ImageMagick a échoué : {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        ));
+    for (i, pass) in passes.iter().enumerate() {
+        let target = if i == last { out } else { tmp.as_path() };
+        let mut args: Vec<String> = pass
+            .iter()
+            .map(|a| {
+                a.replace("{INPUT}", &input)
+                    .replace("{ASSETS}", &assets)
+                    .replace("{TMP}", &tmp_s)
+            })
+            .collect();
+        if i == last && as_ico {
+            args.push("-define".into());
+            args.push("icon:auto-resize=16,32,48,64,128,256".into());
+        }
+        args.push(target.to_string_lossy().into_owned());
+
+        let output = Command::new(bin)
+            .args(&args)
+            .output()
+            .map_err(|e| e.to_string())?;
+        if !output.status.success() {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(format!(
+                "ImageMagick a échoué : {}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            ));
+        }
     }
+    let _ = std::fs::remove_file(&tmp);
     Ok(())
 }
 
