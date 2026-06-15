@@ -768,6 +768,46 @@ select option {
   font-weight: 600;
 }
 
+/* ---------- Poster zoom (hover loupe + lightbox) ---------- */
+.poster-zoom {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+.poster-zoom-btn {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: zoom-in;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.poster-zoom:hover .poster-zoom-btn {
+  opacity: 1;
+}
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  cursor: zoom-out;
+}
+.lightbox img {
+  max-width: 88vw;
+  max-height: 88vh;
+  border-radius: 6px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
 /* ---------- Add dialog: source strip + episode grid ---------- */
 .modal-head.drag {
   cursor: move;

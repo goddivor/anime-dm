@@ -217,6 +217,7 @@ export default function AddDialog({
                   referer={anime.url}
                   className="anime-poster"
                   fallback={null}
+                  zoomable
                 />
                 <div>
                   <div className="anime-title">{anime.title}</div>

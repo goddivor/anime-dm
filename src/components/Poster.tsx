@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { ZoomIn } from "lucide-react";
 import { fetchImage } from "../api";
 
 const cache = new Map<string, string>();
@@ -8,13 +9,16 @@ export default function Poster({
   referer,
   className,
   fallback,
+  zoomable,
 }: {
   url?: string | null;
   referer?: string;
   className?: string;
   fallback: ReactNode;
+  zoomable?: boolean;
 }) {
   const [src, setSrc] = useState<string | undefined>(url ? cache.get(url) : undefined);
+  const [zoom, setZoom] = useState(false);
 
   useEffect(() => {
     if (!url) {
@@ -39,8 +43,24 @@ export default function Poster({
     };
   }, [url, referer]);
 
-  if (src) return <img className={className} src={src} alt="" />;
-  return <>{fallback}</>;
+  if (!src) return <>{fallback}</>;
+  if (!zoomable) return <img className={className} src={src} alt="" />;
+
+  return (
+    <>
+      <span className="poster-zoom">
+        <img className={className} src={src} alt="" />
+        <button className="poster-zoom-btn" onClick={() => setZoom(true)} title="">
+          <ZoomIn size={20} />
+        </button>
+      </span>
+      {zoom && (
+        <div className="lightbox" onClick={() => setZoom(false)}>
+          <img src={src} alt="" />
+        </div>
+      )}
+    </>
+  );
 }
 
 function safeOrigin(u: string): string | undefined {
