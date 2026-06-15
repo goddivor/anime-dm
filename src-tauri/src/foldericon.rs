@@ -365,7 +365,23 @@ fn set_for_os(
     src: &Path,
     template_id: &str,
 ) -> Result<(), String> {
-    let png = folder.join(".folder.png");
+    // A fresh filename each time so the file manager's cached icon is invalidated
+    // (re-setting the same path is a no-op that GNOME/Nautilus won't refresh).
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    if let Ok(entries) = std::fs::read_dir(folder) {
+        for e in entries.flatten() {
+            let n = e.file_name();
+            let n = n.to_string_lossy();
+            if n.starts_with(".folder-icon-") || n == ".folder.png" {
+                let _ = std::fs::remove_file(e.path());
+            }
+        }
+    }
+    let png = folder.join(format!(".folder-icon-{stamp}.png"));
     compose(bin, assets_images, src, template_id, &png, false)?;
 
     let mut applied = false;
