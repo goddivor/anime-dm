@@ -29,6 +29,7 @@ export default function Sidebar({
   onClose,
   selected,
   onSelectRow,
+  onAnimeContext,
   t,
 }: {
   groups: AnimeGroup[];
@@ -39,6 +40,7 @@ export default function Sidebar({
   onClose: () => void;
   selected: Set<number>;
   onSelectRow: (id: number) => void;
+  onAnimeContext: (groupId: number, x: number, y: number) => void;
   t: T;
 }) {
   const count = (pred: (d: DownloadRow) => boolean) => rows.filter(pred).length;
@@ -67,7 +69,13 @@ export default function Sidebar({
           const animeSel = filter.kind === "anime" && filter.id === g.id;
           return (
             <div key={g.id} className="tree-group">
-              <div className="tree-row">
+              <div
+                className="tree-row"
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  onAnimeContext(g.id, e.clientX, e.clientY);
+                }}
+              >
                 <button
                   className="caret"
                   onClick={(e) => {

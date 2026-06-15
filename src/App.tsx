@@ -22,6 +22,7 @@ import {
   getSettings,
   setLangPref,
   applyFolderIcon,
+  listFolderTemplates,
   type FinishedEvent,
   type ProgressEvent,
 } from "./api";
@@ -100,6 +101,8 @@ export default function App() {
   const [message, setMessage] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [iconTemplates, setIconTemplates] = useState<{ id: string; name: string }[]>([]);
+  const [iconMenu, setIconMenu] = useState<{ x: number; y: number; groupId: number } | null>(null);
   const [info, setInfo] = useState<{ title: string; lines: string[] } | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
 
@@ -122,6 +125,9 @@ export default function App() {
       .then((s) => {
         if (s.lang === "fr" || s.lang === "en") setLang(s.lang);
       })
+      .catch(() => {});
+    listFolderTemplates()
+      .then(setIconTemplates)
       .catch(() => {});
     stateLoad()
       .then(({ downloads, groups: g }) => {
@@ -170,6 +176,21 @@ export default function App() {
   }, [rows]);
 
   const soon = (label: string) => setMessage(`« ${label} » — ${t("status.coming_soon")}`);
+
+  // Regenerate an anime folder's icon with a chosen template (right-click in the sidebar).
+  const applyIconFor = (groupId: number, template: string) => {
+    const g = groups.find((x) => x.id === groupId);
+    const row = rows.find((r) => r.animeId === groupId);
+    if (!g || !g.posterUrl || !row) {
+      setMessage(t("foldericon.no_folder"));
+      return;
+    }
+    const folder = row.outPath.replace(/[/\\][^/\\]*$/, "");
+    setMessage(t("foldericon.generating"));
+    applyFolderIcon({ folder, posterUrl: g.posterUrl, referer: g.url, template })
+      .then(() => setMessage(t("foldericon.applied")))
+      .catch((e) => setMessage(String(e)));
+  };
 
   const onLaunch = async (
     addonId: string,
@@ -560,6 +581,7 @@ export default function App() {
                   onClose={() => setSidebarOn(false)}
                   selected={selected}
                   onSelectRow={selectSingle}
+                  onAnimeContext={(groupId, x, y) => setIconMenu({ x, y, groupId })}
                   t={t}
                 />
               </div>
@@ -578,6 +600,22 @@ export default function App() {
         </div>
       )}
       <StatusBar rows={rows} message={message} t={t} />
+
+      {iconMenu && (
+        <ContextMenu
+          x={iconMenu.x}
+          y={iconMenu.y}
+          onClose={() => setIconMenu(null)}
+          items={[
+            { key: "_h", label: t("foldericon.change_model"), disabled: true },
+            ...iconTemplates.map((tp) => ({
+              key: tp.id,
+              label: tp.name,
+              onClick: () => applyIconFor(iconMenu.groupId, tp.id),
+            })),
+          ]}
+        />
+      )}
 
       {menu && (
         <ContextMenu

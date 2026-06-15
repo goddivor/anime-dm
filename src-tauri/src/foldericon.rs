@@ -119,11 +119,11 @@ const TEMPLATES: &[Template] = &[
         args: &[
             "(", "-size", "512x512", "xc:none", ")", "-compose", "Over", "(", "{INPUT}", "-resize",
             "2x2!", "-resize", "1000x1000!", "-scale", "390x390!", "-gravity", "Center",
-            "-modulate", "105,150", "-brightness-contrast", "-10x0", "-blur", "0x200",
+            "-modulate", "105,150", "-brightness-contrast", "-10x0", "-blur", "0x25",
             "-brightness-contrast", "5x20", "-modulate", "95,100", "{ASSETS}/Win11A-Back.png",
             "-scale", "512x512!", ")", "-compose", "over", "-composite", "(", "{INPUT}", "-resize",
             "2x2!", "-resize", "1000x1000!", "-scale", "390x390!", "-gravity", "Center",
-            "-modulate", "100,150", "-blur", "0x200", "-brightness-contrast", "5x20",
+            "-modulate", "100,150", "-blur", "0x25", "-brightness-contrast", "5x20",
             "-brightness-contrast", "-50x10", "{ASSETS}/Win11A-Back-Gradient.png", "-scale",
             "512x512!", ")", "-compose", "over", "-composite", "(", "{INPUT}", "-scale", "498x320!",
             "-gravity", "Northwest", "-geometry", "+5+117", "{ASSETS}/Win11A-Front.png", ")",
@@ -147,7 +147,7 @@ const TEMPLATES: &[Template] = &[
             "(", "-size", "512x512", "xc:none", ")", "-compose", "Over", "(", "{INPUT}",
             "-modulate", "100,150", "-modulate", "80,100", "-brightness-contrast", "0x5",
             "-modulate", "100,130", "-resize", "2x2!", "-resize", "1000x1000!", "-scale",
-            "512x512!", "-gravity", "Center", "-blur", "0x200", "-brightness-contrast", "-5x0",
+            "512x512!", "-gravity", "Center", "-blur", "0x25", "-brightness-contrast", "-5x0",
             "-brightness-contrast", "0x27", "-blur", "0x20", "{ASSETS}/BeOriginal-back.png", ")",
             "-compose", "over", "-composite", "(", "{ASSETS}/BeOriginal-BackFx.png", "-scale",
             "512x512!", ")", "-compose", "over", "-composite", "(", "{INPUT}", "-scale", "480x318!",
@@ -322,6 +322,7 @@ fn compose(
 
         let output = Command::new(bin)
             .args(&args)
+            .env("MAGICK_THREAD_LIMIT", "2")
             .output()
             .map_err(|e| e.to_string())?;
         if !output.status.success() {
