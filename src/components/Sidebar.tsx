@@ -87,6 +87,7 @@ export default function Sidebar({
                 </button>
                 <Poster
                   url={g.posterUrl}
+                  data={g.posterData}
                   referer={g.url}
                   className="poster"
                   fallback={<Film size={15} />}

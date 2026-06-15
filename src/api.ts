@@ -39,12 +39,8 @@ export const setFolderIcons = (enabled: boolean, template: string) =>
   invoke<void>("set_folder_icons", { enabled, template });
 export const listFolderTemplates = () =>
   invoke<{ id: string; name: string }[]>("list_folder_templates");
-export const applyFolderIcon = (p: {
-  folder: string;
-  posterUrl: string;
-  referer?: string;
-  template: string;
-}) => invoke<string>("apply_folder_icon", p);
+export const applyFolderIcon = (p: { folder: string; posterData: string; template: string }) =>
+  invoke<string>("apply_folder_icon", p);
 export const addRepo = (url: string) => invoke<void>("add_repo", { url });
 export const removeRepo = (url: string) => invoke<void>("remove_repo", { url });
 

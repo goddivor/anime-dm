@@ -23,6 +23,7 @@ import {
   setLangPref,
   applyFolderIcon,
   listFolderTemplates,
+  fetchImage,
   type FinishedEvent,
   type ProgressEvent,
 } from "./api";
@@ -178,16 +179,32 @@ export default function App() {
   const soon = (label: string) => setMessage(`« ${label} » — ${t("status.coming_soon")}`);
 
   // Regenerate an anime folder's icon with a chosen template (right-click in the sidebar).
-  const applyIconFor = (groupId: number, template: string) => {
+  const applyIconFor = async (groupId: number, template: string) => {
     const g = groups.find((x) => x.id === groupId);
     const row = rows.find((r) => r.animeId === groupId);
-    if (!g || !g.posterUrl || !row) {
+    if (!g || !row) {
       setMessage(t("foldericon.no_folder"));
       return;
     }
     const folder = row.outPath.replace(/[/\\][^/\\]*$/, "");
+    let data = g.posterData ?? undefined;
+    if (!data) {
+      if (!g.posterUrl) {
+        setMessage(t("foldericon.no_folder"));
+        return;
+      }
+      try {
+        data = await fetchImage(g.posterUrl, g.url);
+        const ng = { ...g, posterData: data };
+        setGroups((gs) => gs.map((x) => (x.id === groupId ? ng : x)));
+        persistGroup(ng);
+      } catch (e) {
+        setMessage(String(e));
+        return;
+      }
+    }
     setMessage(t("foldericon.generating"));
-    applyFolderIcon({ folder, posterUrl: g.posterUrl, referer: g.url, template })
+    applyFolderIcon({ folder, posterData: data, template })
       .then((bin) => setMessage(`${t("foldericon.applied")} — ${bin}`))
       .catch((e) => setMessage(String(e)));
   };
@@ -209,23 +226,33 @@ export default function App() {
       animeId = existing.id;
     } else {
       animeId = nextGroupId.current++;
+      // Store the poster image in the DB so folder-icon generation never needs the network.
+      let posterData: string | undefined;
+      if (anime.posterUrl) {
+        try {
+          posterData = await fetchImage(anime.posterUrl, anime.url);
+        } catch {
+          /* keep the URL; data can be fetched later */
+        }
+      }
       const group: AnimeGroup = {
         id: animeId,
         title: anime.title,
         url: anime.url,
         posterUrl: anime.posterUrl,
+        posterData,
         expanded: true,
       };
       setGroups((gs) => [...gs, group]);
       persistGroup(group);
-      if (anime.posterUrl) {
+      if (posterData) {
+        const data = posterData;
         getSettings()
           .then((s) => {
             if (s.folderIcons) {
               applyFolderIcon({
                 folder: animeDir,
-                posterUrl: anime.posterUrl!,
-                referer: anime.url,
+                posterData: data,
                 template: folderTemplate || s.folderTemplate || "none",
               }).catch(() => {});
             }

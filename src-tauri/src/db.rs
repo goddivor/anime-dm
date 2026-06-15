@@ -36,6 +36,8 @@ pub struct GroupRecord {
     pub url: String,
     #[serde(default)]
     pub poster_url: Option<String>,
+    #[serde(default)]
+    pub poster_data: Option<String>,
     pub expanded: bool,
 }
 
@@ -47,6 +49,7 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
             title TEXT NOT NULL,
             url TEXT NOT NULL,
             poster_url TEXT,
+            poster_data TEXT,
             expanded INTEGER NOT NULL DEFAULT 1
         );
         CREATE TABLE IF NOT EXISTS downloads (
@@ -67,6 +70,8 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
             error TEXT
         );",
     )?;
+    // Migration for databases created before the poster cache column existed.
+    let _ = conn.execute("ALTER TABLE anime_groups ADD COLUMN poster_data TEXT", []);
     Ok(conn)
 }
 
@@ -140,8 +145,9 @@ pub fn clear_downloads(conn: &Connection) -> rusqlite::Result<()> {
 }
 
 pub fn load_groups(conn: &Connection) -> rusqlite::Result<Vec<GroupRecord>> {
-    let mut stmt =
-        conn.prepare("SELECT id, title, url, poster_url, expanded FROM anime_groups ORDER BY id")?;
+    let mut stmt = conn.prepare(
+        "SELECT id, title, url, poster_url, poster_data, expanded FROM anime_groups ORDER BY id",
+    )?;
     let rows = stmt
         .query_map([], |r| {
             Ok(GroupRecord {
@@ -149,7 +155,8 @@ pub fn load_groups(conn: &Connection) -> rusqlite::Result<Vec<GroupRecord>> {
                 title: r.get(1)?,
                 url: r.get(2)?,
                 poster_url: r.get(3)?,
-                expanded: r.get::<_, i64>(4)? != 0,
+                poster_data: r.get(4)?,
+                expanded: r.get::<_, i64>(5)? != 0,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -158,9 +165,9 @@ pub fn load_groups(conn: &Connection) -> rusqlite::Result<Vec<GroupRecord>> {
 
 pub fn upsert_group(conn: &Connection, g: &GroupRecord) -> rusqlite::Result<()> {
     conn.execute(
-        "INSERT OR REPLACE INTO anime_groups (id, title, url, poster_url, expanded)
-         VALUES (?1,?2,?3,?4,?5)",
-        params![g.id, g.title, g.url, g.poster_url, g.expanded as i64],
+        "INSERT OR REPLACE INTO anime_groups (id, title, url, poster_url, poster_data, expanded)
+         VALUES (?1,?2,?3,?4,?5,?6)",
+        params![g.id, g.title, g.url, g.poster_url, g.poster_data, g.expanded as i64],
     )?;
     Ok(())
 }
