@@ -70,7 +70,7 @@ export default function Sidebar({
           return (
             <div key={g.id} className="tree-group">
               <div
-                className="tree-row"
+                className={`tree-row ${animeSel ? "sel" : ""}`}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   onAnimeContext(g.id, e.clientX, e.clientY);

@@ -48,6 +48,7 @@ export type AnimeGroup = {
   url: string;
   posterUrl?: string | null;
   posterData?: string | null; // affiche stockée (data URL) pour l'icône hors-ligne
+  iconTemplate?: string | null; // modèle d'icône actuellement appliqué
   expanded: boolean;
 };
 

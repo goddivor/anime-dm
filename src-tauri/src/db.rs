@@ -38,6 +38,8 @@ pub struct GroupRecord {
     pub poster_url: Option<String>,
     #[serde(default)]
     pub poster_data: Option<String>,
+    #[serde(default)]
+    pub icon_template: Option<String>,
     pub expanded: bool,
 }
 
@@ -50,6 +52,7 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
             url TEXT NOT NULL,
             poster_url TEXT,
             poster_data TEXT,
+            icon_template TEXT,
             expanded INTEGER NOT NULL DEFAULT 1
         );
         CREATE TABLE IF NOT EXISTS downloads (
@@ -70,8 +73,9 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
             error TEXT
         );",
     )?;
-    // Migration for databases created before the poster cache column existed.
+    // Migrations for databases created before these columns existed.
     let _ = conn.execute("ALTER TABLE anime_groups ADD COLUMN poster_data TEXT", []);
+    let _ = conn.execute("ALTER TABLE anime_groups ADD COLUMN icon_template TEXT", []);
     Ok(conn)
 }
 
@@ -146,7 +150,8 @@ pub fn clear_downloads(conn: &Connection) -> rusqlite::Result<()> {
 
 pub fn load_groups(conn: &Connection) -> rusqlite::Result<Vec<GroupRecord>> {
     let mut stmt = conn.prepare(
-        "SELECT id, title, url, poster_url, poster_data, expanded FROM anime_groups ORDER BY id",
+        "SELECT id, title, url, poster_url, poster_data, icon_template, expanded
+         FROM anime_groups ORDER BY id",
     )?;
     let rows = stmt
         .query_map([], |r| {
@@ -156,7 +161,8 @@ pub fn load_groups(conn: &Connection) -> rusqlite::Result<Vec<GroupRecord>> {
                 url: r.get(2)?,
                 poster_url: r.get(3)?,
                 poster_data: r.get(4)?,
-                expanded: r.get::<_, i64>(5)? != 0,
+                icon_template: r.get(5)?,
+                expanded: r.get::<_, i64>(6)? != 0,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -165,9 +171,18 @@ pub fn load_groups(conn: &Connection) -> rusqlite::Result<Vec<GroupRecord>> {
 
 pub fn upsert_group(conn: &Connection, g: &GroupRecord) -> rusqlite::Result<()> {
     conn.execute(
-        "INSERT OR REPLACE INTO anime_groups (id, title, url, poster_url, poster_data, expanded)
-         VALUES (?1,?2,?3,?4,?5,?6)",
-        params![g.id, g.title, g.url, g.poster_url, g.poster_data, g.expanded as i64],
+        "INSERT OR REPLACE INTO anime_groups
+             (id, title, url, poster_url, poster_data, icon_template, expanded)
+         VALUES (?1,?2,?3,?4,?5,?6,?7)",
+        params![
+            g.id,
+            g.title,
+            g.url,
+            g.poster_url,
+            g.poster_data,
+            g.icon_template,
+            g.expanded as i64
+        ],
     )?;
     Ok(())
 }

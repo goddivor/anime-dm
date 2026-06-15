@@ -180,7 +180,7 @@ export default function App() {
 
   // Regenerate an anime folder's icon with a chosen template (right-click in the sidebar).
   const applyIconFor = async (groupId: number, template: string) => {
-    const g = groups.find((x) => x.id === groupId);
+    let g = groups.find((x) => x.id === groupId);
     const row = rows.find((r) => r.animeId === groupId);
     if (!g || !row) {
       setMessage(t("foldericon.no_folder"));
@@ -195,18 +195,24 @@ export default function App() {
       }
       try {
         data = await fetchImage(g.posterUrl, g.url);
-        const ng = { ...g, posterData: data };
-        setGroups((gs) => gs.map((x) => (x.id === groupId ? ng : x)));
-        persistGroup(ng);
+        g = { ...g, posterData: data };
+        setGroups((gs) => gs.map((x) => (x.id === groupId ? g! : x)));
+        persistGroup(g);
       } catch (e) {
         setMessage(String(e));
         return;
       }
     }
     setMessage(t("foldericon.generating"));
-    applyFolderIcon({ folder, posterData: data, template })
-      .then((bin) => setMessage(`${t("foldericon.applied")} — ${bin}`))
-      .catch((e) => setMessage(String(e)));
+    try {
+      const bin = await applyFolderIcon({ folder, posterData: data, template });
+      setMessage(`${t("foldericon.applied")} — ${bin}`);
+      const ng = { ...g, iconTemplate: template };
+      setGroups((gs) => gs.map((x) => (x.id === groupId ? ng : x)));
+      persistGroup(ng);
+    } catch (e) {
+      setMessage(String(e));
+    }
   };
 
   const onLaunch = async (
@@ -250,11 +256,15 @@ export default function App() {
         getSettings()
           .then((s) => {
             if (s.folderIcons) {
-              applyFolderIcon({
-                folder: animeDir,
-                posterData: data,
-                template: folderTemplate || s.folderTemplate || "none",
-              }).catch(() => {});
+              const tpl = folderTemplate || s.folderTemplate || "none";
+              applyFolderIcon({ folder: animeDir, posterData: data, template: tpl })
+                .then(() => {
+                  setGroups((gs) =>
+                    gs.map((x) => (x.id === animeId ? { ...x, iconTemplate: tpl } : x)),
+                  );
+                  persistGroup({ ...group, iconTemplate: tpl });
+                })
+                .catch(() => {});
             }
           })
           .catch(() => {});
@@ -637,7 +647,10 @@ export default function App() {
             { key: "_h", label: t("foldericon.change_model"), disabled: true },
             ...iconTemplates.map((tp) => ({
               key: tp.id,
-              label: tp.name,
+              label:
+                (groups.find((g) => g.id === iconMenu.groupId)?.iconTemplate === tp.id
+                  ? "✓ "
+                  : "") + tp.name,
               onClick: () => applyIconFor(iconMenu.groupId, tp.id),
             })),
           ]}
