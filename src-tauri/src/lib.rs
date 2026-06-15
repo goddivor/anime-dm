@@ -409,17 +409,27 @@ async fn apply_folder_icon(
     referer: Option<String>,
     template: String,
 ) -> Result<String, String> {
-    let mut req = engine.http.get(&poster_url);
-    if let Some(r) = referer {
-        req = req.header("Referer", r);
-    }
-    let resp = req.send().await.map_err(|e| e.to_string())?;
-    if !resp.status().is_success() {
-        return Err(format!("HTTP {}", resp.status()));
-    }
-    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
-    let assets = foldericon::assets_dir(&app)?;
     let folder = PathBuf::from(folder);
+    // Cache the poster in the folder so switching templates doesn't re-download it
+    // (repeated requests get rate-limited by the source, and it's slow).
+    let cache = folder.join(".poster-src");
+    let bytes = if let Ok(b) = std::fs::read(&cache) {
+        b
+    } else {
+        let mut req = engine.http.get(&poster_url);
+        if let Some(r) = referer {
+            req = req.header("Referer", r);
+        }
+        let resp = req.send().await.map_err(|e| e.to_string())?;
+        if !resp.status().is_success() {
+            return Err(format!("HTTP {}", resp.status()));
+        }
+        let b = resp.bytes().await.map_err(|e| e.to_string())?.to_vec();
+        let _ = std::fs::create_dir_all(&folder);
+        let _ = std::fs::write(&cache, &b);
+        b
+    };
+    let assets = foldericon::assets_dir(&app)?;
     tauri::async_runtime::spawn_blocking(move || {
         foldericon::generate_and_apply(&assets, &folder, &bytes, &template)
     })
