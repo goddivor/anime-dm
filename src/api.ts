@@ -33,10 +33,15 @@ export type FinishedEvent = {
 
 // --- Settings & repos ---
 export const getSettings = () =>
-  invoke<{ repos: string[]; lang: string; folderIcons: boolean; folderTemplate: string }>(
-    "get_settings",
-  );
+  invoke<{
+    repos: string[];
+    lang: string;
+    folderIcons: boolean;
+    folderTemplate: string;
+    lastDir: string;
+  }>("get_settings");
 export const setLangPref = (lang: string) => invoke<void>("set_lang", { lang });
+export const setLastDir = (dir: string) => invoke<void>("set_last_dir", { dir });
 export const setFolderIcons = (enabled: boolean, template: string) =>
   invoke<void>("set_folder_icons", { enabled, template });
 export const listFolderTemplates = () =>
