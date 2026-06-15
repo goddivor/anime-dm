@@ -39,6 +39,7 @@ export type DownloadRow = {
   eta?: number; // secondes restantes
   error?: string;
   player?: string; // lecteur choisi (vide = préféré de l'extension)
+  isMovie?: boolean; // film (pas de numéro d'épisode)
   _tick?: { at: number; p: number };
 };
 
@@ -69,6 +70,7 @@ export type DownloadRecord = {
   outPath: string;
   address?: string;
   error?: string;
+  isMovie?: boolean;
 };
 
 export type Filter =

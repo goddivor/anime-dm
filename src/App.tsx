@@ -43,6 +43,7 @@ const isActive = (s: DownloadRow["status"]) =>
 
 const pad = (n: number) => String(n).padStart(3, "0");
 const sanitize = (s: string) => s.replace(/[/\\:*?"<>|]/g, "_");
+const isMovieEpisode = (e: { name: string }) => /\bfilm\b|\bmovie\b/i.test(e.name);
 
 function applyProgress(r: DownloadRow, e: ProgressEvent): DownloadRow {
   let eta = r.eta;
@@ -274,7 +275,8 @@ export default function App() {
       const ep = anime.episodes.find((e) => Math.round(e.number) === n);
       if (!ep) continue;
       const id = nextId.current++;
-      const filename = sanitize(`${anime.title} - Ep ${pad(n)}.mp4`);
+      const movie = isMovieEpisode(ep);
+      const filename = sanitize(movie ? `${anime.title}.mp4` : `${anime.title} - Ep ${pad(n)}.mp4`);
       const outPath = await joinPath(animeDir, filename);
       const player = players[n] ?? "";
       const row: DownloadRow = {
@@ -292,6 +294,7 @@ export default function App() {
         addedAt: Date.now(),
         outPath,
         player,
+        isMovie: movie,
       };
       setRows((rs) => [...rs, row]);
       persistRow(row);
