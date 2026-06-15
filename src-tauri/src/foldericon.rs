@@ -78,8 +78,20 @@ pub fn template_list() -> Vec<TemplateInfo> {
 }
 
 pub fn assets_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    let base = app.path().resource_dir().map_err(|e| e.to_string())?;
-    Ok(base.join("resources").join("folder-templates"))
+    if let Ok(base) = app.path().resource_dir() {
+        let bundled = base.join("resources").join("folder-templates");
+        if bundled.join("images").is_dir() {
+            return Ok(bundled);
+        }
+    }
+    // Dev fallback: resources aren't copied into target/ during `tauri dev`.
+    let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("resources")
+        .join("folder-templates");
+    if dev.join("images").is_dir() {
+        return Ok(dev);
+    }
+    Err("ressources des gabarits introuvables".to_string())
 }
 
 /// `magick` (ImageMagick v7) or `convert` (v6); `None` if neither is installed.
