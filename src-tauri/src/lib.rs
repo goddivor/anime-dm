@@ -298,10 +298,15 @@ fn addon_remove(app: AppHandle, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn addon_preferences(app: AppHandle, id: String) -> Result<Vec<Preference>, String> {
+async fn addon_preferences(app: AppHandle, id: String) -> Result<Vec<Preference>, String> {
     let dir = addons_dir(&app)?;
-    let mut addon = addons::open(&dir, &id).map_err(|e| e.to_string())?;
-    Ok(addon.preferences())
+    // Loading/instantiating the WASM plugin is slow; keep it off the UI thread.
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut addon = addons::open(&dir, &id).map_err(|e| e.to_string())?;
+        Ok(addon.preferences())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
