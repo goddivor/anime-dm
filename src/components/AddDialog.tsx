@@ -91,7 +91,9 @@ export default function AddDialog({
     if (anime) {
       setPicked(new Set(anime.episodes.map((_, i) => i)));
       setAnchor(null);
-      setSelection("");
+      setSelection(
+        collapseRanges(anime.episodes.map((e) => Math.round(e.number)).sort((a, b) => a - b)),
+      );
       setPlayerByEp({});
     }
   }, [anime]);
@@ -199,9 +201,7 @@ export default function AddDialog({
     }
     if (m === "list") {
       const nums =
-        selection.trim() === ""
-          ? anime.episodes.map((e) => Math.round(e.number))
-          : parseSelection(selection, anime.episodes.length);
+        selection.trim() === "" ? [] : parseSelection(selection, anime.episodes.length);
       const set = new Set(nums);
       setPicked(
         new Set(
@@ -224,7 +224,7 @@ export default function AddDialog({
     : mode === "list"
       ? [...picked].sort((a, b) => a - b).map((i) => Math.round(anime.episodes[i].number))
       : selection.trim() === ""
-        ? anime.episodes.map((e) => Math.round(e.number))
+        ? []
         : parseSelection(selection, anime.episodes.length);
 
   const launch = () => {
@@ -378,7 +378,7 @@ export default function AddDialog({
                 <input
                   value={selection}
                   onChange={(e) => setSelection(e.target.value)}
-                  placeholder="ex : 1-20  ·  1,5,8  ·  vide = tout"
+                  placeholder="ex : 1-20  ·  1,5,8"
                 />
               ) : (
                 <>
