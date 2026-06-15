@@ -768,6 +768,10 @@ select option {
   font-weight: 600;
 }
 
+.ext-update-ver {
+  color: var(--accent);
+}
+
 /* ---------- Poster zoom (hover loupe + lightbox) ---------- */
 .poster-zoom {
   position: relative;

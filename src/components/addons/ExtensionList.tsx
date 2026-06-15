@@ -1,4 +1,4 @@
-import { Download, Loader2, Puzzle, Settings2, Trash2 } from "lucide-react";
+import { ArrowUpCircle, Download, Loader2, Puzzle, Settings2, Trash2 } from "lucide-react";
 import type { T } from "../../i18n";
 
 export type ExtItem = {
@@ -9,6 +9,8 @@ export type ExtItem = {
   iconUrl?: string | null;
   repoUrl?: string;
   installed: boolean;
+  installedVersion?: string;
+  update?: boolean;
 };
 
 export default function ExtensionList({
@@ -40,12 +42,33 @@ export default function ExtensionList({
           <div className="ext-meta">
             <div className="ext-name">{it.name}</div>
             <div className="muted small">
-              {it.lang} · v{it.version}
+              {it.lang} ·{" "}
+              {it.update ? (
+                <span className="ext-update-ver">
+                  v{it.installedVersion} → v{it.version}
+                </span>
+              ) : (
+                <>v{it.version}</>
+              )}
             </div>
           </div>
           <div className="ext-actions">
             {it.installed ? (
               <>
+                {it.update && (
+                  <button
+                    className="btn primary"
+                    disabled={busyId === it.id}
+                    onClick={() => onInstall(it)}
+                  >
+                    {busyId === it.id ? (
+                      <Loader2 size={14} className="spin" />
+                    ) : (
+                      <ArrowUpCircle size={14} />
+                    )}{" "}
+                    {t("addons.update")}
+                  </button>
+                )}
                 <button className="icon-btn" title={t("addons.settings")} onClick={() => onConfigure(it)}>
                   <Settings2 size={18} />
                 </button>

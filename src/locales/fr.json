@@ -23,6 +23,7 @@
   "addons.save": "Enregistrer",
   "addons.settings": "Réglages",
   "addons.title": "Addon Store",
+  "addons.update": "Mettre à jour",
   "dialog.add.no_addon": "Aucune source installée. Ouvre l'Addon Store pour en installer une.",
   "dialog.add.open_store": "Ouvrir l'Addon Store",
   "dialog.add.source_label": "Source :",

@@ -18,6 +18,18 @@ import ConfirmDialog, { type Confirm } from "./ConfirmDialog";
 
 type View = { kind: "list" } | { kind: "repos" } | { kind: "config"; id: string; name: string };
 
+/// Compare two dotted version strings; >0 if `a` is newer than `b`.
+function cmpVersion(a: string, b: string): number {
+  const pa = a.split(".").map((n) => parseInt(n, 10) || 0);
+  const pb = b.split(".").map((n) => parseInt(n, 10) || 0);
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0);
+    if (d !== 0) return d > 0 ? 1 : -1;
+  }
+  return 0;
+}
+
 export default function AddonsScreen({
   installed,
   onChange,
@@ -68,15 +80,20 @@ export default function AddonsScreen({
   }, [installed, store]);
 
   const items: ExtItem[] = useMemo(() => {
-    const fromStore: ExtItem[] = store.map((e) => ({
-      id: e.id,
-      name: e.name,
-      lang: e.lang,
-      version: e.version,
-      iconUrl: e.iconUrl,
-      repoUrl: e.repoUrl,
-      installed: e.installed,
-    }));
+    const fromStore: ExtItem[] = store.map((e) => {
+      const inst = installed.find((a) => a.id === e.id);
+      return {
+        id: e.id,
+        name: e.name,
+        lang: e.lang,
+        version: e.version,
+        iconUrl: e.iconUrl,
+        repoUrl: e.repoUrl,
+        installed: e.installed,
+        installedVersion: inst?.version,
+        update: !!inst && cmpVersion(e.version, inst.version) > 0,
+      };
+    });
     const extra: ExtItem[] = installed
       .filter((a) => !store.some((e) => e.id === a.id))
       .map((a) => ({
