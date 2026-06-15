@@ -103,6 +103,8 @@ struct Settings {
     folder_icons: bool,
     #[serde(default)]
     folder_template: String,
+    #[serde(default)]
+    last_dir: String,
 }
 
 #[derive(Serialize)]
@@ -166,6 +168,13 @@ fn get_settings(app: AppHandle) -> Settings {
 fn set_lang(app: AppHandle, lang: String) -> Result<(), String> {
     let mut settings = read_settings(&app);
     settings.lang = lang;
+    write_settings(&app, &settings)
+}
+
+#[tauri::command]
+fn set_last_dir(app: AppHandle, dir: String) -> Result<(), String> {
+    let mut settings = read_settings(&app);
+    settings.last_dir = dir;
     write_settings(&app, &settings)
 }
 
@@ -793,6 +802,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_settings,
             set_lang,
+            set_last_dir,
             set_folder_icons,
             add_repo,
             remove_repo,

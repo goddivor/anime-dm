@@ -20,6 +20,7 @@ import {
   pickDirectory,
   getSettings,
   listFolderTemplates,
+  setLastDir,
 } from "../api";
 import { parseSelection } from "../format";
 import Poster from "./Poster";
@@ -98,12 +99,12 @@ export default function AddDialog({
   const drag = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
 
   useEffect(() => {
-    defaultDownloadDir()
-      .then(setDestDir)
-      .catch(() => {});
     getSettings()
-      .then((s) => setFolderIconsOn(s.folderIcons))
-      .catch(() => {});
+      .then(async (s) => {
+        setFolderIconsOn(s.folderIcons);
+        setDestDir(s.lastDir || (await defaultDownloadDir()));
+      })
+      .catch(() => defaultDownloadDir().then(setDestDir).catch(() => {}));
     listFolderTemplates()
       .then(setIconTemplates)
       .catch(() => {});
@@ -111,7 +112,10 @@ export default function AddDialog({
 
   const pickDest = async () => {
     const d = await pickDirectory(destDir || undefined);
-    if (d) setDestDir(d);
+    if (d) {
+      setDestDir(d);
+      setLastDir(d).catch(() => {});
+    }
   };
 
   useEffect(() => {
