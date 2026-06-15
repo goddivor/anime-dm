@@ -32,6 +32,10 @@ type Menu =
 const PREF_PLAYER = "preferred_player";
 const AUTO = "Auto";
 
+/// A single film entry (no episode number) — naming/selection differ from a series.
+const isMovieAnime = (a: Anime) =>
+  a.episodes.length === 1 && /\bfilm\b|\bmovie\b/i.test(a.episodes[0].name);
+
 /// Collapse a sorted list of numbers into a compact selection string ("1-5,8,10-12").
 function collapseRanges(nums: number[]): string {
   if (nums.length === 0) return "";
@@ -141,6 +145,8 @@ export default function AddDialog({
         collapseRanges(anime.episodes.map((e) => Math.round(e.number)).sort((a, b) => a - b)),
       );
       setPlayerByEp({});
+      // A film has no episode number — the text "0" is meaningless, force the grid.
+      if (isMovieAnime(anime)) setMode("list");
     }
   }, [anime]);
 
@@ -404,23 +410,25 @@ export default function AddDialog({
 
               <div className="ep-toolbar">
                 <label className="field-label">{t("dialog.add.episodes_label")}</label>
-                <div className="seg">
-                  <button
-                    className={mode === "text" ? "active" : ""}
-                    onClick={() => switchMode("text")}
-                  >
-                    <Type size={14} /> {t("dialog.add.episodes_mode_text")}
-                  </button>
-                  <button
-                    className={mode === "list" ? "active" : ""}
-                    onClick={() => switchMode("list")}
-                  >
-                    <LayoutGrid size={14} /> {t("dialog.add.episodes_mode_list")}
-                  </button>
-                </div>
+                {!isMovieAnime(anime) && (
+                  <div className="seg">
+                    <button
+                      className={mode === "text" ? "active" : ""}
+                      onClick={() => switchMode("text")}
+                    >
+                      <Type size={14} /> {t("dialog.add.episodes_mode_text")}
+                    </button>
+                    <button
+                      className={mode === "list" ? "active" : ""}
+                      onClick={() => switchMode("list")}
+                    >
+                      <LayoutGrid size={14} /> {t("dialog.add.episodes_mode_list")}
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {mode === "text" ? (
+              {mode === "text" && !isMovieAnime(anime) ? (
                 <input
                   value={selection}
                   onChange={(e) => setSelection(e.target.value)}
