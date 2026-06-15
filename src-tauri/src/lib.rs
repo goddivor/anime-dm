@@ -1,5 +1,6 @@
 mod addons;
 mod db;
+mod foldericon;
 mod worker;
 
 use std::collections::{BTreeMap, HashMap};
@@ -96,6 +97,10 @@ struct Settings {
     repos: Vec<String>,
     #[serde(default)]
     lang: String,
+    #[serde(default)]
+    folder_icons: bool,
+    #[serde(default)]
+    folder_template: String,
 }
 
 fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -136,6 +141,14 @@ fn get_settings(app: AppHandle) -> Settings {
 fn set_lang(app: AppHandle, lang: String) -> Result<(), String> {
     let mut settings = read_settings(&app);
     settings.lang = lang;
+    write_settings(&app, &settings)
+}
+
+#[tauri::command]
+fn set_folder_icons(app: AppHandle, enabled: bool, template: String) -> Result<(), String> {
+    let mut settings = read_settings(&app);
+    settings.folder_icons = enabled;
+    settings.folder_template = template;
     write_settings(&app, &settings)
 }
 
@@ -285,10 +298,15 @@ fn addon_remove(app: AppHandle, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn addon_preferences(app: AppHandle, id: String) -> Result<Vec<Preference>, String> {
+async fn addon_preferences(app: AppHandle, id: String) -> Result<Vec<Preference>, String> {
     let dir = addons_dir(&app)?;
-    let mut addon = addons::open(&dir, &id).map_err(|e| e.to_string())?;
-    Ok(addon.preferences())
+    // Loading/instantiating the WASM plugin is slow; keep it off the UI thread.
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut addon = addons::open(&dir, &id).map_err(|e| e.to_string())?;
+        Ok(addon.preferences())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -379,6 +397,35 @@ async fn fetch_image(
     let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
     let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
     Ok(format!("data:{content_type};base64,{b64}"))
+}
+
+#[tauri::command]
+fn list_folder_templates() -> Vec<foldericon::TemplateInfo> {
+    foldericon::template_list()
+}
+
+/// Generate a styled folder icon from the stored anime poster (base64 data URL or
+/// raw base64) and apply it to `folder`. No network — the poster lives in the DB.
+#[tauri::command]
+async fn apply_folder_icon(
+    app: AppHandle,
+    folder: String,
+    poster_data: String,
+    template: String,
+) -> Result<String, String> {
+    use base64::Engine as _;
+    let b64 = poster_data.rsplit(',').next().unwrap_or(&poster_data);
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(b64.trim())
+        .map_err(|e| format!("affiche illisible : {e}"))?;
+    let assets = foldericon::assets_dir(&app)?;
+    let cache = data_dir(&app)?.join("icon-cache");
+    let folder = PathBuf::from(folder);
+    tauri::async_runtime::spawn_blocking(move || {
+        foldericon::generate_and_apply(&assets, &cache, &folder, &bytes, &template)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -617,6 +664,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_settings,
             set_lang,
+            set_folder_icons,
             add_repo,
             remove_repo,
             store_fetch,
@@ -630,6 +678,8 @@ pub fn run() {
             load_anime,
             list_hosters,
             fetch_image,
+            list_folder_templates,
+            apply_folder_icon,
             start_download,
             pause_download,
             pause_all,

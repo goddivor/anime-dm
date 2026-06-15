@@ -4,7 +4,7 @@ import { translator, type Lang } from "./i18n";
 import type { Anime, AnimeGroup, DownloadRow, Filter, InstalledAddon } from "./types";
 import {
   addonsInstalled,
-  defaultOutPath,
+  defaultDownloadDir,
   joinPath,
   onFinished,
   onProgress,
@@ -21,6 +21,9 @@ import {
   groupSave,
   getSettings,
   setLangPref,
+  applyFolderIcon,
+  listFolderTemplates,
+  fetchImage,
   type FinishedEvent,
   type ProgressEvent,
 } from "./api";
@@ -31,6 +34,7 @@ import DownloadsTable from "./components/DownloadsTable";
 import StatusBar from "./components/StatusBar";
 import AddDialog from "./components/AddDialog";
 import AddonsScreen from "./components/AddonsScreen";
+import SettingsDialog from "./components/SettingsDialog";
 import ConfirmDialog, { type Confirm } from "./components/ConfirmDialog";
 import ContextMenu, { type CtxItem } from "./components/ContextMenu";
 
@@ -97,6 +101,9 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [iconTemplates, setIconTemplates] = useState<{ id: string; name: string }[]>([]);
+  const [iconMenu, setIconMenu] = useState<{ x: number; y: number; groupId: number } | null>(null);
   const [info, setInfo] = useState<{ title: string; lines: string[] } | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
 
@@ -119,6 +126,9 @@ export default function App() {
       .then((s) => {
         if (s.lang === "fr" || s.lang === "en") setLang(s.lang);
       })
+      .catch(() => {});
+    listFolderTemplates()
+      .then(setIconTemplates)
       .catch(() => {});
     stateLoad()
       .then(({ downloads, groups: g }) => {
@@ -168,36 +178,104 @@ export default function App() {
 
   const soon = (label: string) => setMessage(`« ${label} » — ${t("status.coming_soon")}`);
 
+  // Regenerate an anime folder's icon with a chosen template (right-click in the sidebar).
+  const applyIconFor = async (groupId: number, template: string) => {
+    let g = groups.find((x) => x.id === groupId);
+    const row = rows.find((r) => r.animeId === groupId);
+    if (!g || !row) {
+      setMessage(t("foldericon.no_folder"));
+      return;
+    }
+    const folder = row.outPath.replace(/[/\\][^/\\]*$/, "");
+    let data = g.posterData ?? undefined;
+    if (!data) {
+      if (!g.posterUrl) {
+        setMessage(t("foldericon.no_folder"));
+        return;
+      }
+      try {
+        data = await fetchImage(g.posterUrl, g.url);
+        g = { ...g, posterData: data };
+        setGroups((gs) => gs.map((x) => (x.id === groupId ? g! : x)));
+        persistGroup(g);
+      } catch (e) {
+        setMessage(String(e));
+        return;
+      }
+    }
+    setMessage(t("foldericon.generating"));
+    try {
+      const bin = await applyFolderIcon({ folder, posterData: data, template });
+      setMessage(`${t("foldericon.applied")} — ${bin}`);
+      const ng = { ...g, iconTemplate: template };
+      setGroups((gs) => gs.map((x) => (x.id === groupId ? ng : x)));
+      persistGroup(ng);
+    } catch (e) {
+      setMessage(String(e));
+    }
+  };
+
   const onLaunch = async (
     addonId: string,
     anime: Anime,
     numbers: number[],
     players: Record<number, string> = {},
     destDir = "",
+    folderTemplate = "",
   ) => {
     setShowAdd(false);
+    const baseDir = destDir || (await defaultDownloadDir());
+    const animeDir = await joinPath(baseDir, sanitize(anime.title));
     const existing = groups.find((g) => g.url === anime.url);
     let animeId: number;
     if (existing) {
       animeId = existing.id;
     } else {
       animeId = nextGroupId.current++;
+      // Store the poster image in the DB so folder-icon generation never needs the network.
+      let posterData: string | undefined;
+      if (anime.posterUrl) {
+        try {
+          posterData = await fetchImage(anime.posterUrl, anime.url);
+        } catch {
+          /* keep the URL; data can be fetched later */
+        }
+      }
       const group: AnimeGroup = {
         id: animeId,
         title: anime.title,
         url: anime.url,
         posterUrl: anime.posterUrl,
+        posterData,
         expanded: true,
       };
       setGroups((gs) => [...gs, group]);
       persistGroup(group);
+      if (posterData) {
+        const data = posterData;
+        getSettings()
+          .then((s) => {
+            if (s.folderIcons) {
+              const tpl = folderTemplate || s.folderTemplate || "none";
+              applyFolderIcon({ folder: animeDir, posterData: data, template: tpl })
+                .then(() => {
+                  setGroups((gs) =>
+                    gs.map((x) => (x.id === animeId ? { ...x, iconTemplate: tpl } : x)),
+                  );
+                  persistGroup({ ...group, iconTemplate: tpl });
+                })
+                .catch(() => {});
+            }
+          })
+          .catch(() => {});
+      }
     }
     for (const n of numbers) {
       const ep = anime.episodes.find((e) => Math.round(e.number) === n);
       if (!ep) continue;
       const id = nextId.current++;
       const filename = sanitize(`${anime.title} - Ep ${pad(n)}.mp4`);
-      const outPath = destDir ? await joinPath(destDir, filename) : await defaultOutPath(filename);
+      const outPath = await joinPath(animeDir, filename);
       const player = players[n] ?? "";
       const row: DownloadRow = {
         id,
@@ -515,6 +593,7 @@ export default function App() {
         anyActive={anyActive}
         anyRows={anyRows}
         onOpenAddons={() => setView(view === "addons" ? "downloads" : "addons")}
+        onOpenSettings={() => setShowSettings(true)}
         soon={soon}
         search={search}
         onSearch={setSearch}
@@ -539,6 +618,7 @@ export default function App() {
                   onClose={() => setSidebarOn(false)}
                   selected={selected}
                   onSelectRow={selectSingle}
+                  onAnimeContext={(groupId, x, y) => setIconMenu({ x, y, groupId })}
                   t={t}
                 />
               </div>
@@ -557,6 +637,25 @@ export default function App() {
         </div>
       )}
       <StatusBar rows={rows} message={message} t={t} />
+
+      {iconMenu && (
+        <ContextMenu
+          x={iconMenu.x}
+          y={iconMenu.y}
+          onClose={() => setIconMenu(null)}
+          items={[
+            { key: "_h", label: t("foldericon.change_model"), disabled: true },
+            ...iconTemplates.map((tp) => ({
+              key: tp.id,
+              label:
+                (groups.find((g) => g.id === iconMenu.groupId)?.iconTemplate === tp.id
+                  ? "✓ "
+                  : "") + tp.name,
+              onClick: () => applyIconFor(iconMenu.groupId, tp.id),
+            })),
+          ]}
+        />
+      )}
 
       {menu && (
         <ContextMenu
@@ -590,6 +689,7 @@ export default function App() {
           t={t}
         />
       )}
+      {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} t={t} />}
       {info && (
         <div className="modal-backdrop" onMouseDown={() => setInfo(null)}>
           <div className="modal sm" onMouseDown={(e) => e.stopPropagation()}>

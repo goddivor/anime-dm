@@ -6,21 +6,29 @@ const cache = new Map<string, string>();
 
 export default function Poster({
   url,
+  data,
   referer,
   className,
   fallback,
   zoomable,
 }: {
   url?: string | null;
+  data?: string | null;
   referer?: string;
   className?: string;
   fallback: ReactNode;
   zoomable?: boolean;
 }) {
-  const [src, setSrc] = useState<string | undefined>(url ? cache.get(url) : undefined);
+  const [src, setSrc] = useState<string | undefined>(
+    data || (url ? cache.get(url) : undefined),
+  );
   const [zoom, setZoom] = useState(false);
 
   useEffect(() => {
+    if (data) {
+      setSrc(data);
+      return;
+    }
     if (!url) {
       setSrc(undefined);
       return;
@@ -41,7 +49,7 @@ export default function Poster({
     return () => {
       alive = false;
     };
-  }, [url, referer]);
+  }, [url, data, referer]);
 
   if (!src) return <>{fallback}</>;
   if (!zoomable) return <img className={className} src={src} alt="" />;
