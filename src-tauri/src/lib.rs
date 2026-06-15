@@ -97,6 +97,10 @@ struct Settings {
     repos: Vec<String>,
     #[serde(default)]
     lang: String,
+    #[serde(default)]
+    folder_icons: bool,
+    #[serde(default)]
+    folder_template: String,
 }
 
 fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -137,6 +141,14 @@ fn get_settings(app: AppHandle) -> Settings {
 fn set_lang(app: AppHandle, lang: String) -> Result<(), String> {
     let mut settings = read_settings(&app);
     settings.lang = lang;
+    write_settings(&app, &settings)
+}
+
+#[tauri::command]
+fn set_folder_icons(app: AppHandle, enabled: bool, template: String) -> Result<(), String> {
+    let mut settings = read_settings(&app);
+    settings.folder_icons = enabled;
+    settings.folder_template = template;
     write_settings(&app, &settings)
 }
 
@@ -651,6 +663,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_settings,
             set_lang,
+            set_folder_icons,
             add_repo,
             remove_repo,
             store_fetch,

@@ -21,6 +21,7 @@ import {
   groupSave,
   getSettings,
   setLangPref,
+  applyFolderIcon,
   type FinishedEvent,
   type ProgressEvent,
 } from "./api";
@@ -31,6 +32,7 @@ import DownloadsTable from "./components/DownloadsTable";
 import StatusBar from "./components/StatusBar";
 import AddDialog from "./components/AddDialog";
 import AddonsScreen from "./components/AddonsScreen";
+import SettingsDialog from "./components/SettingsDialog";
 import ConfirmDialog, { type Confirm } from "./components/ConfirmDialog";
 import ContextMenu, { type CtxItem } from "./components/ContextMenu";
 
@@ -97,6 +99,7 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [info, setInfo] = useState<{ title: string; lines: string[] } | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
 
@@ -174,6 +177,7 @@ export default function App() {
     numbers: number[],
     players: Record<number, string> = {},
     destDir = "",
+    folderTemplate = "",
   ) => {
     setShowAdd(false);
     const baseDir = destDir || (await defaultDownloadDir());
@@ -193,6 +197,20 @@ export default function App() {
       };
       setGroups((gs) => [...gs, group]);
       persistGroup(group);
+      if (anime.posterUrl) {
+        getSettings()
+          .then((s) => {
+            if (s.folderIcons) {
+              applyFolderIcon({
+                folder: animeDir,
+                posterUrl: anime.posterUrl!,
+                referer: anime.url,
+                template: folderTemplate || s.folderTemplate || "none",
+              }).catch(() => {});
+            }
+          })
+          .catch(() => {});
+      }
     }
     for (const n of numbers) {
       const ep = anime.episodes.find((e) => Math.round(e.number) === n);
@@ -517,6 +535,7 @@ export default function App() {
         anyActive={anyActive}
         anyRows={anyRows}
         onOpenAddons={() => setView(view === "addons" ? "downloads" : "addons")}
+        onOpenSettings={() => setShowSettings(true)}
         soon={soon}
         search={search}
         onSearch={setSearch}
@@ -592,6 +611,7 @@ export default function App() {
           t={t}
         />
       )}
+      {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} t={t} />}
       {info && (
         <div className="modal-backdrop" onMouseDown={() => setInfo(null)}>
           <div className="modal sm" onMouseDown={(e) => e.stopPropagation()}>

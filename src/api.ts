@@ -30,8 +30,21 @@ export type FinishedEvent = {
 };
 
 // --- Settings & repos ---
-export const getSettings = () => invoke<{ repos: string[]; lang: string }>("get_settings");
+export const getSettings = () =>
+  invoke<{ repos: string[]; lang: string; folderIcons: boolean; folderTemplate: string }>(
+    "get_settings",
+  );
 export const setLangPref = (lang: string) => invoke<void>("set_lang", { lang });
+export const setFolderIcons = (enabled: boolean, template: string) =>
+  invoke<void>("set_folder_icons", { enabled, template });
+export const listFolderTemplates = () =>
+  invoke<{ id: string; name: string }[]>("list_folder_templates");
+export const applyFolderIcon = (p: {
+  folder: string;
+  posterUrl: string;
+  referer?: string;
+  template: string;
+}) => invoke<void>("apply_folder_icon", p);
 export const addRepo = (url: string) => invoke<void>("add_repo", { url });
 export const removeRepo = (url: string) => invoke<void>("remove_repo", { url });
 

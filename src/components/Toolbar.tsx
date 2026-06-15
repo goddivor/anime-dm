@@ -37,6 +37,7 @@ export default function Toolbar({
   anyActive,
   anyRows,
   onOpenAddons,
+  onOpenSettings,
   soon,
   search,
   onSearch,
@@ -54,6 +55,7 @@ export default function Toolbar({
   anyActive: boolean;
   anyRows: boolean;
   onOpenAddons: () => void;
+  onOpenSettings: () => void;
   soon: (l: string) => void;
   search: string;
   onSearch: (v: string) => void;
@@ -65,7 +67,7 @@ export default function Toolbar({
     { key: "stopall", icon: <OctagonX size={20} />, label: t("toolbar.stop_all"), tip: t("tooltip.stop_all"), onClick: onStopAll, sep: true, disabled: !anyActive },
     { key: "del", icon: <Trash2 size={20} />, label: t("toolbar.delete"), tip: t("tooltip.delete"), onClick: onRemoveSelected, disabled: !canDelete },
     { key: "delall", icon: <ListX size={20} />, label: t("toolbar.delete_all"), tip: t("tooltip.delete_all"), onClick: onDeleteAll, sep: true, disabled: !anyRows },
-    { key: "opts", icon: <Settings size={20} />, label: t("toolbar.options"), tip: t("tooltip.options"), onClick: () => soon(t("toolbar.options")) },
+    { key: "opts", icon: <Settings size={20} />, label: t("toolbar.options"), tip: t("tooltip.options"), onClick: onOpenSettings },
     { key: "sched", icon: <Timer size={20} />, label: t("toolbar.scheduler"), tip: t("tooltip.scheduler"), onClick: () => soon(t("toolbar.scheduler")), sep: true },
     { key: "addons", icon: <Puzzle size={20} />, label: t("toolbar.addons"), tip: t("tooltip.addons"), onClick: onOpenAddons },
   ];

@@ -18,6 +18,8 @@ import {
   addonPreferences,
   defaultDownloadDir,
   pickDirectory,
+  getSettings,
+  listFolderTemplates,
 } from "../api";
 import { parseSelection } from "../format";
 import Poster from "./Poster";
@@ -63,6 +65,7 @@ export default function AddDialog({
     numbers: number[],
     players: Record<number, string>,
     destDir: string,
+    folderTemplate: string,
   ) => void;
   onOpenAddons: () => void;
   t: T;
@@ -84,12 +87,21 @@ export default function AddDialog({
   const [playerByEp, setPlayerByEp] = useState<Record<number, string>>({});
   const [menu, setMenu] = useState<Menu | null>(null);
   const [destDir, setDestDir] = useState("");
+  const [folderIconsOn, setFolderIconsOn] = useState(false);
+  const [iconTemplates, setIconTemplates] = useState<{ id: string; name: string }[]>([]);
+  const [folderTemplate, setFolderTemplate] = useState("");
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const drag = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
 
   useEffect(() => {
     defaultDownloadDir()
       .then(setDestDir)
+      .catch(() => {});
+    getSettings()
+      .then((s) => setFolderIconsOn(s.folderIcons))
+      .catch(() => {});
+    listFolderTemplates()
+      .then(setIconTemplates)
       .catch(() => {});
   }, []);
 
@@ -268,7 +280,7 @@ export default function AddDialog({
       const p = effPlayer(i);
       if (p) players[Math.round(e.number)] = p;
     });
-    onLaunch(addonId, anime, numbers, players, destDir);
+    onLaunch(addonId, anime, numbers, players, destDir, folderTemplate);
   };
 
   const q = query.trim().toLowerCase();
@@ -448,6 +460,25 @@ export default function AddDialog({
                   </div>
                   <div className="muted small">{t("dialog.add.episode_player_hint")}</div>
                 </>
+              )}
+
+              {folderIconsOn && iconTemplates.length > 0 && (
+                <div className="row">
+                  <FolderOpen size={14} className="muted" />
+                  <span className="muted small">{t("dialog.add.folder_icon")}</span>
+                  <select
+                    className="grow"
+                    value={folderTemplate}
+                    onChange={(e) => setFolderTemplate(e.target.value)}
+                  >
+                    <option value="">{t("dialog.add.folder_icon_default")}</option>
+                    {iconTemplates.map((tp) => (
+                      <option key={tp.id} value={tp.id}>
+                        {tp.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
 
               <div className="modal-foot dl-foot">
