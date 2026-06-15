@@ -8,8 +8,29 @@ import Poster from "./Poster";
 import ContextMenu, { type CtxItem } from "./ContextMenu";
 
 type EpMode = "text" | "list";
+type Menu =
+  | { kind: "global"; x: number; y: number }
+  | { kind: "episode"; x: number; y: number; idx: number; hosters: Hoster[] | null };
 const PREF_PLAYER = "preferred_player";
 const AUTO = "Auto";
+
+/// Collapse a sorted list of numbers into a compact selection string ("1-5,8,10-12").
+function collapseRanges(nums: number[]): string {
+  if (nums.length === 0) return "";
+  const parts: string[] = [];
+  let start = nums[0];
+  let prev = nums[0];
+  for (let i = 1; i < nums.length; i++) {
+    if (nums[i] === prev + 1) {
+      prev = nums[i];
+      continue;
+    }
+    parts.push(start === prev ? `${start}` : `${start}-${prev}`);
+    start = prev = nums[i];
+  }
+  parts.push(start === prev ? `${start}` : `${start}-${prev}`);
+  return parts.join(",");
+}
 
 export default function AddDialog({
   addons,
@@ -39,9 +60,7 @@ export default function AddDialog({
   const [playerOptions, setPlayerOptions] = useState<string[]>([]);
   const [globalPlayer, setGlobalPlayer] = useState(AUTO);
   const [playerByEp, setPlayerByEp] = useState<Record<number, string>>({});
-  const [epMenu, setEpMenu] = useState<{ x: number; y: number; idx: number; hosters: Hoster[] } | null>(
-    null,
-  );
+  const [menu, setMenu] = useState<Menu | null>(null);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const drag = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
 
@@ -153,17 +172,49 @@ export default function AddDialog({
     setAnchor(i);
   };
 
-  const onCellContext = async (e: ReactMouseEvent, idx: number) => {
+  // Open the menu instantly with a loading state, then fill it once resolved.
+  const onCellContext = (e: ReactMouseEvent, idx: number) => {
     e.preventDefault();
     if (!anime) return;
-    const x = e.clientX;
-    const y = e.clientY;
-    try {
-      const hosters = await listHosters(addonId, anime.episodes[idx].url);
-      if (hosters.length) setEpMenu({ x, y, idx, hosters });
-    } catch {
-      /* ignore */
+    setMenu({ kind: "episode", x: e.clientX, y: e.clientY, idx, hosters: null });
+    listHosters(addonId, anime.episodes[idx].url)
+      .then((hosters) =>
+        setMenu((m) => (m && m.kind === "episode" && m.idx === idx ? { ...m, hosters } : m)),
+      )
+      .catch(() =>
+        setMenu((m) => (m && m.kind === "episode" && m.idx === idx ? { ...m, hosters: [] } : m)),
+      );
+  };
+
+  const openGlobalMenu = (e: ReactMouseEvent) => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setMenu({ kind: "global", x: r.left, y: r.bottom + 4 });
+  };
+
+  // Keep the text and visual selections in sync when switching mode.
+  const switchMode = (m: EpMode) => {
+    if (m === mode || !anime) {
+      setMode(m);
+      return;
     }
+    if (m === "list") {
+      const nums =
+        selection.trim() === ""
+          ? anime.episodes.map((e) => Math.round(e.number))
+          : parseSelection(selection, anime.episodes.length);
+      const set = new Set(nums);
+      setPicked(
+        new Set(
+          anime.episodes
+            .map((_, i) => i)
+            .filter((i) => set.has(Math.round(anime.episodes[i].number))),
+        ),
+      );
+    } else {
+      const nums = [...picked].map((i) => Math.round(anime.episodes[i].number)).sort((a, b) => a - b);
+      setSelection(collapseRanges(nums));
+    }
+    setMode(m);
   };
 
   const effPlayer = (i: number) => playerByEp[i] ?? (globalPlayer !== AUTO ? globalPlayer : "");
@@ -186,24 +237,33 @@ export default function AddDialog({
     onLaunch(addonId, anime, numbers, players);
   };
 
-  const active = addons.find((a) => a.id === addonId);
   const q = query.trim().toLowerCase();
   const shown = addons.filter(
     (a) => !q || a.name.toLowerCase().includes(q) || a.lang.toLowerCase().includes(q),
   );
 
-  const menuItems: CtxItem[] = epMenu
-    ? (() => {
-        const cur =
-          playerByEp[epMenu.idx] ??
-          (globalPlayer !== AUTO ? globalPlayer : epMenu.hosters[0]?.name);
-        return epMenu.hosters.map((h) => ({
-          key: h.name,
-          label: (h.name === cur ? "● " : "") + h.name,
-          onClick: () => setPlayerByEp((p) => ({ ...p, [epMenu.idx]: h.name })),
-        }));
-      })()
-    : [];
+  const menuItems: CtxItem[] = !menu
+    ? []
+    : menu.kind === "global"
+      ? playerOptions.map((p) => ({
+          key: p,
+          label: (p === globalPlayer ? "● " : "") + (p === AUTO ? t("dialog.add.player_auto") : p),
+          onClick: () => setGlobalPlayer(p),
+        }))
+      : menu.hosters === null
+        ? [{ key: "_loading", label: t("dialog.add.loading_players"), disabled: true }]
+        : menu.hosters.length === 0
+          ? [{ key: "_none", label: t("dialog.add.no_player"), disabled: true }]
+          : (() => {
+              const idx = menu.idx;
+              const cur =
+                playerByEp[idx] ?? (globalPlayer !== AUTO ? globalPlayer : menu.hosters[0]?.name);
+              return menu.hosters.map((h) => ({
+                key: h.name,
+                label: (h.name === cur ? "● " : "") + h.name,
+                onClick: () => setPlayerByEp((p) => ({ ...p, [idx]: h.name })),
+              }));
+            })();
 
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
@@ -245,23 +305,14 @@ export default function AddDialog({
               placeholder={t("dialog.add.source_search")}
             />
           )}
-          {active && <div className="muted small">{`${active.name} (${active.lang})`}</div>}
-
           {playerOptions.length > 0 && (
             <div className="row">
-              <Settings size={14} className="muted" />
-              <span className="muted small">{t("dialog.add.player_label")}</span>
-              <select
-                className="grow"
-                value={globalPlayer}
-                onChange={(e) => setGlobalPlayer(e.target.value)}
-              >
-                {playerOptions.map((p) => (
-                  <option key={p} value={p}>
-                    {p === AUTO ? t("dialog.add.player_auto") : p}
-                  </option>
-                ))}
-              </select>
+              <button className="icon-btn" title={t("dialog.add.player_label")} onClick={openGlobalMenu}>
+                <Settings size={18} />
+              </button>
+              <span className="muted small">
+                {t("dialog.add.player_label")} {globalPlayer}
+              </span>
             </div>
           )}
 
@@ -310,13 +361,13 @@ export default function AddDialog({
                 <div className="seg">
                   <button
                     className={mode === "text" ? "active" : ""}
-                    onClick={() => setMode("text")}
+                    onClick={() => switchMode("text")}
                   >
                     <Type size={14} /> {t("dialog.add.episodes_mode_text")}
                   </button>
                   <button
                     className={mode === "list" ? "active" : ""}
-                    onClick={() => setMode("list")}
+                    onClick={() => switchMode("list")}
                   >
                     <LayoutGrid size={14} /> {t("dialog.add.episodes_mode_list")}
                   </button>
@@ -374,8 +425,22 @@ export default function AddDialog({
           )}
         </div>
       </div>
-      {epMenu && (
-        <ContextMenu x={epMenu.x} y={epMenu.y} items={menuItems} onClose={() => setEpMenu(null)} />
+      {menu && (
+        <>
+          <div
+            className="ctx-overlay"
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              setMenu(null);
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setMenu(null);
+            }}
+          />
+          <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />
+        </>
       )}
     </div>
   );

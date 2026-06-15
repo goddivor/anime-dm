@@ -33,6 +33,8 @@
   "dialog.add.select_all": "All",
   "dialog.add.select_none": "None",
   "dialog.add.episode_player_hint": "Right-click an episode to change its player.",
+  "dialog.add.loading_players": "Loading players…",
+  "dialog.add.no_player": "No player",
   "menu.view.addons": "Addon Store",
   "toolbar.addons": "Addons",
   "tooltip.addons": "Manage sources (Addon Store)",
