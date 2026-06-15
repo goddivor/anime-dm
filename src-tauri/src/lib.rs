@@ -419,9 +419,10 @@ async fn apply_folder_icon(
         .decode(b64.trim())
         .map_err(|e| format!("affiche illisible : {e}"))?;
     let assets = foldericon::assets_dir(&app)?;
+    let cache = data_dir(&app)?.join("icon-cache");
     let folder = PathBuf::from(folder);
     tauri::async_runtime::spawn_blocking(move || {
-        foldericon::generate_and_apply(&assets, &folder, &bytes, &template)
+        foldericon::generate_and_apply(&assets, &cache, &folder, &bytes, &template)
     })
     .await
     .map_err(|e| e.to_string())?

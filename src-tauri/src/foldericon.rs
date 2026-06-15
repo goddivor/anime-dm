@@ -177,26 +177,6 @@ struct MultiTemplate {
 
 const MULTI_TEMPLATES: &[MultiTemplate] = &[
     MultiTemplate {
-        id: "windows-11-cover",
-        name: "Windows 11 (pochette)",
-        passes: &[
-            &[
-                "(", "-size", "512x512", "xc:none", ")", "-compose", "Over", "(", "{INPUT}",
-                "-scale", "458x295!", "-gravity", "center", "-geometry", "+1+14",
-                "{ASSETS}/Win11Cover-Front.png", ")", "-compose", "over", "-composite",
-            ],
-            &[
-                "{TMP}", "-brightness-contrast", "0x10", "-modulate", "95,70", "-background",
-                "white", "-channel", "a", "-alpha", "remove", "-channel", "rgb", "-negate",
-                "-alpha", "shape",
-            ],
-            &[
-                "(", "{ASSETS}/Win11Cover.png", "-scale", "512x512!", "-modulate", "50,100",
-                "-brightness-contrast", "-20x35", "{TMP}", ")", "-compose", "Over", "-composite",
-            ],
-        ],
-    },
-    MultiTemplate {
         id: "dualtab-vertical",
         name: "Double onglet vertical",
         passes: &[
@@ -362,37 +342,45 @@ fn compose(
     Ok(())
 }
 
-/// Download the poster, compose the styled icon and set it on `folder`.
+/// Compose the styled icon (cached by poster+template so it's only built once)
+/// and apply it to `folder`. Returns the ImageMagick binary used.
 pub fn generate_and_apply(
     assets_dir: &Path,
+    cache_dir: &Path,
     folder: &Path,
     poster_bytes: &[u8],
     template_id: &str,
 ) -> Result<String, String> {
+    use std::hash::{Hash, Hasher};
     let bin = imagemagick(assets_dir)
         .ok_or("ImageMagick introuvable — installez « imagemagick » (commande magick/convert).")?;
     let assets_images = assets_dir.join("images");
+    std::fs::create_dir_all(cache_dir).map_err(|e| e.to_string())?;
 
-    std::fs::create_dir_all(folder).map_err(|e| e.to_string())?;
-    let src = folder.join(".icon-src.tmp");
-    std::fs::write(&src, poster_bytes).map_err(|e| e.to_string())?;
+    // Content-addressed cache: same poster + template → reuse, never re-render.
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    poster_bytes.hash(&mut hasher);
+    let key = format!("{:016x}_{}", hasher.finish(), template_id);
+    let as_ico = cfg!(target_os = "windows");
+    let cached = cache_dir.join(format!("{key}.{}", if as_ico { "ico" } else { "png" }));
 
-    let result = set_for_os(&bin, &assets_images, folder, &src, template_id);
-    let _ = std::fs::remove_file(&src);
-    result.map(|_| bin)
+    if !cached.is_file() {
+        let src = cache_dir.join(format!(".src-{key}.tmp"));
+        std::fs::write(&src, poster_bytes).map_err(|e| e.to_string())?;
+        let r = compose(&bin, &assets_images, &src, template_id, &cached, as_ico);
+        let _ = std::fs::remove_file(&src);
+        r?;
+    }
+
+    set_from_cache(&cached, folder)?;
+    Ok(bin)
 }
 
 #[cfg(target_os = "linux")]
-fn set_for_os(
-    bin: &str,
-    assets_images: &Path,
-    folder: &Path,
-    src: &Path,
-    template_id: &str,
-) -> Result<(), String> {
-    // A fresh filename each time so the file manager's cached icon is invalidated
-    // (re-setting the same path is a no-op that GNOME/Nautilus won't refresh).
+fn set_from_cache(cached: &Path, folder: &Path) -> Result<(), String> {
     use std::time::{SystemTime, UNIX_EPOCH};
+    std::fs::create_dir_all(folder).map_err(|e| e.to_string())?;
+    // A fresh filename each time so Nautilus invalidates its cached icon.
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis())
@@ -407,17 +395,12 @@ fn set_for_os(
         }
     }
     let png = folder.join(format!(".folder-icon-{stamp}.png"));
-    compose(bin, assets_images, src, template_id, &png, false)?;
+    std::fs::copy(cached, &png).map_err(|e| e.to_string())?;
 
     let mut applied = false;
     let uri = format!("file://{}", png.display());
     if Command::new("gio")
-        .args([
-            "set",
-            &folder.to_string_lossy(),
-            "metadata::custom-icon",
-            &uri,
-        ])
+        .args(["set", &folder.to_string_lossy(), "metadata::custom-icon", &uri])
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
@@ -425,12 +408,7 @@ fn set_for_os(
         applied = true;
     }
     let dot = folder.join(".directory");
-    if std::fs::write(
-        &dot,
-        format!("[Desktop Entry]\nIcon={}\n", png.display()),
-    )
-    .is_ok()
-    {
+    if std::fs::write(&dot, format!("[Desktop Entry]\nIcon={}\n", png.display())).is_ok() {
         applied = true;
     }
     if applied {
@@ -441,15 +419,10 @@ fn set_for_os(
 }
 
 #[cfg(target_os = "windows")]
-fn set_for_os(
-    bin: &str,
-    assets_images: &Path,
-    folder: &Path,
-    src: &Path,
-    template_id: &str,
-) -> Result<(), String> {
+fn set_from_cache(cached: &Path, folder: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(folder).map_err(|e| e.to_string())?;
     let ico = folder.join("folder.ico");
-    compose(bin, assets_images, src, template_id, &ico, true)?;
+    std::fs::copy(cached, &ico).map_err(|e| e.to_string())?;
 
     let desktop_ini = folder.join("desktop.ini");
     let ini = format!(
@@ -465,15 +438,10 @@ fn set_for_os(
 }
 
 #[cfg(target_os = "macos")]
-fn set_for_os(
-    bin: &str,
-    assets_images: &Path,
-    folder: &Path,
-    src: &Path,
-    template_id: &str,
-) -> Result<(), String> {
+fn set_from_cache(cached: &Path, folder: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(folder).map_err(|e| e.to_string())?;
     let png = folder.join(".folder.png");
-    compose(bin, assets_images, src, template_id, &png, false)?;
+    std::fs::copy(cached, &png).map_err(|e| e.to_string())?;
 
     let script = format!(
         "ObjC.import('Cocoa');\nvar image = $.NSImage.alloc.initWithContentsOfFile({:?});\nif (image.isNil()) {{ throw new Error('invalid image'); }}\nvar ok = $.NSWorkspace.sharedWorkspace.setIconForFileOptions(image, {:?}, 0);\nif (!ok) {{ throw new Error('NSWorkspace returned false'); }}",
