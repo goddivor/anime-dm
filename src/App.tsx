@@ -5,6 +5,7 @@ import type { Anime, AnimeGroup, DownloadRow, Filter, InstalledAddon } from "./t
 import {
   addonsInstalled,
   defaultOutPath,
+  joinPath,
   onFinished,
   onProgress,
   startDownload,
@@ -172,6 +173,7 @@ export default function App() {
     anime: Anime,
     numbers: number[],
     players: Record<number, string> = {},
+    destDir = "",
   ) => {
     setShowAdd(false);
     const existing = groups.find((g) => g.url === anime.url);
@@ -195,7 +197,7 @@ export default function App() {
       if (!ep) continue;
       const id = nextId.current++;
       const filename = sanitize(`${anime.title} - Ep ${pad(n)}.mp4`);
-      const outPath = await defaultOutPath(filename);
+      const outPath = destDir ? await joinPath(destDir, filename) : await defaultOutPath(filename);
       const player = players[n] ?? "";
       const row: DownloadRow = {
         id,

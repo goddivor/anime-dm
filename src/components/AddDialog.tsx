@@ -1,8 +1,24 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
-import { Download, Loader2, Search, Puzzle, Type, LayoutGrid, Settings } from "lucide-react";
+import {
+  Download,
+  Loader2,
+  Search,
+  Puzzle,
+  Type,
+  LayoutGrid,
+  Settings,
+  FolderOpen,
+} from "lucide-react";
 import type { Anime, Hoster, InstalledAddon } from "../types";
 import type { T } from "../i18n";
-import { loadAnime, addonIcon, listHosters, addonPreferences } from "../api";
+import {
+  loadAnime,
+  addonIcon,
+  listHosters,
+  addonPreferences,
+  defaultDownloadDir,
+  pickDirectory,
+} from "../api";
 import { parseSelection } from "../format";
 import Poster from "./Poster";
 import ContextMenu, { type CtxItem } from "./ContextMenu";
@@ -41,7 +57,13 @@ export default function AddDialog({
 }: {
   addons: InstalledAddon[];
   onClose: () => void;
-  onLaunch: (addonId: string, anime: Anime, numbers: number[], players: Record<number, string>) => void;
+  onLaunch: (
+    addonId: string,
+    anime: Anime,
+    numbers: number[],
+    players: Record<number, string>,
+    destDir: string,
+  ) => void;
   onOpenAddons: () => void;
   t: T;
 }) {
@@ -61,8 +83,20 @@ export default function AddDialog({
   const [globalPlayer, setGlobalPlayer] = useState(AUTO);
   const [playerByEp, setPlayerByEp] = useState<Record<number, string>>({});
   const [menu, setMenu] = useState<Menu | null>(null);
+  const [destDir, setDestDir] = useState("");
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const drag = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
+
+  useEffect(() => {
+    defaultDownloadDir()
+      .then(setDestDir)
+      .catch(() => {});
+  }, []);
+
+  const pickDest = async () => {
+    const d = await pickDirectory(destDir || undefined);
+    if (d) setDestDir(d);
+  };
 
   useEffect(() => {
     addons.forEach((a) => {
@@ -234,7 +268,7 @@ export default function AddDialog({
       const p = effPlayer(i);
       if (p) players[Math.round(e.number)] = p;
     });
-    onLaunch(addonId, anime, numbers, players);
+    onLaunch(addonId, anime, numbers, players, destDir);
   };
 
   const q = query.trim().toLowerCase();
@@ -416,7 +450,15 @@ export default function AddDialog({
                 </>
               )}
 
-              <div className="modal-foot">
+              <div className="modal-foot dl-foot">
+                <button
+                  className="btn dest-btn"
+                  title={`${t("dialog.add.dest_label")} : ${destDir}`}
+                  onClick={pickDest}
+                >
+                  <FolderOpen size={16} />
+                  <span className="dest-path">{destDir || t("dialog.add.dest_label")}</span>
+                </button>
                 <button className="btn primary" disabled={numbers.length === 0} onClick={launch}>
                   <Download size={16} /> {t("dialog.add.download_btn")} ({numbers.length})
                 </button>

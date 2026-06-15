@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { downloadDir, join } from "@tauri-apps/api/path";
+import { open } from "@tauri-apps/plugin-dialog";
 import type {
   Anime,
   AnimeGroup,
@@ -91,3 +92,8 @@ export async function defaultOutPath(filename: string): Promise<string> {
   const dir = await downloadDir();
   return join(dir, filename);
 }
+
+export const defaultDownloadDir = () => downloadDir();
+export const joinPath = (dir: string, filename: string) => join(dir, filename);
+export const pickDirectory = (defaultPath?: string) =>
+  open({ directory: true, defaultPath }) as Promise<string | null>;

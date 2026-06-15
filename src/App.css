@@ -913,6 +913,24 @@ select option {
   color: var(--text);
   text-align: center;
 }
+.dl-foot {
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.dest-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 60%;
+}
+.dest-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+}
 .ep-cell.custom::after {
   content: "";
   position: absolute;
