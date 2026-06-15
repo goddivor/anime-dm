@@ -4,7 +4,7 @@ import { translator, type Lang } from "./i18n";
 import type { Anime, AnimeGroup, DownloadRow, Filter, InstalledAddon } from "./types";
 import {
   addonsInstalled,
-  defaultOutPath,
+  defaultDownloadDir,
   joinPath,
   onFinished,
   onProgress,
@@ -176,6 +176,8 @@ export default function App() {
     destDir = "",
   ) => {
     setShowAdd(false);
+    const baseDir = destDir || (await defaultDownloadDir());
+    const animeDir = await joinPath(baseDir, sanitize(anime.title));
     const existing = groups.find((g) => g.url === anime.url);
     let animeId: number;
     if (existing) {
@@ -197,7 +199,7 @@ export default function App() {
       if (!ep) continue;
       const id = nextId.current++;
       const filename = sanitize(`${anime.title} - Ep ${pad(n)}.mp4`);
-      const outPath = destDir ? await joinPath(destDir, filename) : await defaultOutPath(filename);
+      const outPath = await joinPath(animeDir, filename);
       const player = players[n] ?? "";
       const row: DownloadRow = {
         id,
