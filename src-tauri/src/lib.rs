@@ -216,10 +216,49 @@ fn url_host(url: &str) -> String {
         .to_string()
 }
 
+fn mime_from_url(url: &str) -> &'static str {
+    let u = url.to_lowercase();
+    if u.ends_with(".jpg") || u.ends_with(".jpeg") {
+        "image/jpeg"
+    } else if u.ends_with(".webp") {
+        "image/webp"
+    } else if u.ends_with(".svg") {
+        "image/svg+xml"
+    } else {
+        "image/png"
+    }
+}
+
+/// Fetch (and cache to disk) a repo icon, returned as a base64 data URL for offline use.
+async fn repo_icon_data(
+    http: &reqwest::Client,
+    cache_dir: &std::path::Path,
+    url: &str,
+) -> Option<String> {
+    use base64::Engine as _;
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    url.hash(&mut h);
+    let path = cache_dir.join(format!("{:016x}", h.finish()));
+    let bytes = if let Ok(b) = std::fs::read(&path) {
+        b
+    } else {
+        let resp = http.get(url).send().await.ok()?.error_for_status().ok()?;
+        let b = resp.bytes().await.ok()?.to_vec();
+        let _ = std::fs::create_dir_all(cache_dir);
+        let _ = std::fs::write(&path, &b);
+        b
+    };
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    Some(format!("data:{};base64,{b64}", mime_from_url(url)))
+}
+
 /// Configured repos with their metadata (name/icon/website from `repo.json`).
+/// The icon is cached locally and returned as a data URL (works offline).
 #[tauri::command]
 async fn list_repos(app: AppHandle, engine: State<'_, Engine>) -> Result<Vec<RepoInfo>, String> {
     let settings = read_settings(&app);
+    let cache_dir = data_dir(&app)?.join("repo-icons");
     let mut out = Vec::new();
     for url in &settings.repos {
         let disabled = settings.disabled_repos.iter().any(|r| r == url);
@@ -231,7 +270,7 @@ async fn list_repos(app: AppHandle, engine: State<'_, Engine>) -> Result<Vec<Rep
             .await
             .ok()
             .and_then(|r| r.error_for_status().ok());
-        let (name, website, icon_url) = match meta {
+        let (name, website, icon_remote) = match meta {
             Some(resp) => match resp.text().await.ok().and_then(|t| {
                 serde_json::from_str::<RepoMetaFile>(&t).ok()
             }) {
@@ -243,6 +282,10 @@ async fn list_repos(app: AppHandle, engine: State<'_, Engine>) -> Result<Vec<Rep
                 None => (url_host(url), None, None),
             },
             None => (url_host(url), None, None),
+        };
+        let icon_url = match icon_remote {
+            Some(iu) => repo_icon_data(&engine.http, &cache_dir, &iu).await,
+            None => None,
         };
         out.push(RepoInfo {
             url: url.clone(),
