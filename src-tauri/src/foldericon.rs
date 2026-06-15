@@ -279,8 +279,15 @@ fn imagemagick(assets_dir: &Path) -> Option<String> {
         ];
         for bundled in candidates {
             if bundled.is_file() {
-                // Bundling may strip the executable bit; restore it best-effort.
-                let _ = std::fs::set_permissions(&bundled, std::fs::Permissions::from_mode(0o755));
+                // Restore the executable bit only if missing — writing it every time
+                // would trip the `tauri dev` file watcher and restart the app.
+                let exec = std::fs::metadata(&bundled)
+                    .map(|m| m.permissions().mode() & 0o111 != 0)
+                    .unwrap_or(false);
+                if !exec {
+                    let _ =
+                        std::fs::set_permissions(&bundled, std::fs::Permissions::from_mode(0o755));
+                }
                 return Some(bundled.to_string_lossy().into_owned());
             }
         }
