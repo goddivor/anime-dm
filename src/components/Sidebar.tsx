@@ -114,7 +114,9 @@ export default function Sidebar({
                     >
                       <span className={`ep-glyph ${d.status}`}>{statusGlyph[d.status]}</span>
                       <span className="tree-label">
-                        Ep {String(Math.round(d.episodeNumber)).padStart(3, "0")}
+                        {d.isMovie
+                          ? t("table.movie")
+                          : `Ep ${String(Math.round(d.episodeNumber)).padStart(3, "0")}`}
                       </span>
                     </div>
                   ))}

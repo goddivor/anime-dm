@@ -26,6 +26,8 @@ pub struct DownloadRecord {
     pub address: Option<String>,
     #[serde(default)]
     pub error: Option<String>,
+    #[serde(default)]
+    pub is_movie: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -70,19 +72,21 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
             last_try INTEGER,
             out_path TEXT NOT NULL,
             address TEXT,
-            error TEXT
+            error TEXT,
+            is_movie INTEGER
         );",
     )?;
     // Migrations for databases created before these columns existed.
     let _ = conn.execute("ALTER TABLE anime_groups ADD COLUMN poster_data TEXT", []);
     let _ = conn.execute("ALTER TABLE anime_groups ADD COLUMN icon_template TEXT", []);
+    let _ = conn.execute("ALTER TABLE downloads ADD COLUMN is_movie INTEGER", []);
     Ok(conn)
 }
 
 pub fn load_downloads(conn: &Connection) -> rusqlite::Result<Vec<DownloadRecord>> {
     let mut stmt = conn.prepare(
         "SELECT id, addon_id, anime_id, anime_title, episode_number, filename, page_url, queue,
-                status, size_bytes, added_at, last_try, out_path, address, error
+                status, size_bytes, added_at, last_try, out_path, address, error, is_movie
          FROM downloads ORDER BY id",
     )?;
     let rows = stmt
@@ -103,6 +107,7 @@ pub fn load_downloads(conn: &Connection) -> rusqlite::Result<Vec<DownloadRecord>
                 out_path: r.get(12)?,
                 address: r.get(13)?,
                 error: r.get(14)?,
+                is_movie: r.get::<_, Option<i64>>(15)?.unwrap_or(0) != 0,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -113,8 +118,8 @@ pub fn upsert_download(conn: &Connection, d: &DownloadRecord) -> rusqlite::Resul
     conn.execute(
         "INSERT OR REPLACE INTO downloads
             (id, addon_id, anime_id, anime_title, episode_number, filename, page_url, queue,
-             status, size_bytes, added_at, last_try, out_path, address, error)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
+             status, size_bytes, added_at, last_try, out_path, address, error, is_movie)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
         params![
             d.id,
             d.addon_id,
@@ -131,6 +136,7 @@ pub fn upsert_download(conn: &Connection, d: &DownloadRecord) -> rusqlite::Resul
             d.out_path,
             d.address,
             d.error,
+            d.is_movie as i64,
         ],
     )?;
     Ok(())

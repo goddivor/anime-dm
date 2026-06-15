@@ -454,7 +454,9 @@ export default function AddDialog({
                         onClick={(ev: ReactMouseEvent) => toggle(i, ev.shiftKey)}
                         onContextMenu={(ev: ReactMouseEvent) => onCellContext(ev, i)}
                       >
-                        {String(e.number)}
+                        {Math.round(e.number) <= 0 && /\bfilm\b|\bmovie\b/i.test(e.name)
+                          ? t("table.movie")
+                          : String(e.number)}
                       </button>
                     ))}
                   </div>
