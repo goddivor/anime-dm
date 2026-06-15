@@ -43,8 +43,7 @@ const isActive = (s: DownloadRow["status"]) =>
 
 const pad = (n: number) => String(n).padStart(3, "0");
 const sanitize = (s: string) => s.replace(/[/\\:*?"<>|]/g, "_");
-const isMovieEpisode = (e: { number: number; name: string }) =>
-  Math.round(e.number) <= 0 && /\bfilm\b|\bmovie\b/i.test(e.name);
+const isMovieEpisode = (e: { name: string }) => /\bfilm\b|\bmovie\b/i.test(e.name);
 
 function applyProgress(r: DownloadRow, e: ProgressEvent): DownloadRow {
   let eta = r.eta;
