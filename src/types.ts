@@ -38,6 +38,7 @@ export type DownloadRow = {
   address?: string;
   eta?: number; // secondes restantes
   error?: string;
+  player?: string; // lecteur choisi (vide = préféré de l'extension)
   _tick?: { at: number; p: number };
 };
 

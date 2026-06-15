@@ -32,6 +32,7 @@
   "dialog.add.episodes_mode_list": "Liste",
   "dialog.add.select_all": "Tout",
   "dialog.add.select_none": "Aucun",
+  "dialog.add.episode_player_hint": "Clic droit sur un épisode pour changer son lecteur.",
   "menu.view.addons": "Addon Store",
   "toolbar.addons": "Addons",
   "tooltip.addons": "Gérer les sources (Addon Store)",

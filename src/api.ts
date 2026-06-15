@@ -6,6 +6,7 @@ import type {
   AnimeGroup,
   DownloadRecord,
   DownloadRow,
+  Hoster,
   InstalledAddon,
   Preference,
   StoreEntry,
@@ -51,6 +52,9 @@ export const addonSetConfig = (id: string, config: Record<string, string>) =>
 // --- Source operations (through an addon) ---
 export const loadAnime = (addonId: string, url: string) =>
   invoke<Anime>("load_anime", { addonId, url });
+
+export const listHosters = (addonId: string, url: string) =>
+  invoke<Hoster[]>("list_hosters", { addonId, url });
 
 export const startDownload = (p: {
   addonId: string;

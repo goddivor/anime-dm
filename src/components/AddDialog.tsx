@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
-import { Download, Loader2, Search, Puzzle, Type, LayoutGrid } from "lucide-react";
-import type { Anime, InstalledAddon } from "../types";
+import { Download, Loader2, Search, Puzzle, Type, LayoutGrid, Settings } from "lucide-react";
+import type { Anime, Hoster, InstalledAddon } from "../types";
 import type { T } from "../i18n";
-import { loadAnime, addonIcon } from "../api";
+import { loadAnime, addonIcon, listHosters, addonPreferences } from "../api";
 import { parseSelection } from "../format";
 import Poster from "./Poster";
+import ContextMenu, { type CtxItem } from "./ContextMenu";
 
 type EpMode = "text" | "list";
+const PREF_PLAYER = "preferred_player";
+const AUTO = "Auto";
 
 export default function AddDialog({
   addons,
@@ -17,7 +20,7 @@ export default function AddDialog({
 }: {
   addons: InstalledAddon[];
   onClose: () => void;
-  onLaunch: (addonId: string, anime: Anime, numbers: number[]) => void;
+  onLaunch: (addonId: string, anime: Anime, numbers: number[], players: Record<number, string>) => void;
   onOpenAddons: () => void;
   t: T;
 }) {
@@ -33,6 +36,12 @@ export default function AddDialog({
   const [selection, setSelection] = useState("");
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [anchor, setAnchor] = useState<number | null>(null);
+  const [playerOptions, setPlayerOptions] = useState<string[]>([]);
+  const [globalPlayer, setGlobalPlayer] = useState(AUTO);
+  const [playerByEp, setPlayerByEp] = useState<Record<number, string>>({});
+  const [epMenu, setEpMenu] = useState<{ x: number; y: number; idx: number; hosters: Hoster[] } | null>(
+    null,
+  );
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const drag = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
 
@@ -46,12 +55,25 @@ export default function AddDialog({
     });
   }, [addons]);
 
+  // Player options come from the addon's "preferred_player" preference.
+  useEffect(() => {
+    setGlobalPlayer(AUTO);
+    if (!addonId) return;
+    addonPreferences(addonId)
+      .then((prefs) => {
+        const p = prefs.find((x) => x.key === PREF_PLAYER);
+        setPlayerOptions(p?.options ?? []);
+      })
+      .catch(() => setPlayerOptions([]));
+  }, [addonId]);
+
   // Reset the episode selection whenever a new anime is resolved.
   useEffect(() => {
     if (anime) {
       setPicked(new Set(anime.episodes.map((_, i) => i)));
       setAnchor(null);
       setSelection("");
+      setPlayerByEp({});
     }
   }, [anime]);
 
@@ -131,6 +153,21 @@ export default function AddDialog({
     setAnchor(i);
   };
 
+  const onCellContext = async (e: ReactMouseEvent, idx: number) => {
+    e.preventDefault();
+    if (!anime) return;
+    const x = e.clientX;
+    const y = e.clientY;
+    try {
+      const hosters = await listHosters(addonId, anime.episodes[idx].url);
+      if (hosters.length) setEpMenu({ x, y, idx, hosters });
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const effPlayer = (i: number) => playerByEp[i] ?? (globalPlayer !== AUTO ? globalPlayer : "");
+
   const numbers = !anime
     ? []
     : mode === "list"
@@ -139,11 +176,34 @@ export default function AddDialog({
         ? anime.episodes.map((e) => Math.round(e.number))
         : parseSelection(selection, anime.episodes.length);
 
+  const launch = () => {
+    if (!anime) return;
+    const players: Record<number, string> = {};
+    anime.episodes.forEach((e, i) => {
+      const p = effPlayer(i);
+      if (p) players[Math.round(e.number)] = p;
+    });
+    onLaunch(addonId, anime, numbers, players);
+  };
+
   const active = addons.find((a) => a.id === addonId);
   const q = query.trim().toLowerCase();
   const shown = addons.filter(
     (a) => !q || a.name.toLowerCase().includes(q) || a.lang.toLowerCase().includes(q),
   );
+
+  const menuItems: CtxItem[] = epMenu
+    ? (() => {
+        const cur =
+          playerByEp[epMenu.idx] ??
+          (globalPlayer !== AUTO ? globalPlayer : epMenu.hosters[0]?.name);
+        return epMenu.hosters.map((h) => ({
+          key: h.name,
+          label: (h.name === cur ? "● " : "") + h.name,
+          onClick: () => setPlayerByEp((p) => ({ ...p, [epMenu.idx]: h.name })),
+        }));
+      })()
+    : [];
 
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
@@ -186,6 +246,24 @@ export default function AddDialog({
             />
           )}
           {active && <div className="muted small">{`${active.name} (${active.lang})`}</div>}
+
+          {playerOptions.length > 0 && (
+            <div className="row">
+              <Settings size={14} className="muted" />
+              <span className="muted small">{t("dialog.add.player_label")}</span>
+              <select
+                className="grow"
+                value={globalPlayer}
+                onChange={(e) => setGlobalPlayer(e.target.value)}
+              >
+                {playerOptions.map((p) => (
+                  <option key={p} value={p}>
+                    {p === AUTO ? t("dialog.add.player_auto") : p}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <label className="field-label">{t("dialog.add.link_label")}</label>
           <div className="row">
@@ -272,23 +350,23 @@ export default function AddDialog({
                     {anime.episodes.map((e, i) => (
                       <button
                         key={i}
-                        className={"ep-cell" + (picked.has(i) ? " on" : "")}
-                        title={e.name}
+                        className={
+                          "ep-cell" + (picked.has(i) ? " on" : "") + (playerByEp[i] ? " custom" : "")
+                        }
+                        title={playerByEp[i] ? `${e.name} — ${playerByEp[i]}` : e.name}
                         onClick={(ev: ReactMouseEvent) => toggle(i, ev.shiftKey)}
+                        onContextMenu={(ev: ReactMouseEvent) => onCellContext(ev, i)}
                       >
                         {String(e.number)}
                       </button>
                     ))}
                   </div>
+                  <div className="muted small">{t("dialog.add.episode_player_hint")}</div>
                 </>
               )}
 
               <div className="modal-foot">
-                <button
-                  className="btn primary"
-                  disabled={numbers.length === 0}
-                  onClick={() => onLaunch(addonId, anime, numbers)}
-                >
+                <button className="btn primary" disabled={numbers.length === 0} onClick={launch}>
                   <Download size={16} /> {t("dialog.add.download_btn")} ({numbers.length})
                 </button>
               </div>
@@ -296,6 +374,9 @@ export default function AddDialog({
           )}
         </div>
       </div>
+      {epMenu && (
+        <ContextMenu x={epMenu.x} y={epMenu.y} items={menuItems} onClose={() => setEpMenu(null)} />
+      )}
     </div>
   );
 }

@@ -898,6 +898,7 @@ select option {
   padding: 2px;
 }
 .ep-cell {
+  position: relative;
   background: var(--panel2);
   border: 1px solid var(--border);
   border-radius: 5px;
@@ -906,6 +907,16 @@ select option {
   font-weight: 600;
   color: var(--text);
   text-align: center;
+}
+.ep-cell.custom::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffd166;
 }
 .ep-cell:hover {
   border-color: var(--accent);

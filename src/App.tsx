@@ -167,7 +167,12 @@ export default function App() {
 
   const soon = (label: string) => setMessage(`« ${label} » — ${t("status.coming_soon")}`);
 
-  const onLaunch = async (addonId: string, anime: Anime, numbers: number[]) => {
+  const onLaunch = async (
+    addonId: string,
+    anime: Anime,
+    numbers: number[],
+    players: Record<number, string> = {},
+  ) => {
     setShowAdd(false);
     const existing = groups.find((g) => g.url === anime.url);
     let animeId: number;
@@ -191,6 +196,7 @@ export default function App() {
       const id = nextId.current++;
       const filename = sanitize(`${anime.title} - Ep ${pad(n)}.mp4`);
       const outPath = await defaultOutPath(filename);
+      const player = players[n] ?? "";
       const row: DownloadRow = {
         id,
         addonId,
@@ -205,10 +211,11 @@ export default function App() {
         speed: "",
         addedAt: Date.now(),
         outPath,
+        player,
       };
       setRows((rs) => [...rs, row]);
       persistRow(row);
-      startDownload({ addonId, id, episodeUrl: ep.url, playerName: "", outPath }).catch((err) =>
+      startDownload({ addonId, id, episodeUrl: ep.url, playerName: player, outPath }).catch((err) =>
         setRows((rs) =>
           rs.map((r) => (r.id === id ? { ...r, status: "failed", error: String(err) } : r)),
         ),
@@ -280,7 +287,7 @@ export default function App() {
       addonId: r.addonId,
       id: r.id,
       episodeUrl: r.pageUrl,
-      playerName: "",
+      playerName: r.player ?? "",
       outPath: r.outPath,
     }).catch((err) =>
       setRows((rs) =>
