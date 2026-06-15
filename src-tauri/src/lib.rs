@@ -1,5 +1,6 @@
 mod addons;
 mod db;
+mod foldericon;
 mod worker;
 
 use std::collections::{BTreeMap, HashMap};
@@ -382,6 +383,39 @@ async fn fetch_image(
 }
 
 #[tauri::command]
+fn list_folder_templates() -> Vec<foldericon::TemplateInfo> {
+    foldericon::template_list()
+}
+
+/// Generate a styled folder icon from the anime poster and apply it to `folder`.
+#[tauri::command]
+async fn apply_folder_icon(
+    app: AppHandle,
+    engine: State<'_, Engine>,
+    folder: String,
+    poster_url: String,
+    referer: Option<String>,
+    template: String,
+) -> Result<(), String> {
+    let mut req = engine.http.get(&poster_url);
+    if let Some(r) = referer {
+        req = req.header("Referer", r);
+    }
+    let resp = req.send().await.map_err(|e| e.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("HTTP {}", resp.status()));
+    }
+    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+    let assets = foldericon::assets_dir(&app)?;
+    let folder = PathBuf::from(folder);
+    tauri::async_runtime::spawn_blocking(move || {
+        foldericon::generate_and_apply(&assets, &folder, &bytes, &template)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 async fn start_download(
     app: AppHandle,
     engine: State<'_, Engine>,
@@ -630,6 +664,8 @@ pub fn run() {
             load_anime,
             list_hosters,
             fetch_image,
+            list_folder_templates,
+            apply_folder_icon,
             start_download,
             pause_download,
             pause_all,
