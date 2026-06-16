@@ -113,6 +113,8 @@ struct Settings {
     last_dir: String,
     #[serde(default)]
     skip_delete_confirm: bool,
+    #[serde(default)]
+    theme: String,
 }
 
 #[derive(Serialize)]
@@ -183,6 +185,13 @@ fn set_lang(app: AppHandle, lang: String) -> Result<(), String> {
 fn set_last_dir(app: AppHandle, dir: String) -> Result<(), String> {
     let mut settings = read_settings(&app);
     settings.last_dir = dir;
+    write_settings(&app, &settings)
+}
+
+#[tauri::command]
+fn set_theme(app: AppHandle, theme: String) -> Result<(), String> {
+    let mut settings = read_settings(&app);
+    settings.theme = theme;
     write_settings(&app, &settings)
 }
 
@@ -1179,6 +1188,7 @@ pub fn run() {
             get_settings,
             set_lang,
             set_last_dir,
+            set_theme,
             set_skip_delete_confirm,
             create_dir,
             delete_files,

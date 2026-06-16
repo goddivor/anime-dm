@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import "./App.css";
 import { translator, type Lang } from "./i18n";
-import type { Anime, AnimeGroup, DownloadRow, Filter, InstalledAddon } from "./types";
+import type { Anime, AnimeGroup, DownloadRow, Filter, InstalledAddon, Theme } from "./types";
+import { applyTheme, isTheme } from "./theme";
 import {
   addonsInstalled,
   defaultDownloadDir,
@@ -21,6 +22,7 @@ import {
   groupSave,
   getSettings,
   setLangPref,
+  setThemePref,
   applyFolderIcon,
   listFolderTemplates,
   fetchImage,
@@ -100,6 +102,13 @@ export default function App() {
     setLangPref(l).catch(() => {});
   };
 
+  const [theme, setTheme] = useState<Theme>("dark");
+  const changeTheme = (th: Theme) => {
+    setTheme(th);
+    applyTheme(th);
+    setThemePref(th).catch(() => {});
+  };
+
   const [rows, setRows] = useState<DownloadRow[]>([]);
   const [groups, setGroups] = useState<AnimeGroup[]>([]);
   const [addons, setAddons] = useState<InstalledAddon[]>([]);
@@ -159,6 +168,9 @@ export default function App() {
       .then((s) => {
         if (s.lang === "fr" || s.lang === "en") setLang(s.lang);
         skipDeleteConfirm.current = s.skipDeleteConfirm;
+        const th = isTheme(s.theme) ? s.theme : "dark";
+        setTheme(th);
+        applyTheme(th);
       })
       .catch(() => {});
     listFolderTemplates()
@@ -816,6 +828,8 @@ export default function App() {
           openAddons: () => setView("addons"),
           setLang: changeLang,
           lang,
+          setTheme: changeTheme,
+          theme,
           onAbout: () =>
             setInfo({
               title: t("dialog.about.title"),
