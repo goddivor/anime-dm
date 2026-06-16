@@ -14,6 +14,7 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tauri::async_runtime::JoinHandle;
 use tauri::{AppHandle, Emitter, Manager, State};
+use tauri_plugin_opener::OpenerExt;
 
 struct Engine {
     http: reqwest::Client,
@@ -61,6 +62,11 @@ fn group_save(db: State<'_, Db>, record: GroupRecord) -> Result<(), String> {
     db::upsert_group(&db.0.lock().unwrap(), &record).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn group_delete(db: State<'_, Db>, id: i64) -> Result<(), String> {
+    db::delete_group(&db.0.lock().unwrap(), id).map_err(|e| e.to_string())
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ProgressEvent {
@@ -105,6 +111,8 @@ struct Settings {
     folder_template: String,
     #[serde(default)]
     last_dir: String,
+    #[serde(default)]
+    skip_delete_confirm: bool,
 }
 
 #[derive(Serialize)]
@@ -176,6 +184,367 @@ fn set_last_dir(app: AppHandle, dir: String) -> Result<(), String> {
     let mut settings = read_settings(&app);
     settings.last_dir = dir;
     write_settings(&app, &settings)
+}
+
+#[tauri::command]
+fn set_skip_delete_confirm(app: AppHandle, skip: bool) -> Result<(), String> {
+    let mut settings = read_settings(&app);
+    settings.skip_delete_confirm = skip;
+    write_settings(&app, &settings)
+}
+
+// Delete downloaded files from disk (best-effort, silent on missing files).
+// Empty containing folders are cleaned up afterwards.
+#[tauri::command]
+fn delete_files(paths: Vec<String>) -> Result<(), String> {
+    for p in &paths {
+        let path = std::path::Path::new(p);
+        let _ = std::fs::remove_file(path);
+        if let Some(dir) = path.parent() {
+            if dir.read_dir().map(|mut d| d.next().is_none()).unwrap_or(false) {
+                let _ = std::fs::remove_dir(dir);
+            }
+        }
+    }
+    Ok(())
+}
+
+// Folder-icon helper files left behind by foldericon.rs, safe to clear when an
+// anime's dedicated folder is removed.
+fn is_icon_helper(name: &str) -> bool {
+    name.starts_with(".folder-icon-")
+        || name == ".directory"
+        || name == ".folder.png"
+        || name == "desktop.ini"
+        || name == "Icon\r"
+}
+
+// Delete every file of an anime from disk, then remove its folder if only
+// icon-helper files remain (protects a shared download directory).
+#[tauri::command]
+fn delete_anime_files(paths: Vec<String>) -> Result<(), String> {
+    let mut dirs: std::collections::BTreeSet<PathBuf> = std::collections::BTreeSet::new();
+    for p in &paths {
+        let path = std::path::Path::new(p);
+        let _ = std::fs::remove_file(path);
+        if let Some(dir) = path.parent() {
+            dirs.insert(dir.to_path_buf());
+        }
+    }
+    for dir in dirs {
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        let remaining: Vec<_> = entries.flatten().collect();
+        let only_helpers = remaining.iter().all(|e| {
+            e.file_name()
+                .to_str()
+                .map(is_icon_helper)
+                .unwrap_or(false)
+        });
+        if only_helpers {
+            for e in &remaining {
+                let _ = std::fs::remove_file(e.path());
+            }
+            let _ = std::fs::remove_dir(&dir);
+        }
+    }
+    Ok(())
+}
+
+// Open all of an anime's episodes at once with the default video player, as a
+// playlist when possible (Linux). Falls back to opening each file.
+#[tauri::command]
+fn open_episodes(app: AppHandle, paths: Vec<String>) -> Result<(), String> {
+    let files: Vec<String> = paths
+        .into_iter()
+        .filter(|p| std::path::Path::new(p).is_file())
+        .collect();
+    if files.is_empty() {
+        return Err("file_missing".to_string());
+    }
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(def) = linux_default_app(&files[0]) {
+            if linux_launch_desktop(&def, &files).is_ok() {
+                return Ok(());
+            }
+        }
+    }
+    for f in &files {
+        let _ = app.opener().open_path(f.clone(), None::<&str>);
+    }
+    Ok(())
+}
+
+// Open the downloaded file with the OS default application. Errors with
+// "file_missing" when the file was moved or deleted so the UI can warn.
+#[tauri::command]
+fn open_file(app: AppHandle, path: String) -> Result<(), String> {
+    if !std::path::Path::new(&path).is_file() {
+        return Err("file_missing".to_string());
+    }
+    app.opener()
+        .open_path(path, None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
+// Open the folder containing the file. Errors with "folder_missing" when the
+// containing folder was moved, renamed or deleted.
+#[tauri::command]
+fn open_folder(app: AppHandle, path: String) -> Result<(), String> {
+    let dir = std::path::Path::new(&path)
+        .parent()
+        .ok_or("folder_missing")?
+        .to_path_buf();
+    if !dir.is_dir() {
+        return Err("folder_missing".to_string());
+    }
+    app.opener()
+        .open_path(dir.to_string_lossy().to_string(), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
+// An application able to open a file, derived from a freedesktop .desktop entry.
+#[derive(Serialize)]
+struct AppEntry {
+    name: String,
+    id: String,
+}
+
+// List installed applications that can open the file. Linux only: parses
+// .desktop entries and ranks the MIME default first. Returns an empty list on
+// other platforms so the UI falls back to the native picker.
+#[tauri::command]
+fn list_apps(path: String) -> Result<Vec<AppEntry>, String> {
+    if !std::path::Path::new(&path).is_file() {
+        return Err("file_missing".to_string());
+    }
+    #[cfg(target_os = "linux")]
+    {
+        Ok(linux_apps_for(&path))
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Ok(Vec::new())
+    }
+}
+
+// Open the file with a chosen application. `with` is a .desktop path (from
+// list_apps) or a plain executable (file picker). Without `with`, shows the
+// native picker on Windows; elsewhere asks the caller for an app ("need_app").
+#[tauri::command]
+fn open_with(path: String, with: Option<String>) -> Result<(), String> {
+    if !std::path::Path::new(&path).is_file() {
+        return Err("file_missing".to_string());
+    }
+    if let Some(app) = with {
+        #[cfg(target_os = "linux")]
+        if app.ends_with(".desktop") {
+            return linux_launch_desktop(&app, std::slice::from_ref(&path));
+        }
+        #[cfg(target_os = "macos")]
+        let mut cmd = {
+            let mut c = std::process::Command::new("open");
+            c.arg("-a").arg(&app).arg(&path);
+            c
+        };
+        #[cfg(not(target_os = "macos"))]
+        let mut cmd = {
+            let mut c = std::process::Command::new(&app);
+            c.arg(&path);
+            c
+        };
+        cmd.spawn().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("rundll32.exe")
+            .arg("shell32.dll,OpenAs_RunDLL")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    #[cfg(not(target_os = "windows"))]
+    Err("need_app".to_string())
+}
+
+// Directories where freedesktop .desktop entries live, most-specific first.
+#[cfg(target_os = "linux")]
+fn linux_app_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    let home = std::env::var("HOME").unwrap_or_default();
+    let data_home = std::env::var("XDG_DATA_HOME")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| format!("{home}/.local/share"));
+    dirs.push(PathBuf::from(data_home).join("applications"));
+    let data_dirs = std::env::var("XDG_DATA_DIRS")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "/usr/local/share:/usr/share".to_string());
+    for d in data_dirs.split(':') {
+        dirs.push(PathBuf::from(d).join("applications"));
+    }
+    dirs
+}
+
+// Resolve a .desktop id (e.g. "vlc.desktop") to its absolute path.
+#[cfg(target_os = "linux")]
+fn linux_desktop_path(id: &str) -> Option<PathBuf> {
+    linux_app_dirs()
+        .into_iter()
+        .map(|d| d.join(id))
+        .find(|p| p.is_file())
+}
+
+// Read a single key from a .desktop entry's [Desktop Entry] group.
+#[cfg(target_os = "linux")]
+fn desktop_key(content: &str, key: &str) -> Option<String> {
+    let mut in_entry = false;
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            in_entry = line == "[Desktop Entry]";
+            continue;
+        }
+        if in_entry {
+            if let Some(v) = line.strip_prefix(key).and_then(|r| r.strip_prefix('=')) {
+                return Some(v.trim().to_string());
+            }
+        }
+    }
+    None
+}
+
+// Build the applications list for a file, MIME default ranked first.
+#[cfg(target_os = "linux")]
+fn linux_apps_for(path: &str) -> Vec<AppEntry> {
+    let mime = std::process::Command::new("xdg-mime")
+        .args(["query", "filetype", path])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    let default_id = mime.as_ref().and_then(|m| {
+        std::process::Command::new("xdg-mime")
+            .args(["query", "default", m])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .filter(|s| !s.is_empty())
+    });
+
+    let mut seen = std::collections::HashSet::new();
+    let mut apps: Vec<AppEntry> = Vec::new();
+    for dir in linux_app_dirs() {
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.extension().and_then(|e| e.to_str()) != Some("desktop") {
+                continue;
+            }
+            let id = match p.file_name().and_then(|n| n.to_str()) {
+                Some(n) => n.to_string(),
+                None => continue,
+            };
+            if !seen.insert(id.clone()) {
+                continue;
+            }
+            let Ok(content) = std::fs::read_to_string(&p) else {
+                continue;
+            };
+            if desktop_key(&content, "Type").as_deref() != Some("Application") {
+                continue;
+            }
+            if desktop_key(&content, "NoDisplay").as_deref() == Some("true") {
+                continue;
+            }
+            let handles = mime.as_ref().is_some_and(|m| {
+                desktop_key(&content, "MimeType")
+                    .map(|list| list.split(';').any(|x| x == m))
+                    .unwrap_or(false)
+            });
+            if !handles {
+                continue;
+            }
+            let Some(name) = desktop_key(&content, "Name") else {
+                continue;
+            };
+            apps.push(AppEntry { name, id });
+        }
+    }
+
+    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    if let Some(def) = default_id {
+        if let Some(pos) = apps.iter().position(|a| a.id == def) {
+            let d = apps.remove(pos);
+            apps.insert(0, d);
+        }
+    }
+    apps
+}
+
+// The .desktop id of the default application registered for a file's MIME type.
+#[cfg(target_os = "linux")]
+fn linux_default_app(file: &str) -> Option<String> {
+    let mime = std::process::Command::new("xdg-mime")
+        .args(["query", "filetype", file])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|s| !s.is_empty())?;
+    std::process::Command::new("xdg-mime")
+        .args(["query", "default", &mime])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+// Launch a .desktop entry with one or more files, expanding Exec field codes.
+#[cfg(target_os = "linux")]
+fn linux_launch_desktop(desktop: &str, files: &[String]) -> Result<(), String> {
+    let resolved = if desktop.ends_with(".desktop") && !desktop.contains('/') {
+        linux_desktop_path(desktop).ok_or("app introuvable")?
+    } else {
+        PathBuf::from(desktop)
+    };
+    let content = std::fs::read_to_string(&resolved).map_err(|e| e.to_string())?;
+    let exec = desktop_key(&content, "Exec").ok_or("Exec manquant")?;
+
+    let mut tokens: Vec<String> = Vec::new();
+    let mut had_file = false;
+    for tok in exec.split_whitespace() {
+        match tok {
+            "%f" | "%F" | "%u" | "%U" => {
+                tokens.extend(files.iter().cloned());
+                had_file = true;
+            }
+            "%i" | "%c" | "%k" | "%d" | "%D" | "%n" | "%N" | "%v" | "%m" => {}
+            other => tokens.push(other.replace("%%", "%")),
+        }
+    }
+    if tokens.is_empty() {
+        return Err("Exec vide".to_string());
+    }
+    if !had_file {
+        tokens.extend(files.iter().cloned());
+    }
+    std::process::Command::new(&tokens[0])
+        .args(&tokens[1..])
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -803,6 +1172,14 @@ pub fn run() {
             get_settings,
             set_lang,
             set_last_dir,
+            set_skip_delete_confirm,
+            delete_files,
+            delete_anime_files,
+            open_file,
+            open_folder,
+            open_with,
+            open_episodes,
+            list_apps,
             set_folder_icons,
             add_repo,
             remove_repo,
@@ -831,7 +1208,8 @@ pub fn run() {
             download_save,
             downloads_delete,
             downloads_clear,
-            group_save
+            group_save,
+            group_delete
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

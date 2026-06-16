@@ -192,6 +192,32 @@ select option {
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
   padding: 4px;
 }
+.menu-sub {
+  position: relative;
+}
+.mi-caret {
+  color: var(--muted);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.ctx-submenu {
+  position: absolute;
+  top: -5px;
+  min-width: 200px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  padding: 4px;
+  z-index: 210;
+}
+.ctx-submenu.right {
+  left: 100%;
+}
+.ctx-submenu.left {
+  right: 100%;
+}
 
 /* ---------- Toolbar ---------- */
 .toolbar {
@@ -760,6 +786,22 @@ select option {
 .field-label {
   color: var(--muted);
   margin-top: 4px;
+}
+.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.check-row input {
+  margin-top: 2px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.check-row.danger span {
+  color: var(--err);
 }
 .row {
   display: flex;

@@ -193,6 +193,12 @@ pub fn upsert_group(conn: &Connection, g: &GroupRecord) -> rusqlite::Result<()> 
     Ok(())
 }
 
+/// Delete a single anime group by id.
+pub fn delete_group(conn: &Connection, id: i64) -> rusqlite::Result<()> {
+    conn.execute("DELETE FROM anime_groups WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
 /// Drop groups that no download references anymore.
 pub fn prune_groups(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute(
