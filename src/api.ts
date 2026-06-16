@@ -39,9 +39,13 @@ export const getSettings = () =>
     folderIcons: boolean;
     folderTemplate: string;
     lastDir: string;
+    skipDeleteConfirm: boolean;
   }>("get_settings");
 export const setLangPref = (lang: string) => invoke<void>("set_lang", { lang });
 export const setLastDir = (dir: string) => invoke<void>("set_last_dir", { dir });
+export const setSkipDeleteConfirm = (skip: boolean) =>
+  invoke<void>("set_skip_delete_confirm", { skip });
+export const deleteDiskFiles = (paths: string[]) => invoke<void>("delete_files", { paths });
 export const setFolderIcons = (enabled: boolean, template: string) =>
   invoke<void>("set_folder_icons", { enabled, template });
 export const listFolderTemplates = () =>
@@ -54,6 +58,14 @@ export const listRepos = () => invoke<RepoInfo[]>("list_repos");
 export const setRepoDisabled = (url: string, disabled: boolean) =>
   invoke<void>("set_repo_disabled", { url, disabled });
 export const openExternal = (url: string) => openUrl(url);
+export const openFile = (path: string) => invoke<void>("open_file", { path });
+export const openFolder = (path: string) => invoke<void>("open_folder", { path });
+export const openWith = (path: string, withApp: string | null) =>
+  invoke<void>("open_with", { path, with: withApp });
+export const listApps = (path: string) =>
+  invoke<{ name: string; id: string }[]>("list_apps", { path });
+export const openEpisodes = (paths: string[]) => invoke<void>("open_episodes", { paths });
+export const deleteAnimeFiles = (paths: string[]) => invoke<void>("delete_anime_files", { paths });
 
 // --- Store ---
 export const storeFetch = () => invoke<StoreEntry[]>("store_fetch");
@@ -107,6 +119,7 @@ export const downloadSave = (record: DownloadRow) => invoke<void>("download_save
 export const downloadsDelete = (ids: number[]) => invoke<void>("downloads_delete", { ids });
 export const downloadsClear = () => invoke<void>("downloads_clear");
 export const groupSave = (record: AnimeGroup) => invoke<void>("group_save", { record });
+export const groupDelete = (id: number) => invoke<void>("group_delete", { id });
 
 export async function defaultOutPath(filename: string): Promise<string> {
   const dir = await downloadDir();
@@ -117,3 +130,5 @@ export const defaultDownloadDir = () => downloadDir();
 export const joinPath = (dir: string, filename: string) => join(dir, filename);
 export const pickDirectory = (defaultPath?: string) =>
   open({ directory: true, defaultPath }) as Promise<string | null>;
+export const pickApplication = () =>
+  open({ directory: false, multiple: false }) as Promise<string | null>;

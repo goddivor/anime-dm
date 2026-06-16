@@ -30,6 +30,7 @@ export default function Sidebar({
   selected,
   onSelectRow,
   onAnimeContext,
+  onEpisodeContext,
   t,
 }: {
   groups: AnimeGroup[];
@@ -41,6 +42,7 @@ export default function Sidebar({
   selected: Set<number>;
   onSelectRow: (id: number) => void;
   onAnimeContext: (groupId: number, x: number, y: number) => void;
+  onEpisodeContext: (id: number, x: number, y: number) => void;
   t: T;
 }) {
   const count = (pred: (d: DownloadRow) => boolean) => rows.filter(pred).length;
@@ -110,6 +112,10 @@ export default function Sidebar({
                       onClick={() => {
                         onSelectRow(d.id);
                         onFilter({ kind: "anime", id: g.id });
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        onEpisodeContext(d.id, e.clientX, e.clientY);
                       }}
                     >
                       <span className={`ep-glyph ${d.status}`}>{statusGlyph[d.status]}</span>

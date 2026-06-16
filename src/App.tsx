@@ -24,6 +24,16 @@ import {
   applyFolderIcon,
   listFolderTemplates,
   fetchImage,
+  openFile,
+  openFolder,
+  openWith,
+  listApps,
+  pickApplication,
+  setSkipDeleteConfirm,
+  deleteDiskFiles,
+  openEpisodes,
+  deleteAnimeFiles,
+  groupDelete,
   type FinishedEvent,
   type ProgressEvent,
 } from "./api";
@@ -96,7 +106,14 @@ export default function App() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [anchor, setAnchor] = useState<number | null>(null);
   const [cursor, setCursor] = useState<number | null>(null);
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; id: number } | null>(null);
+  const [appsMenu, setAppsMenu] = useState<{
+    x: number;
+    y: number;
+    row: DownloadRow;
+    apps: { name: string; id: string }[];
+  } | null>(null);
+  const ctxPos = useRef({ x: 0, y: 0 });
   const [sidebarOn, setSidebarOn] = useState(true);
   const [sidebarW, setSidebarW] = useState(230);
   const [search, setSearch] = useState("");
@@ -107,14 +124,26 @@ export default function App() {
   const [iconMenu, setIconMenu] = useState<{ x: number; y: number; groupId: number } | null>(null);
   const [info, setInfo] = useState<{ title: string; lines: string[] } | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
+  const skipDeleteConfirm = useRef(false);
 
   const nextId = useRef(1);
   const nextGroupId = useRef(1);
-  const navRef = useRef<{ ids: number[]; cursor: number | null; anchor: number | null; active: boolean }>({
+  const navRef = useRef<{
+    ids: number[];
+    cursor: number | null;
+    anchor: number | null;
+    active: boolean;
+    blocked: boolean;
+    enter: () => void;
+    del: () => void;
+  }>({
     ids: [],
     cursor: null,
     anchor: null,
     active: false,
+    blocked: false,
+    enter: () => {},
+    del: () => {},
   });
 
   const refreshAddons = () => addonsInstalled().then(setAddons).catch(() => {});
@@ -126,6 +155,7 @@ export default function App() {
     getSettings()
       .then((s) => {
         if (s.lang === "fr" || s.lang === "en") setLang(s.lang);
+        skipDeleteConfirm.current = s.skipDeleteConfirm;
       })
       .catch(() => {});
     listFolderTemplates()
@@ -214,6 +244,82 @@ export default function App() {
     } catch (e) {
       setMessage(String(e));
     }
+  };
+
+  // Open every episode of an anime at once with the default player.
+  const openAnime = (groupId: number) => {
+    const g = groups.find((x) => x.id === groupId);
+    const paths = rows.filter((r) => r.animeId === groupId).map((r) => r.outPath).filter(Boolean);
+    if (!paths.length) {
+      setInfo({ title: g?.title ?? "", lines: [t("ctx.file_missing")] });
+      return;
+    }
+    openEpisodes(paths).catch((e) =>
+      setInfo(
+        String(e).includes("file_missing")
+          ? { title: g?.title ?? "", lines: [t("ctx.file_missing")] }
+          : { title: g?.title ?? "", lines: [t("ctx.open_failed"), String(e)] },
+      ),
+    );
+  };
+
+  // Open the anime's folder; warn if it was moved/renamed/deleted.
+  const openAnimeFolder = (groupId: number) => {
+    const g = groups.find((x) => x.id === groupId);
+    const row = rows.find((r) => r.animeId === groupId);
+    if (!row) {
+      setInfo({ title: g?.title ?? "", lines: [t("ctx.folder_missing")] });
+      return;
+    }
+    openFolder(row.outPath).catch((e) =>
+      setInfo(
+        String(e).includes("folder_missing")
+          ? { title: g?.title ?? "", lines: [t("ctx.folder_missing")] }
+          : { title: g?.title ?? "", lines: [t("ctx.open_failed"), String(e)] },
+      ),
+    );
+  };
+
+  // Remove an anime: its episodes, its group record, optionally its files.
+  const doRemoveAnime = (groupId: number, deleteFiles: boolean) => {
+    const eps = rows.filter((r) => r.animeId === groupId);
+    eps
+      .filter((r) => isActive(r.status) || r.status === "stopped")
+      .forEach((r) => cancelDownload(r.id));
+    setRows((rs) => rs.filter((r) => r.animeId !== groupId));
+    setGroups((gs) => gs.filter((x) => x.id !== groupId));
+    setSelected(new Set());
+    const ids = eps.map((r) => r.id);
+    if (ids.length) downloadsDelete(ids).catch(() => {});
+    groupDelete(groupId).catch(() => {});
+    if (deleteFiles) {
+      const paths = eps.map((r) => r.outPath).filter(Boolean);
+      if (paths.length) deleteAnimeFiles(paths).catch(() => {});
+    }
+  };
+
+  const confirmDeleteAnime = (groupId: number) => {
+    const g = groups.find((x) => x.id === groupId);
+    if (skipDeleteConfirm.current) {
+      doRemoveAnime(groupId, false);
+      return;
+    }
+    setConfirm({
+      title: t("confirm.delete_anime_title"),
+      message: `${t("confirm.delete_anime_msg")}${g ? ` « ${g.title} »` : ""}`,
+      confirmLabel: t("anime.delete"),
+      options: [
+        { key: "files", label: t("confirm.delete_files"), danger: true },
+        { key: "skip", label: t("confirm.dont_ask") },
+      ],
+      onConfirm: (checked) => {
+        if (checked.skip) {
+          skipDeleteConfirm.current = true;
+          setSkipDeleteConfirm(true).catch(() => {});
+        }
+        doRemoveAnime(groupId, !!checked.files);
+      },
+    });
   };
 
   const onLaunch = async (
@@ -362,8 +468,83 @@ export default function App() {
 
   const onContext = (id: number, x: number, y: number) => {
     if (!selected.has(id)) selectSingle(id);
-    setMenu({ x, y });
+    ctxPos.current = { x, y };
+    setMenu({ x, y, id });
   };
+
+  // Open the downloaded file with the default app; warn if it was moved/deleted.
+  const openRowFile = (r: DownloadRow) =>
+    openFile(r.outPath).catch((e) =>
+      setInfo(
+        String(e).includes("file_missing")
+          ? { title: r.filename, lines: [t("ctx.file_missing")] }
+          : { title: r.filename, lines: [t("ctx.open_failed"), String(e)] },
+      ),
+    );
+
+  // Open the whole current selection with the player (playlist for many files).
+  const openSelection = () => {
+    const targets = rows.filter((r) => selected.has(r.id));
+    if (targets.length <= 1) {
+      if (targets[0]) openRowFile(targets[0]);
+      return;
+    }
+    const paths = targets.map((r) => r.outPath).filter(Boolean);
+    if (!paths.length) {
+      setInfo({ title: "", lines: [t("ctx.file_missing")] });
+      return;
+    }
+    openEpisodes(paths).catch((e) =>
+      setInfo(
+        String(e).includes("file_missing")
+          ? { title: "", lines: [t("ctx.file_missing")] }
+          : { title: "", lines: [t("ctx.open_failed"), String(e)] },
+      ),
+    );
+  };
+
+  // Open the containing folder; warn if it was moved/renamed/deleted.
+  const openRowFolder = (r: DownloadRow) =>
+    openFolder(r.outPath).catch((e) =>
+      setInfo(
+        String(e).includes("folder_missing")
+          ? { title: r.filename, lines: [t("ctx.folder_missing")] }
+          : { title: r.filename, lines: [t("ctx.open_failed"), String(e)] },
+      ),
+    );
+
+  // Open with: show installed apps when detected (Linux), else native/picker.
+  const openRowWith = async (r: DownloadRow) => {
+    try {
+      const apps = await listApps(r.outPath);
+      if (apps.length > 0) {
+        setAppsMenu({ x: ctxPos.current.x, y: ctxPos.current.y, row: r, apps });
+        return;
+      }
+      await openWith(r.outPath, null);
+    } catch (e) {
+      const msg = String(e);
+      if (msg.includes("file_missing")) {
+        setInfo({ title: r.filename, lines: [t("ctx.file_missing")] });
+        return;
+      }
+      if (msg.includes("need_app")) {
+        const appPath = await pickApplication();
+        if (!appPath) return;
+        await openWith(r.outPath, appPath).catch((e2) =>
+          setInfo({ title: r.filename, lines: [t("ctx.open_failed"), String(e2)] }),
+        );
+        return;
+      }
+      setInfo({ title: r.filename, lines: [t("ctx.open_failed"), msg] });
+    }
+  };
+
+  // Run "open with" against the app chosen from the apps submenu.
+  const launchWith = (r: DownloadRow, appId: string) =>
+    openWith(r.outPath, appId).catch((e) =>
+      setInfo({ title: r.filename, lines: [t("ctx.open_failed"), String(e)] }),
+    );
 
   const restart = (r: DownloadRow) => {
     startDownload({
@@ -435,14 +616,45 @@ export default function App() {
       .forEach(restart);
   };
 
-  const removeSelected = () => {
-    const ids = rows.filter((r) => selected.has(r.id)).map((r) => r.id);
-    rows
-      .filter((r) => selected.has(r.id) && (isActive(r.status) || r.status === "stopped"))
+  // Remove rows from the queue, optionally deleting their files from disk.
+  const doRemove = (targets: DownloadRow[], deleteFiles: boolean) => {
+    const ids = targets.map((r) => r.id);
+    targets
+      .filter((r) => isActive(r.status) || r.status === "stopped")
       .forEach((r) => cancelDownload(r.id));
-    setRows((rs) => rs.filter((r) => !selected.has(r.id)));
+    const drop = new Set(ids);
+    setRows((rs) => rs.filter((r) => !drop.has(r.id)));
     setSelected(new Set());
     if (ids.length) downloadsDelete(ids).catch(() => {});
+    if (deleteFiles) {
+      const paths = targets.map((r) => r.outPath).filter(Boolean);
+      if (paths.length) deleteDiskFiles(paths).catch(() => {});
+    }
+  };
+
+  const removeSelected = () => {
+    const targets = rows.filter((r) => selected.has(r.id));
+    if (!targets.length) return;
+    if (skipDeleteConfirm.current) {
+      doRemove(targets, false);
+      return;
+    }
+    setConfirm({
+      title: t("confirm.delete_title"),
+      message: t("confirm.delete_msg"),
+      confirmLabel: t("toolbar.delete"),
+      options: [
+        { key: "files", label: t("confirm.delete_files"), danger: true },
+        { key: "skip", label: t("confirm.dont_ask") },
+      ],
+      onConfirm: (checked) => {
+        if (checked.skip) {
+          skipDeleteConfirm.current = true;
+          setSkipDeleteConfirm(true).catch(() => {});
+        }
+        doRemove(targets, !!checked.files);
+      },
+    });
   };
 
   const removeCompleted = () => {
@@ -477,11 +689,16 @@ export default function App() {
       },
     });
 
+  const overlayOpen =
+    !!confirm || !!info || showAdd || showSettings || !!menu || !!iconMenu || !!appsMenu;
   navRef.current = {
     ids: visible.map((r) => r.id),
     cursor,
     anchor,
     active: view === "downloads",
+    blocked: overlayOpen,
+    enter: openSelection,
+    del: removeSelected,
   };
 
   useEffect(() => {
@@ -493,12 +710,22 @@ export default function App() {
         (document.querySelector(".tb-search input") as HTMLInputElement | null)?.focus();
         return;
       }
-      const { ids, cursor, anchor, active } = navRef.current;
-      if (!active || ids.length === 0) return;
+      const { ids, cursor, anchor, active, blocked } = navRef.current;
+      if (!active || blocked || ids.length === 0) return;
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
         e.preventDefault();
         setSelected(new Set(ids));
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        navRef.current.enter();
+        return;
+      }
+      if (e.key === "Delete") {
+        e.preventDefault();
+        navRef.current.del();
         return;
       }
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -524,6 +751,14 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Escape closes the lightweight info modal (messages, about, help).
+  useEffect(() => {
+    if (!info) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setInfo(null);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [info]);
 
   const sel = rows.filter((r) => selected.has(r.id));
   const canStop = sel.some((r) => isActive(r.status));
@@ -623,6 +858,7 @@ export default function App() {
                   selected={selected}
                   onSelectRow={selectSingle}
                   onAnimeContext={(groupId, x, y) => setIconMenu({ x, y, groupId })}
+                  onEpisodeContext={onContext}
                   t={t}
                 />
               </div>
@@ -648,15 +884,31 @@ export default function App() {
           y={iconMenu.y}
           onClose={() => setIconMenu(null)}
           items={[
-            { key: "_h", label: t("foldericon.change_model"), disabled: true },
-            ...iconTemplates.map((tp) => ({
-              key: tp.id,
-              label:
-                (groups.find((g) => g.id === iconMenu.groupId)?.iconTemplate === tp.id
-                  ? "✓ "
-                  : "") + tp.name,
-              onClick: () => applyIconFor(iconMenu.groupId, tp.id),
-            })),
+            { key: "open", label: t("anime.open"), onClick: () => openAnime(iconMenu.groupId) },
+            {
+              key: "openfolder",
+              label: t("ctx.open_folder"),
+              onClick: () => openAnimeFolder(iconMenu.groupId),
+            },
+            { key: "s0", sep: true },
+            {
+              key: "icon",
+              label: t("foldericon.change_model"),
+              children: iconTemplates.map((tp) => ({
+                key: tp.id,
+                label:
+                  (groups.find((g) => g.id === iconMenu.groupId)?.iconTemplate === tp.id
+                    ? "✓ "
+                    : "") + tp.name,
+                onClick: () => applyIconFor(iconMenu.groupId, tp.id),
+              })),
+            },
+            { key: "s1", sep: true },
+            {
+              key: "del",
+              label: t("anime.delete"),
+              onClick: () => confirmDeleteAnime(iconMenu.groupId),
+            },
           ]}
         />
       )}
@@ -667,13 +919,58 @@ export default function App() {
           y={menu.y}
           onClose={() => setMenu(null)}
           items={
+            ((target: DownloadRow | undefined) =>
+              [
+                {
+                  key: "open",
+                  label: t("ctx.open"),
+                  onClick: openSelection,
+                  disabled: !target,
+                },
+                {
+                  key: "openwith",
+                  label: t("ctx.open_with"),
+                  onClick: () => target && openRowWith(target),
+                  disabled: !target,
+                },
+                {
+                  key: "openfolder",
+                  label: t("ctx.open_folder"),
+                  onClick: () => target && openRowFolder(target),
+                  disabled: !target,
+                },
+                { key: "s0", sep: true },
+                { key: "resume", label: t("toolbar.resume"), onClick: resumeSelected, disabled: !canResume },
+                { key: "stop", label: t("toolbar.stop"), onClick: stopSelected, disabled: !canStop },
+                { key: "del", label: t("toolbar.delete"), onClick: removeSelected, disabled: !canDelete },
+                { key: "s1", sep: true },
+                { key: "all", label: t("ctx.select_all"), onClick: selectAll, disabled: !anyRows },
+                { key: "inv", label: t("ctx.invert"), onClick: invertSelection, disabled: !anyRows },
+              ] as CtxItem[])(rows.find((r) => r.id === menu.id))
+          }
+        />
+      )}
+      {appsMenu && (
+        <ContextMenu
+          x={appsMenu.x}
+          y={appsMenu.y}
+          onClose={() => setAppsMenu(null)}
+          items={
             [
-              { key: "resume", label: t("toolbar.resume"), onClick: resumeSelected, disabled: !canResume },
-              { key: "stop", label: t("toolbar.stop"), onClick: stopSelected, disabled: !canStop },
-              { key: "del", label: t("toolbar.delete"), onClick: removeSelected, disabled: !canDelete },
-              { key: "s1", sep: true },
-              { key: "all", label: t("ctx.select_all"), onClick: selectAll, disabled: !anyRows },
-              { key: "inv", label: t("ctx.invert"), onClick: invertSelection, disabled: !anyRows },
+              ...appsMenu.apps.map((a) => ({
+                key: a.id,
+                label: a.name,
+                onClick: () => launchWith(appsMenu.row, a.id),
+              })),
+              { key: "swo", sep: true },
+              {
+                key: "other",
+                label: t("ctx.open_with_other"),
+                onClick: async () => {
+                  const appPath = await pickApplication();
+                  if (appPath) launchWith(appsMenu.row, appPath);
+                },
+              },
             ] as CtxItem[]
           }
         />
