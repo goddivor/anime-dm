@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Lang, T } from "../i18n";
+import type { Theme } from "../types";
 
 type Item = {
   key: string;
@@ -31,6 +32,8 @@ export type MenuActions = {
   openAddons: () => void;
   setLang: (l: Lang) => void;
   lang: Lang;
+  setTheme: (th: Theme) => void;
+  theme: Theme;
   onAbout: () => void;
   onHelp: () => void;
   soon: (label: string) => void;
@@ -145,9 +148,9 @@ export default function MenuBar({ t, a }: { t: T; a: MenuActions }) {
           key: "mode",
           label: t("menu.view.mode"),
           sub: [
-            { key: "dark", label: t("mode.dark"), onClick: () => a.soon(t("mode.dark")) },
-            { key: "light", label: t("mode.light"), onClick: () => a.soon(t("mode.light")) },
-            { key: "system", label: t("mode.system"), onClick: () => a.soon(t("mode.system")) },
+            { key: "dark", label: t("mode.dark"), check: a.theme === "dark", onClick: () => a.setTheme("dark") },
+            { key: "light", label: t("mode.light"), check: a.theme === "light", onClick: () => a.setTheme("light") },
+            { key: "system", label: t("mode.system"), check: a.theme === "system", onClick: () => a.setTheme("system") },
           ],
         },
         {

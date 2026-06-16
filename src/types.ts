@@ -19,6 +19,8 @@ export type DownloadStatus =
 
 export type Queue = "main" | "scheduler";
 
+export type Theme = "dark" | "light" | "system";
+
 export type DownloadRow = {
   id: number;
   addonId: string;

@@ -11,6 +11,29 @@
   --sel-border: #2f7fd1;
   --ok: #4caf50;
   --err: #e26d6d;
+  --hover: #34343a;
+  --row-hover: rgba(120, 160, 220, 0.22);
+  --shadow: rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4f4f6;
+  --panel: #ffffff;
+  --panel2: #ececed;
+  --border: #d2d2d7;
+  --grid: #e4e4e8;
+  --text: #1d1d1f;
+  --muted: #6e6e73;
+  --accent: #2f7fd1;
+  --sel: #cfe4f8;
+  --sel-border: #2f7fd1;
+  --ok: #2e7d32;
+  --err: #c62828;
+  --hover: #e2e2e6;
+  --row-hover: rgba(47, 127, 209, 0.16);
+  --shadow: rgba(0, 0, 0, 0.2);
 }
 
 * {
@@ -51,7 +74,7 @@ input,
 select {
   font: inherit;
   color: var(--text);
-  background: #18181a;
+  background: var(--panel2);
   border: 1px solid var(--border);
   border-radius: 3px;
   padding: 5px 7px;
@@ -564,7 +587,7 @@ select option {
   text-decoration: underline;
 }
 .sel-text {
-  color: #cfe6ff;
+  color: var(--accent);
   font-weight: 600;
 }
 .badge {
@@ -710,7 +733,7 @@ select option {
 .progress {
   position: relative;
   height: 15px;
-  background: #161618;
+  background: var(--panel2);
   border: 1px solid var(--border);
   border-radius: 3px;
   width: 100%;
@@ -824,7 +847,7 @@ select option {
   cursor: pointer;
 }
 .btn:hover {
-  background: #34343a;
+  background: var(--hover);
 }
 .btn.primary {
   display: flex;

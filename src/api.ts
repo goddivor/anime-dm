@@ -40,9 +40,11 @@ export const getSettings = () =>
     folderTemplate: string;
     lastDir: string;
     skipDeleteConfirm: boolean;
+    theme: string;
   }>("get_settings");
 export const setLangPref = (lang: string) => invoke<void>("set_lang", { lang });
 export const setLastDir = (dir: string) => invoke<void>("set_last_dir", { dir });
+export const setThemePref = (theme: string) => invoke<void>("set_theme", { theme });
 export const setSkipDeleteConfirm = (skip: boolean) =>
   invoke<void>("set_skip_delete_confirm", { skip });
 export const deleteDiskFiles = (paths: string[]) => invoke<void>("delete_files", { paths });
