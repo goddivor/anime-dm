@@ -57,12 +57,14 @@ function collapseRanges(nums: number[]): string {
 
 export default function AddDialog({
   addons,
+  schedule = false,
   onClose,
   onLaunch,
   onOpenAddons,
   t,
 }: {
   addons: InstalledAddon[];
+  schedule?: boolean;
   onClose: () => void;
   onLaunch: (
     addonId: string,
@@ -71,6 +73,7 @@ export default function AddDialog({
     players: Record<number, string>,
     destDir: string,
     folderTemplate: string,
+    schedule: boolean,
   ) => void;
   onOpenAddons: () => void;
   t: T;
@@ -290,7 +293,7 @@ export default function AddDialog({
       const p = effPlayer(i);
       if (p) players[Math.round(e.number)] = p;
     });
-    onLaunch(addonId, anime, numbers, players, destDir, folderTemplate);
+    onLaunch(addonId, anime, numbers, players, destDir, folderTemplate, schedule);
   };
 
   const q = query.trim().toLowerCase();
@@ -325,7 +328,7 @@ export default function AddDialog({
     <div className="modal-backdrop" onMouseDown={onClose}>
       <div className="modal" style={dragStyle} onMouseDown={(e) => e.stopPropagation()}>
         <div className="modal-head drag" onMouseDown={onHeadDown}>
-          <span>{t("dialog.add.title")}</span>
+          <span>{schedule ? t("dialog.add.schedule_title") : t("dialog.add.title")}</span>
           <button className="icon-btn" onClick={onClose}>
             ✕
           </button>
@@ -503,7 +506,9 @@ export default function AddDialog({
                   <span className="dest-path">{destDir || t("dialog.add.dest_label")}</span>
                 </button>
                 <button className="btn primary" disabled={numbers.length === 0} onClick={launch}>
-                  <Download size={16} /> {t("dialog.add.download_btn")} ({numbers.length})
+                  <Download size={16} />{" "}
+                  {schedule ? t("dialog.add.schedule_btn") : t("dialog.add.download_btn")} (
+                  {numbers.length})
                 </button>
               </div>
             </>

@@ -46,6 +46,7 @@ export const setLastDir = (dir: string) => invoke<void>("set_last_dir", { dir })
 export const setSkipDeleteConfirm = (skip: boolean) =>
   invoke<void>("set_skip_delete_confirm", { skip });
 export const deleteDiskFiles = (paths: string[]) => invoke<void>("delete_files", { paths });
+export const createDir = (path: string) => invoke<void>("create_dir", { path });
 export const setFolderIcons = (enabled: boolean, template: string) =>
   invoke<void>("set_folder_icons", { enabled, template });
 export const listFolderTemplates = () =>
