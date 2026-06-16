@@ -45,13 +45,6 @@ git push -u origin feature/my-feature
 - **Selective staging**: never `git add .` / `git add -A`, name the files
 - Never commit sensitive files (`.env*`, `*.key`, `credentials*`…)
 
-## Code comments
-
-- The code must be **self-documenting through naming**: no comment that paraphrases the code.
-- A comment is allowed **only on a function** (doc-comment `///`), and only when its intent is not obvious.
-- Every comment must be **short, precise, clear and non-verbose** — it states the *why*, never the *what*.
-- No inline comments (`//`) and no descriptive module-header blocks.
-
 ## Pull Requests
 
 - Fill in the **PR template** (`.github/PULL_REQUEST_TEMPLATE.md`).
