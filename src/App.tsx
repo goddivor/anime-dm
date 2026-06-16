@@ -34,6 +34,7 @@ import {
   openEpisodes,
   deleteAnimeFiles,
   groupDelete,
+  createDir,
   type FinishedEvent,
   type ProgressEvent,
 } from "./api";
@@ -47,6 +48,7 @@ import AddonsScreen from "./components/AddonsScreen";
 import SettingsDialog from "./components/SettingsDialog";
 import ConfirmDialog, { type Confirm } from "./components/ConfirmDialog";
 import ContextMenu, { type CtxItem } from "./components/ContextMenu";
+import { planFor } from "./queue";
 
 const isActive = (s: DownloadRow["status"]) =>
   s === "downloading" || s === "resolving" || s === "queued";
@@ -119,6 +121,7 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [scheduleMode, setScheduleMode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [iconTemplates, setIconTemplates] = useState<{ id: string; name: string }[]>([]);
   const [iconMenu, setIconMenu] = useState<{ x: number; y: number; groupId: number } | null>(null);
@@ -329,10 +332,14 @@ export default function App() {
     players: Record<number, string> = {},
     destDir = "",
     folderTemplate = "",
+    schedule = false,
   ) => {
     setShowAdd(false);
+    const plan = planFor(schedule);
     const baseDir = destDir || (await defaultDownloadDir());
     const animeDir = await joinPath(baseDir, sanitize(anime.title));
+    // Scheduled items never start, so create their folder up front.
+    if (plan.ensureFolder) await createDir(animeDir).catch(() => {});
     const existing = groups.find((g) => g.url === anime.url);
     let animeId: number;
     if (existing) {
@@ -393,8 +400,8 @@ export default function App() {
         episodeNumber: ep.number,
         filename,
         pageUrl: ep.url,
-        queue: "main",
-        status: "queued",
+        queue: plan.queue,
+        status: plan.status,
         progress: -1,
         speed: "",
         addedAt: Date.now(),
@@ -404,11 +411,13 @@ export default function App() {
       };
       setRows((rs) => [...rs, row]);
       persistRow(row);
-      startDownload({ addonId, id, episodeUrl: ep.url, playerName: player, outPath }).catch((err) =>
-        setRows((rs) =>
-          rs.map((r) => (r.id === id ? { ...r, status: "failed", error: String(err) } : r)),
-        ),
-      );
+      if (plan.autostart) {
+        startDownload({ addonId, id, episodeUrl: ep.url, playerName: player, outPath }).catch((err) =>
+          setRows((rs) =>
+            rs.map((r) => (r.id === id ? { ...r, status: "failed", error: String(err) } : r)),
+          ),
+        );
+      }
     }
   };
 
@@ -786,7 +795,10 @@ export default function App() {
       <MenuBar
         t={t}
         a={{
-          onAdd: () => setShowAdd(true),
+          onAdd: () => {
+            setScheduleMode(false);
+            setShowAdd(true);
+          },
           onResume: resumeSelected,
           onStop: stopSelected,
           onStopAll: confirmStopAll,
@@ -819,7 +831,10 @@ export default function App() {
       />
       <Toolbar
         t={t}
-        onAdd={() => setShowAdd(true)}
+        onAdd={() => {
+          setScheduleMode(false);
+          setShowAdd(true);
+        }}
         onResume={resumeSelected}
         onStop={stopSelected}
         onStopAll={confirmStopAll}
@@ -832,8 +847,11 @@ export default function App() {
         anyRows={anyRows}
         onOpenAddons={() => setView(view === "addons" ? "downloads" : "addons")}
         onOpenSettings={() => setShowSettings(true)}
+        onScheduler={() => {
+          setScheduleMode(true);
+          setShowAdd(true);
+        }}
         addonsOpen={view === "addons"}
-        soon={soon}
         search={search}
         onSearch={setSearch}
       />
@@ -981,6 +999,7 @@ export default function App() {
       {showAdd && (
         <AddDialog
           addons={addons}
+          schedule={scheduleMode}
           onClose={() => setShowAdd(false)}
           onLaunch={onLaunch}
           onOpenAddons={() => {

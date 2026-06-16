@@ -70,7 +70,7 @@ export default function MenuBar({ t, a }: { t: T; a: MenuActions }) {
 
   const queueItems: Item[] = [
     { key: "main", label: t("menu.download.queue_main"), onClick: () => a.soon(t("menu.download.queue_main")) },
-    { key: "sync", label: t("menu.download.queue_sync"), onClick: () => a.soon(t("menu.download.queue_sync")) },
+    { key: "scheduler", label: t("menu.download.queue_scheduler"), onClick: () => a.soon(t("menu.download.queue_scheduler")) },
   ];
 
   const menus: { id: string; title: string; items: Item[] }[] = [

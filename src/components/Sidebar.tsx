@@ -4,7 +4,7 @@ import {
   Film,
   Folder,
   Inbox,
-  RefreshCw,
+  Timer,
   X,
 } from "lucide-react";
 import type { AnimeGroup, DownloadRow, Filter } from "../types";
@@ -143,12 +143,12 @@ export default function Sidebar({
           <span className="badge">{count((d) => d.queue === "main")}</span>
         </div>
         <div
-          className={`tree-row ${filter.kind === "queue" && filter.queue === "sync" ? "sel" : ""}`}
-          onClick={() => onFilter({ kind: "queue", queue: "sync" })}
+          className={`tree-row ${filter.kind === "queue" && filter.queue === "scheduler" ? "sel" : ""}`}
+          onClick={() => onFilter({ kind: "queue", queue: "scheduler" })}
         >
-          <RefreshCw size={15} />
-          <span className="tree-label">{t("sidebar.queue_sync")}</span>
-          <span className="badge">{count((d) => d.queue === "sync")}</span>
+          <Timer size={15} />
+          <span className="tree-label">{t("sidebar.queue_scheduler")}</span>
+          <span className="badge">{count((d) => d.queue === "scheduler")}</span>
         </div>
       </div>
     </div>

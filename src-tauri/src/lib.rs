@@ -186,6 +186,13 @@ fn set_last_dir(app: AppHandle, dir: String) -> Result<(), String> {
     write_settings(&app, &settings)
 }
 
+// Create a destination folder ahead of time (used when scheduling downloads
+// that are queued paused, so the folder exists before any download starts).
+#[tauri::command]
+fn create_dir(path: String) -> Result<(), String> {
+    std::fs::create_dir_all(&path).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn set_skip_delete_confirm(app: AppHandle, skip: bool) -> Result<(), String> {
     let mut settings = read_settings(&app);
@@ -1173,6 +1180,7 @@ pub fn run() {
             set_lang,
             set_last_dir,
             set_skip_delete_confirm,
+            create_dir,
             delete_files,
             delete_anime_files,
             open_file,

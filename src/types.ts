@@ -17,7 +17,7 @@ export type DownloadStatus =
   | "failed"
   | "stopped";
 
-export type Queue = "main" | "sync";
+export type Queue = "main" | "scheduler";
 
 export type DownloadRow = {
   id: number;
