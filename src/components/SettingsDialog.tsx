@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { T } from "../i18n";
 import { getSettings, setFolderIcons, listFolderTemplates } from "../api";
+import Modal from "./Modal";
 
 export default function SettingsDialog({ onClose, t }: { onClose: () => void; t: T }) {
   const [enabled, setEnabled] = useState(false);
@@ -33,41 +34,31 @@ export default function SettingsDialog({ onClose, t }: { onClose: () => void; t:
   };
 
   return (
-    <div className="modal-backdrop" onMouseDown={onClose}>
-      <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="modal-head">
-          <span>{t("settings.title")}</span>
-          <button className="icon-btn" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-        <div className="modal-body">
-          <label className="field-label">{t("settings.folder_icons")}</label>
-          <label className="row" style={{ cursor: "pointer" }}>
-            <input type="checkbox" checked={enabled} onChange={(e) => toggle(e.target.checked)} />
-            <span>{t("settings.folder_icons_desc")}</span>
-          </label>
+    <Modal title={t("settings.title")} onClose={onClose}>
+      <label className="field-label">{t("settings.folder_icons")}</label>
+      <label className="row" style={{ cursor: "pointer" }}>
+        <input type="checkbox" checked={enabled} onChange={(e) => toggle(e.target.checked)} />
+        <span>{t("settings.folder_icons_desc")}</span>
+      </label>
 
-          {enabled && (
-            <>
-              <label className="field-label">{t("settings.template")}</label>
-              <select value={template} onChange={(e) => pick(e.target.value)}>
-                {templates.map((tp) => (
-                  <option key={tp.id} value={tp.id}>
-                    {tp.name}
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
+      {enabled && (
+        <>
+          <label className="field-label">{t("settings.template")}</label>
+          <select value={template} onChange={(e) => pick(e.target.value)}>
+            {templates.map((tp) => (
+              <option key={tp.id} value={tp.id}>
+                {tp.name}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
 
-          <div className="modal-foot">
-            <button className="btn primary" onClick={onClose}>
-              {t("settings.done")}
-            </button>
-          </div>
-        </div>
+      <div className="modal-foot">
+        <button className="btn primary" onClick={onClose}>
+          {t("settings.done")}
+        </button>
       </div>
-    </div>
+    </Modal>
   );
 }
