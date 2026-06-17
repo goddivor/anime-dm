@@ -42,6 +42,8 @@ Start with the official addons repository:
 | **Windows** | WebView2 runtime (preinstalled on Windows 10/11) · MSVC C++ Build Tools                                                                                    |
 | **macOS**   | Xcode Command Line Tools (`xcode-select --install`)                                                                                                        |
 
+On **Windows / macOS**, `ffmpeg` is **bundled into release builds** (no system install needed) — run `scripts/fetch-ffmpeg.sh` before `tauri build` to fetch it. On **Linux** it is taken from the system `PATH` (install it with your package manager). The app resolves a bundled `ffmpeg` first, then the `PATH`.
+
 ## Getting started
 
 ```bash

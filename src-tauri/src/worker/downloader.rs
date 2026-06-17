@@ -12,6 +12,7 @@ pub async fn download<F, P>(
     url: String,
     headers: BTreeMap<String, String>,
     out: PathBuf,
+    ffmpeg: String,
     on_progress: F,
     on_pid: P,
 ) -> Result<(), String>
@@ -21,7 +22,7 @@ where
 {
     let mut last = String::new();
     for attempt in 1..=2 {
-        match run_ffmpeg(&url, &headers, &out, &on_progress, &on_pid).await {
+        match run_ffmpeg(&url, &headers, &out, &ffmpeg, &on_progress, &on_pid).await {
             Ok(()) => return Ok(()),
             Err(e) => {
                 last = e;
@@ -38,6 +39,7 @@ async fn run_ffmpeg<F, P>(
     url: &str,
     headers: &BTreeMap<String, String>,
     out: &PathBuf,
+    ffmpeg: &str,
     on_progress: &F,
     on_pid: &P,
 ) -> Result<(), String>
@@ -50,7 +52,7 @@ where
         header_str.push_str(&format!("{k}: {v}\r\n"));
     }
 
-    let mut cmd = Command::new("ffmpeg");
+    let mut cmd = Command::new(ffmpeg);
     cmd.arg("-y").arg("-hide_banner").arg("-user_agent").arg(UA);
     if !header_str.is_empty() {
         cmd.arg("-headers").arg(&header_str);
