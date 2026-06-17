@@ -16,3 +16,7 @@ yarn-error.log*
 
 # Editor
 .DS_Store
+
+# Bundled ffmpeg (fetched per-platform via scripts/fetch-ffmpeg.sh, not committed)
+src-tauri/resources/bin/ffmpeg
+src-tauri/resources/bin/ffmpeg.exe

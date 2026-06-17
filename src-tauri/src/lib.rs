@@ -153,6 +153,44 @@ fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(data_dir(app)?.join("settings.json"))
 }
 
+/// Resolve the ffmpeg binary: the copy bundled under `resources/bin/` first
+/// (so a packaged app needs no system install), then the system `PATH`.
+fn ffmpeg_bin(app: &AppHandle) -> String {
+    let name = if cfg!(target_os = "windows") {
+        "ffmpeg.exe"
+    } else {
+        "ffmpeg"
+    };
+    let bases = [
+        app.path()
+            .resource_dir()
+            .ok()
+            .map(|b| b.join("resources").join("bin")),
+        Some(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("resources")
+                .join("bin"),
+        ),
+    ];
+    for base in bases.into_iter().flatten() {
+        let p = base.join(name);
+        if p.is_file() {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let exec = std::fs::metadata(&p)
+                    .map(|m| m.permissions().mode() & 0o111 != 0)
+                    .unwrap_or(false);
+                if !exec {
+                    let _ = std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755));
+                }
+            }
+            return p.to_string_lossy().into_owned();
+        }
+    }
+    "ffmpeg".to_string()
+}
+
 fn read_settings(app: &AppHandle) -> Settings {
     settings_path(app)
         .ok()
@@ -990,10 +1028,12 @@ async fn start_download(
         let app_cb = app.clone();
         let out_cb = out.clone();
         let pids = pids_body.clone();
+        let ffmpeg = ffmpeg_bin(&app);
         let result = worker::downloader::download(
             video.url,
             video.headers,
             out.clone(),
+            ffmpeg,
             move |p, speed| {
                 let size = std::fs::metadata(&out_cb).ok().map(|m| m.len());
                 emit_progress(&app_cb, id, "downloading", p, speed, size, None);
