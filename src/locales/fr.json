@@ -126,6 +126,7 @@
   "menu.help.license": "Licence",
   "menu.help.title": "Aide",
   "menu.help.update": "Mise à jour rapide",
+  "menu.help.shortcuts": "Raccourcis",
   "menu.tasks.add": "Ajouter nouveau téléchargement",
   "menu.tasks.batch": "Téléchargement par lot depuis presse-papiers",
   "menu.tasks.export": "Exporter",
@@ -240,5 +241,17 @@
   "tooltip.stop_all": "Arrêter tous les téléchargements",
   "tooltip.stop_queue": "Arrêter la file d'attente principale, ou choisissez une file d'attente à arrêter depuis la liste",
   "anime.open": "Ouvrir",
-  "anime.delete": "Supprimer l'animé"
+  "anime.delete": "Supprimer l'animé",
+  "shortcuts.title": "Raccourcis clavier",
+  "shortcuts.add": "Ajouter un téléchargement",
+  "shortcuts.search": "Rechercher",
+  "shortcuts.select_all": "Tout sélectionner",
+  "shortcuts.navigate": "Naviguer dans la liste",
+  "shortcuts.extend": "Étendre la sélection",
+  "shortcuts.open": "Ouvrir la sélection",
+  "shortcuts.delete": "Supprimer la sélection",
+  "shortcuts.close": "Fermer la fenêtre / le menu",
+  "shortcuts.key_enter": "Entrée",
+  "shortcuts.key_delete": "Suppr",
+  "shortcuts.key_esc": "Échap"
 }

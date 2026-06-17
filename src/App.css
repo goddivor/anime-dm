@@ -826,6 +826,38 @@ select option {
 .check-row.danger span {
   color: var(--err);
 }
+.shortcut-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.shortcut-keys {
+  display: flex;
+  gap: 4px;
+  flex: 0 0 140px;
+}
+.shortcut-desc {
+  color: var(--text);
+}
+kbd {
+  display: inline-block;
+  min-width: 20px;
+  padding: 2px 7px;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--text);
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+}
 .row {
   display: flex;
   gap: 8px;

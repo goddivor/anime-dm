@@ -36,6 +36,7 @@ export type MenuActions = {
   theme: Theme;
   onAbout: () => void;
   onHelp: () => void;
+  onShortcuts: () => void;
   soon: (label: string) => void;
 };
 
@@ -140,7 +141,6 @@ export default function MenuBar({ t, a }: { t: T; a: MenuActions }) {
           sub: [
             { key: "cust", label: t("menu.view.toolbar_customize"), onClick: () => a.soon(t("menu.view.toolbar_customize")) },
             { key: "iface", label: t("menu.view.interface"), onClick: () => a.soon(t("menu.view.interface")) },
-            { key: "short", label: t("menu.view.shortcuts"), onClick: () => a.soon(t("menu.view.shortcuts")) },
           ],
         },
         { key: "cols", label: t("menu.view.columns"), onClick: () => a.soon(t("menu.view.columns")) },
@@ -176,6 +176,7 @@ export default function MenuBar({ t, a }: { t: T; a: MenuActions }) {
       title: t("menu.help.title"),
       items: [
         { key: "help", label: t("menu.help.title"), shortcut: "F1", onClick: a.onHelp },
+        { key: "shortcuts", label: t("menu.help.shortcuts"), onClick: a.onShortcuts },
         { key: "update", label: t("menu.help.update"), onClick: () => a.soon(t("menu.help.update")) },
         {
           key: "about",

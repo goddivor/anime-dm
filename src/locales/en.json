@@ -126,6 +126,7 @@
   "menu.help.license": "License",
   "menu.help.title": "Help",
   "menu.help.update": "Quick update",
+  "menu.help.shortcuts": "Shortcuts",
   "menu.tasks.add": "Add new download",
   "menu.tasks.batch": "Batch download from clipboard",
   "menu.tasks.export": "Export",
@@ -240,5 +241,17 @@
   "tooltip.stop_all": "Stop all downloads",
   "tooltip.stop_queue": "Stop the main queue, or pick a queue to stop from the list",
   "anime.open": "Open",
-  "anime.delete": "Delete anime"
+  "anime.delete": "Delete anime",
+  "shortcuts.title": "Keyboard shortcuts",
+  "shortcuts.add": "Add a download",
+  "shortcuts.search": "Search",
+  "shortcuts.select_all": "Select all",
+  "shortcuts.navigate": "Navigate the list",
+  "shortcuts.extend": "Extend the selection",
+  "shortcuts.open": "Open the selection",
+  "shortcuts.delete": "Delete the selection",
+  "shortcuts.close": "Close the window / menu",
+  "shortcuts.key_enter": "Enter",
+  "shortcuts.key_delete": "Del",
+  "shortcuts.key_esc": "Esc"
 }

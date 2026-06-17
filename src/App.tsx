@@ -48,6 +48,7 @@ import StatusBar from "./components/StatusBar";
 import AddDialog from "./components/AddDialog";
 import AddonsScreen from "./components/AddonsScreen";
 import SettingsDialog from "./components/SettingsDialog";
+import ShortcutsDialog from "./components/ShortcutsDialog";
 import ConfirmDialog, { type Confirm } from "./components/ConfirmDialog";
 import ContextMenu, { type CtxItem } from "./components/ContextMenu";
 import { planFor } from "./queue";
@@ -132,6 +133,7 @@ export default function App() {
   const [showAdd, setShowAdd] = useState(false);
   const [scheduleMode, setScheduleMode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [iconTemplates, setIconTemplates] = useState<{ id: string; name: string }[]>([]);
   const [iconMenu, setIconMenu] = useState<{ x: number; y: number; groupId: number } | null>(null);
   const [info, setInfo] = useState<{ title: string; lines: string[] } | null>(null);
@@ -711,7 +713,7 @@ export default function App() {
     });
 
   const overlayOpen =
-    !!confirm || !!info || showAdd || showSettings || !!menu || !!iconMenu || !!appsMenu;
+    !!confirm || !!info || showAdd || showSettings || showShortcuts || !!menu || !!iconMenu || !!appsMenu;
   navRef.current = {
     ids: visible.map((r) => r.id),
     cursor,
@@ -729,6 +731,14 @@ export default function App() {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
         e.preventDefault();
         (document.querySelector(".tb-search input") as HTMLInputElement | null)?.focus();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        if (!navRef.current.blocked) {
+          setScheduleMode(false);
+          setShowAdd(true);
+        }
         return;
       }
       const { ids, cursor, anchor, active, blocked } = navRef.current;
@@ -840,6 +850,7 @@ export default function App() {
               title: t("dialog.help.title"),
               lines: [t("dialog.help.step1"), t("dialog.help.step2"), t("dialog.help.step3")],
             }),
+          onShortcuts: () => setShowShortcuts(true),
           soon,
         }}
       />
@@ -1024,6 +1035,7 @@ export default function App() {
         />
       )}
       {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} t={t} />}
+      {showShortcuts && <ShortcutsDialog onClose={() => setShowShortcuts(false)} t={t} />}
       {info && (
         <div className="modal-backdrop" onMouseDown={() => setInfo(null)}>
           <div className="modal sm" onMouseDown={(e) => e.stopPropagation()}>

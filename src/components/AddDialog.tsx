@@ -179,9 +179,18 @@ export default function AddDialog({
 
   const dragStyle = { transform: `translate(${pos.x}px, ${pos.y}px)` };
 
+  // Escape closes the dialog — but if the player menu is open, let it close that first.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !menu) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menu, onClose]);
+
   if (addons.length === 0) {
     return (
-      <div className="modal-backdrop" onMouseDown={onClose}>
+      <div className="modal-backdrop">
         <div className="modal sm" style={dragStyle} onMouseDown={(e) => e.stopPropagation()}>
           <div className="modal-head drag" onMouseDown={onHeadDown}>
             <span>{t("dialog.add.title")}</span>
@@ -325,7 +334,7 @@ export default function AddDialog({
             })();
 
   return (
-    <div className="modal-backdrop" onMouseDown={onClose}>
+    <div className="modal-backdrop">
       <div className="modal" style={dragStyle} onMouseDown={(e) => e.stopPropagation()}>
         <div className="modal-head drag" onMouseDown={onHeadDown}>
           <span>{schedule ? t("dialog.add.schedule_title") : t("dialog.add.title")}</span>
