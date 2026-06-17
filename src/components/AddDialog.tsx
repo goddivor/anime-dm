@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useState, type MouseEvent as ReactMouseEvent } from "react";
 import {
   Download,
   Loader2,
@@ -25,6 +25,7 @@ import {
 import { parseSelection } from "../format";
 import Poster from "./Poster";
 import ContextMenu, { type CtxItem } from "./ContextMenu";
+import Modal from "./Modal";
 
 type EpMode = "text" | "list";
 type Menu =
@@ -98,8 +99,6 @@ export default function AddDialog({
   const [folderIconsOn, setFolderIconsOn] = useState(false);
   const [iconTemplates, setIconTemplates] = useState<{ id: string; name: string }[]>([]);
   const [folderTemplate, setFolderTemplate] = useState("");
-  const [pos, setPos] = useState({ x: 0, y: 0 });
-  const drag = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
 
   useEffect(() => {
     getSettings()
@@ -157,57 +156,16 @@ export default function AddDialog({
     }
   }, [anime]);
 
-  // Drag the modal by its header.
-  const onHeadDown = (e: ReactMouseEvent) => {
-    if ((e.target as HTMLElement).closest("button")) return;
-    drag.current = { sx: e.clientX, sy: e.clientY, px: pos.x, py: pos.y };
-    const move = (ev: MouseEvent) => {
-      if (!drag.current) return;
-      setPos({
-        x: drag.current.px + ev.clientX - drag.current.sx,
-        y: drag.current.py + ev.clientY - drag.current.sy,
-      });
-    };
-    const up = () => {
-      drag.current = null;
-      window.removeEventListener("mousemove", move);
-      window.removeEventListener("mouseup", up);
-    };
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", up);
-  };
-
-  const dragStyle = { transform: `translate(${pos.x}px, ${pos.y}px)` };
-
-  // Escape closes the dialog — but if the player menu is open, let it close that first.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !menu) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [menu, onClose]);
-
   if (addons.length === 0) {
     return (
-      <div className="modal-backdrop">
-        <div className="modal sm" style={dragStyle} onMouseDown={(e) => e.stopPropagation()}>
-          <div className="modal-head drag" onMouseDown={onHeadDown}>
-            <span>{t("dialog.add.title")}</span>
-            <button className="icon-btn" onClick={onClose}>
-              ✕
-            </button>
-          </div>
-          <div className="modal-body">
-            <div className="muted">{t("dialog.add.no_addon")}</div>
-            <div className="modal-foot">
-              <button className="btn primary" onClick={onOpenAddons}>
-                {t("dialog.add.open_store")}
-              </button>
-            </div>
-          </div>
+      <Modal title={t("dialog.add.title")} onClose={onClose} size="sm">
+        <div className="muted">{t("dialog.add.no_addon")}</div>
+        <div className="modal-foot">
+          <button className="btn primary" onClick={onOpenAddons}>
+            {t("dialog.add.open_store")}
+          </button>
         </div>
-      </div>
+      </Modal>
     );
   }
 
@@ -334,15 +292,12 @@ export default function AddDialog({
             })();
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal" style={dragStyle} onMouseDown={(e) => e.stopPropagation()}>
-        <div className="modal-head drag" onMouseDown={onHeadDown}>
-          <span>{schedule ? t("dialog.add.schedule_title") : t("dialog.add.title")}</span>
-          <button className="icon-btn" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-        <div className="modal-body">
+    <>
+      <Modal
+        title={schedule ? t("dialog.add.schedule_title") : t("dialog.add.title")}
+        onClose={onClose}
+        closeOnEsc={!menu}
+      >
           <label className="field-label">{t("dialog.add.source_label")}</label>
           <div className="src-row">
             <div className="src-strip">
@@ -522,8 +477,7 @@ export default function AddDialog({
               </div>
             </>
           )}
-        </div>
-      </div>
+      </Modal>
       {menu && (
         <>
           <div
@@ -541,6 +495,6 @@ export default function AddDialog({
           <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />
         </>
       )}
-    </div>
+    </>
   );
 }

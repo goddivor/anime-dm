@@ -49,6 +49,7 @@ import AddDialog from "./components/AddDialog";
 import AddonsScreen from "./components/AddonsScreen";
 import SettingsDialog from "./components/SettingsDialog";
 import ShortcutsDialog from "./components/ShortcutsDialog";
+import Modal from "./components/Modal";
 import ConfirmDialog, { type Confirm } from "./components/ConfirmDialog";
 import ContextMenu, { type CtxItem } from "./components/ContextMenu";
 import { planFor } from "./queue";
@@ -783,14 +784,6 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Escape closes the lightweight info modal (messages, about, help).
-  useEffect(() => {
-    if (!info) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setInfo(null);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [info]);
-
   const sel = rows.filter((r) => selected.has(r.id));
   const canStop = sel.some((r) => isActive(r.status));
   const canResume = sel.some((r) => r.status === "stopped" || r.status === "failed");
@@ -1037,23 +1030,13 @@ export default function App() {
       {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} t={t} />}
       {showShortcuts && <ShortcutsDialog onClose={() => setShowShortcuts(false)} t={t} />}
       {info && (
-        <div className="modal-backdrop" onMouseDown={() => setInfo(null)}>
-          <div className="modal sm" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="modal-head">
-              <span>{info.title}</span>
-              <button className="icon-btn" onClick={() => setInfo(null)}>
-                ✕
-              </button>
+        <Modal title={info.title} onClose={() => setInfo(null)} size="sm">
+          {info.lines.map((l, i) => (
+            <div key={i} className={i === 0 ? "anime-title" : "muted"}>
+              {l}
             </div>
-            <div className="modal-body">
-              {info.lines.map((l, i) => (
-                <div key={i} className={i === 0 ? "anime-title" : "muted"}>
-                  {l}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+          ))}
+        </Modal>
       )}
     </div>
   );

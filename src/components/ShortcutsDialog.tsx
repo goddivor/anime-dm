@@ -1,15 +1,9 @@
-import { useEffect } from "react";
 import type { T } from "../i18n";
+import Modal from "./Modal";
 
 type Shortcut = { keys: string[]; desc: string };
 
 export default function ShortcutsDialog({ onClose, t }: { onClose: () => void; t: T }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   const mod = navigator.platform.toLowerCase().includes("mac") ? "⌘" : "Ctrl";
   const shortcuts: Shortcut[] = [
     { keys: [mod, "N"], desc: t("shortcuts.add") },
@@ -23,29 +17,19 @@ export default function ShortcutsDialog({ onClose, t }: { onClose: () => void; t
   ];
 
   return (
-    <div className="modal-backdrop" onMouseDown={onClose}>
-      <div className="modal sm" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="modal-head">
-          <span>{t("shortcuts.title")}</span>
-          <button className="icon-btn" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-        <div className="modal-body">
-          <div className="shortcut-list">
-            {shortcuts.map((s, i) => (
-              <div key={i} className="shortcut-row">
-                <span className="shortcut-keys">
-                  {s.keys.map((k, j) => (
-                    <kbd key={j}>{k}</kbd>
-                  ))}
-                </span>
-                <span className="shortcut-desc">{s.desc}</span>
-              </div>
-            ))}
+    <Modal title={t("shortcuts.title")} onClose={onClose} size="sm">
+      <div className="shortcut-list">
+        {shortcuts.map((s, i) => (
+          <div key={i} className="shortcut-row">
+            <span className="shortcut-keys">
+              {s.keys.map((k, j) => (
+                <kbd key={j}>{k}</kbd>
+              ))}
+            </span>
+            <span className="shortcut-desc">{s.desc}</span>
           </div>
-        </div>
+        ))}
       </div>
-    </div>
+    </Modal>
   );
 }
