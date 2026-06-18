@@ -1,22 +1,11 @@
-# Rust
-/target
-/src-tauri/target
-
-# Node / frontend
-node_modules
-dist
-dist-ssr
-.vite
-*.local
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
 # Editor
 .DS_Store
+*.user
 
-# Bundled ffmpeg (fetched per-platform via scripts/fetch-ffmpeg.sh, not committed)
-src-tauri/resources/bin/ffmpeg
-src-tauri/resources/bin/ffmpeg.exe
+# CMake build output (C++/Win32)
+/build/
+/out/
+
+# Visual Studio
+.vs/
+*.aps
