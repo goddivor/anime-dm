@@ -6,6 +6,7 @@
 #include "ui/AddDialog.h"
 #include "ui/Commands.h"
 #include "ui/ContextMenu.h"
+#include "ui/HelpDialogs.h"
 
 namespace {
 constexpr wchar_t kWindowClass[] = L"AnimeDmMainWindow";
@@ -99,6 +100,10 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         OnLeftButtonUp();
         return 0;
     case WM_DESTROY:
+        if (accel_ != nullptr) {
+            DestroyAcceleratorTable(accel_);
+            accel_ = nullptr;
+        }
         if (uiFont_ != nullptr) {
             DeleteObject(uiFont_);
             uiFont_ = nullptr;
@@ -125,6 +130,12 @@ void MainWindow::OnCreate() {
 
     downloads_.Create(hwnd_, instance);
     ApplyUiFont();
+
+    ACCEL accels[] = {
+        {FVIRTKEY | FCONTROL, 'N', ID_TASK_ADD},
+        {FVIRTKEY, VK_DELETE, ID_FILE_REMOVE},
+    };
+    accel_ = CreateAcceleratorTableW(accels, ARRAYSIZE(accels));
 
     SendMessageW(statusBar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(L"Prêt"));
 }
@@ -215,6 +226,16 @@ void MainWindow::OnCommand(int commandId) {
     case ID_TASK_ADD: {
         HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
         ShowAddDialog(hwnd_, instance);
+        break;
+    }
+    case ID_HELP_ABOUT: {
+        HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+        ShowAboutDialog(hwnd_, instance);
+        break;
+    }
+    case ID_HELP_SHORTCUTS: {
+        HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+        ShowShortcutsDialog(hwnd_, instance);
         break;
     }
     case ID_FILE_EXIT:

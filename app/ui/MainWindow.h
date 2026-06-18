@@ -13,6 +13,7 @@ public:
     bool Create(HINSTANCE instance, const wchar_t* title);
     void Show(int cmdShow);
     HWND Handle() const { return hwnd_; }
+    HACCEL Accelerator() const { return accel_; }
 
 private:
     static LRESULT CALLBACK WndProcTrampoline(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -31,6 +32,7 @@ private:
     HWND hwnd_ = nullptr;
     HWND statusBar_ = nullptr;
     HFONT uiFont_ = nullptr;
+    HACCEL accel_ = nullptr;
     MenuBar menuBar_;
     Toolbar toolbar_;
     Sidebar sidebar_;
