@@ -13,6 +13,7 @@ endif()
 add_executable(anime-dm WIN32
     app/main.cpp
     app/ui/MainWindow.cpp
+    app/ui/DownloadsView.cpp
     app/resources/app.rc
 )
 

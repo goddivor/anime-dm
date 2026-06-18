@@ -1,5 +1,7 @@
 #include "ui/MainWindow.h"
 
+#include <commctrl.h>
+
 namespace {
 constexpr wchar_t kWindowClass[] = L"AnimeDmMainWindow";
 }
@@ -50,10 +52,59 @@ LRESULT CALLBACK MainWindow::WndProcTrampoline(HWND hwnd, UINT msg, WPARAM wPara
 // Handles per-window messages for the instance.
 LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
+    case WM_CREATE:
+        OnCreate();
+        return 0;
+    case WM_SIZE:
+        OnSize(LOWORD(lParam), HIWORD(lParam));
+        return 0;
     case WM_DESTROY:
+        if (uiFont_ != nullptr) {
+            DeleteObject(uiFont_);
+            uiFont_ = nullptr;
+        }
         PostQuitMessage(0);
         return 0;
     default:
         return DefWindowProcW(hwnd_, msg, wParam, lParam);
     }
+}
+
+// Builds the child controls: a status bar and the downloads list.
+void MainWindow::OnCreate() {
+    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+
+    statusBar_ = CreateWindowExW(
+        0, STATUSCLASSNAMEW, nullptr,
+        WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP,
+        0, 0, 0, 0, hwnd_, nullptr, instance, nullptr);
+
+    downloads_.Create(hwnd_, instance);
+    ApplyUiFont();
+
+    SendMessageW(statusBar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(L"Prêt"));
+}
+
+// Lays out the status bar at the bottom and the list above it.
+void MainWindow::OnSize(int width, int height) {
+    SendMessageW(statusBar_, WM_SIZE, 0, 0);
+
+    RECT statusRect = {};
+    GetWindowRect(statusBar_, &statusRect);
+    int statusHeight = statusRect.bottom - statusRect.top;
+
+    downloads_.SetBounds(0, 0, width, height - statusHeight);
+}
+
+// Applies the system message font to the child controls for a native look.
+void MainWindow::ApplyUiFont() {
+    NONCLIENTMETRICSW metrics = {};
+    metrics.cbSize = sizeof(metrics);
+    if (!SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(metrics), &metrics, 0)) {
+        return;
+    }
+
+    uiFont_ = CreateFontIndirectW(&metrics.lfMessageFont);
+    SendMessageW(downloads_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
+    SendMessageW(statusBar_, WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
 }
