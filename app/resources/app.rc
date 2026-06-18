@@ -1,3 +1,27 @@
 #include <windows.h>
+#include <commctrl.h>
+#include "../ui/Resource.h"
+
+#pragma code_page(65001)
 
 CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "app.manifest"
+
+IDD_ADD_DOWNLOAD DIALOGEX 0, 0, 420, 280
+STYLE DS_MODALFRAME | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Ajouter un téléchargement"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT           "Source :", IDC_STATIC, 12, 14, 52, 10
+    COMBOBOX        IDC_ADD_SOURCE, 68, 12, 160, 200, CBS_DROPDOWNLIST | WS_TABSTOP | WS_VSCROLL
+    LTEXT           "URL de l'animé :", IDC_STATIC, 12, 34, 52, 18
+    EDITTEXT        IDC_ADD_URL, 68, 32, 246, 14, ES_AUTOHSCROLL | WS_TABSTOP
+    PUSHBUTTON      "Charger", IDC_ADD_FETCH, 320, 31, 88, 16, WS_TABSTOP
+    LTEXT           "Épisodes :", IDC_STATIC, 12, 56, 52, 10
+    CONTROL         "", IDC_ADD_EPISODES, "SysListView32",
+                    LVS_REPORT | LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP, 12, 68, 396, 148
+    LTEXT           "Destination :", IDC_STATIC, 12, 226, 52, 10
+    EDITTEXT        IDC_ADD_DEST, 68, 224, 246, 14, ES_AUTOHSCROLL | WS_TABSTOP
+    PUSHBUTTON      "Parcourir...", IDC_ADD_BROWSE, 320, 223, 88, 16, WS_TABSTOP
+    DEFPUSHBUTTON   "Télécharger", IDOK, 288, 252, 60, 16, WS_TABSTOP
+    PUSHBUTTON      "Annuler", IDCANCEL, 352, 252, 56, 16, WS_TABSTOP
+END

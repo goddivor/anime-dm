@@ -3,6 +3,7 @@
 #include <commctrl.h>
 #include <windowsx.h>
 
+#include "ui/AddDialog.h"
 #include "ui/Commands.h"
 #include "ui/ContextMenu.h"
 
@@ -211,6 +212,11 @@ void MainWindow::OnLeftButtonUp() {
 // Dispatches menu and toolbar commands.
 void MainWindow::OnCommand(int commandId) {
     switch (commandId) {
+    case ID_TASK_ADD: {
+        HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+        ShowAddDialog(hwnd_, instance);
+        break;
+    }
     case ID_FILE_EXIT:
         DestroyWindow(hwnd_);
         break;
