@@ -130,6 +130,7 @@ void MainWindow::OnCreate() {
         0, 0, 0, 0, hwnd_, nullptr, instance, nullptr);
 
     downloads_.Create(hwnd_, instance);
+    extensions_.Create(hwnd_, instance);
     ApplyUiFont();
 
     ACCEL accels[] = {
@@ -141,7 +142,22 @@ void MainWindow::OnCreate() {
     SendMessageW(statusBar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(L"Prêt"));
 }
 
-// Lays out the toolbar, status bar, sidebar, splitter and downloads list.
+// Switches between the downloads and extensions screens.
+void MainWindow::ShowView(View view) {
+    if (currentView_ == view) {
+        return;
+    }
+    currentView_ = view;
+
+    bool downloads = view == View::Downloads;
+    ShowWindow(sidebar_.Handle(), downloads ? SW_SHOW : SW_HIDE);
+    ShowWindow(downloads_.Handle(), downloads ? SW_SHOW : SW_HIDE);
+    extensions_.SetVisible(!downloads);
+
+    Relayout();
+}
+
+// Lays out the toolbar, status bar and the active content view.
 void MainWindow::Relayout() {
     toolbar_.Resize();
     SendMessageW(statusBar_, WM_SIZE, 0, 0);
@@ -156,8 +172,13 @@ void MainWindow::Relayout() {
     int statusHeight = statusRect.bottom - statusRect.top;
 
     int contentHeight = client.bottom - top - statusHeight;
-    sidebarWidth_ = ClampSidebarWidth(sidebarWidth_, client.right);
 
+    if (currentView_ == View::Extensions) {
+        extensions_.SetBounds(0, top, client.right, contentHeight);
+        return;
+    }
+
+    sidebarWidth_ = ClampSidebarWidth(sidebarWidth_, client.right);
     sidebar_.SetBounds(0, top, sidebarWidth_, contentHeight);
     int listX = sidebarWidth_ + kSplitterWidth;
     downloads_.SetBounds(listX, top, client.right - listX, contentHeight);
@@ -182,6 +203,9 @@ RECT MainWindow::SplitterRect() const {
 
 // Shows the horizontal resize cursor while hovering the splitter band.
 bool MainWindow::OnSetCursor() {
+    if (currentView_ != View::Downloads) {
+        return false;
+    }
     POINT pt = {};
     GetCursorPos(&pt);
     ScreenToClient(hwnd_, &pt);
@@ -196,6 +220,9 @@ bool MainWindow::OnSetCursor() {
 
 // Starts a splitter drag when the press lands on the splitter band.
 void MainWindow::OnLeftButtonDown(int x) {
+    if (currentView_ != View::Downloads) {
+        return;
+    }
     if (x >= sidebarWidth_ && x < sidebarWidth_ + kSplitterWidth) {
         draggingSplitter_ = true;
         SetCapture(hwnd_);
@@ -244,6 +271,12 @@ void MainWindow::OnCommand(int commandId) {
         ShowSettingsDialog(hwnd_, instance);
         break;
     }
+    case ID_VIEW_DOWNLOADS:
+        ShowView(View::Downloads);
+        break;
+    case ID_VIEW_ADDONS:
+        ShowView(View::Extensions);
+        break;
     case ID_FILE_EXIT:
         DestroyWindow(hwnd_);
         break;
@@ -283,5 +316,6 @@ void MainWindow::ApplyUiFont() {
     SendMessageW(toolbar_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(sidebar_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(downloads_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
+    SendMessageW(extensions_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(statusBar_, WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
 }
