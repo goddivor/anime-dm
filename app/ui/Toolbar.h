@@ -1,10 +1,13 @@
 #pragma once
 
 #include <windows.h>
+#include <commctrl.h>
 
 // Owns the top toolbar control with the primary download actions.
 class Toolbar {
 public:
+    ~Toolbar();
+
     bool Create(HWND parent, HINSTANCE instance);
     void Resize();
     int Height() const;
@@ -12,4 +15,5 @@ public:
 
 private:
     HWND hwnd_ = nullptr;
+    HIMAGELIST imageList_ = nullptr;
 };
