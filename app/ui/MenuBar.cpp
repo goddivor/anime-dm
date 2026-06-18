@@ -28,7 +28,9 @@ HMENU BuildDownloadMenu() {
 // Builds the "Affichage" drop-down.
 HMENU BuildViewMenu() {
     HMENU menu = CreatePopupMenu();
+    AppendMenuW(menu, MF_STRING, ID_VIEW_DOWNLOADS, L"Téléchargements");
     AppendMenuW(menu, MF_STRING, ID_VIEW_ADDONS, L"Extensions");
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, ID_VIEW_SETTINGS, L"Paramètres");
     return menu;
 }

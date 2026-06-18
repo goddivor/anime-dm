@@ -3,6 +3,7 @@
 #include <windows.h>
 
 #include "ui/DownloadsView.h"
+#include "ui/ExtensionsView.h"
 #include "ui/MenuBar.h"
 #include "ui/Sidebar.h"
 #include "ui/Toolbar.h"
@@ -16,11 +17,14 @@ public:
     HACCEL Accelerator() const { return accel_; }
 
 private:
+    enum class View { Downloads, Extensions };
+
     static LRESULT CALLBACK WndProcTrampoline(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
     LRESULT HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam);
     void OnCreate();
     void OnCommand(int commandId);
     void OnContextMenu(HWND target, int x, int y);
+    void ShowView(View view);
     void Relayout();
     RECT SplitterRect() const;
     bool OnSetCursor();
@@ -37,6 +41,8 @@ private:
     Toolbar toolbar_;
     Sidebar sidebar_;
     DownloadsView downloads_;
+    ExtensionsView extensions_;
+    View currentView_ = View::Downloads;
     int sidebarWidth_ = 230;
     bool draggingSplitter_ = false;
 };
