@@ -7,6 +7,7 @@
 #include "ui/Commands.h"
 #include "ui/ContextMenu.h"
 #include "ui/HelpDialogs.h"
+#include "ui/SettingsDialog.h"
 
 namespace {
 constexpr wchar_t kWindowClass[] = L"AnimeDmMainWindow";
@@ -236,6 +237,11 @@ void MainWindow::OnCommand(int commandId) {
     case ID_HELP_SHORTCUTS: {
         HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
         ShowShortcutsDialog(hwnd_, instance);
+        break;
+    }
+    case ID_VIEW_SETTINGS: {
+        HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+        ShowSettingsDialog(hwnd_, instance);
         break;
     }
     case ID_FILE_EXIT:
