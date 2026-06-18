@@ -13,4 +13,6 @@ enum CommandId : int {
     ID_VIEW_SETTINGS,
     ID_HELP_SHORTCUTS,
     ID_HELP_ABOUT,
+    ID_CTX_OPEN,
+    ID_CTX_OPEN_FOLDER,
 };

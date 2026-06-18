@@ -19,6 +19,7 @@ private:
     LRESULT HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam);
     void OnCreate();
     void OnCommand(int commandId);
+    void OnContextMenu(HWND target, int x, int y);
     void Relayout();
     RECT SplitterRect() const;
     bool OnSetCursor();

@@ -4,6 +4,7 @@
 #include <windowsx.h>
 
 #include "ui/Commands.h"
+#include "ui/ContextMenu.h"
 
 namespace {
 constexpr wchar_t kWindowClass[] = L"AnimeDmMainWindow";
@@ -78,6 +79,9 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
     case WM_COMMAND:
         OnCommand(LOWORD(wParam));
+        return 0;
+    case WM_CONTEXTMENU:
+        OnContextMenu(reinterpret_cast<HWND>(wParam), GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
         return 0;
     case WM_SETCURSOR:
         if (LOWORD(lParam) == HTCLIENT && OnSetCursor()) {
@@ -212,6 +216,25 @@ void MainWindow::OnCommand(int commandId) {
         break;
     default:
         break;
+    }
+}
+
+// Shows the right-click menu over the downloads list and routes the result.
+void MainWindow::OnContextMenu(HWND target, int x, int y) {
+    if (target != downloads_.Handle()) {
+        return;
+    }
+
+    if (x == -1 && y == -1) {
+        RECT rect = {};
+        GetWindowRect(downloads_.Handle(), &rect);
+        x = rect.left + 8;
+        y = rect.top + 8;
+    }
+
+    int command = ShowDownloadsContextMenu(hwnd_, x, y);
+    if (command != 0) {
+        OnCommand(command);
     }
 }
 
