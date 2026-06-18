@@ -1,0 +1,16 @@
+#ifndef ANIME_DM_RESOURCE_H
+#define ANIME_DM_RESOURCE_H
+
+#ifndef IDC_STATIC
+#define IDC_STATIC (-1)
+#endif
+
+#define IDD_ADD_DOWNLOAD 200
+#define IDC_ADD_SOURCE 201
+#define IDC_ADD_URL 202
+#define IDC_ADD_FETCH 203
+#define IDC_ADD_EPISODES 204
+#define IDC_ADD_DEST 205
+#define IDC_ADD_BROWSE 206
+
+#endif
