@@ -17,7 +17,7 @@ pub async fn download<F, P>(
     on_pid: P,
 ) -> Result<(), String>
 where
-    F: Fn(Option<f32>, Option<String>) + Send,
+    F: Fn(Option<f32>, Option<String>, Option<u64>) + Send,
     P: Fn(Option<u32>) + Send,
 {
     let mut last = String::new();
@@ -44,7 +44,7 @@ async fn run_ffmpeg<F, P>(
     on_pid: &P,
 ) -> Result<(), String>
 where
-    F: Fn(Option<f32>, Option<String>),
+    F: Fn(Option<f32>, Option<String>, Option<u64>),
     P: Fn(Option<u32>),
 {
     let mut header_str = String::new();
@@ -111,7 +111,7 @@ where
         let speed = speed_re.captures(&chunk).map(|c| format!("{}x", &c[1]));
 
         if progress.is_some() || speed.is_some() {
-            on_progress(progress, speed);
+            on_progress(progress, speed, None);
         }
     }
 

@@ -20,3 +20,5 @@ yarn-error.log*
 # Bundled ffmpeg (fetched per-platform via scripts/fetch-ffmpeg.sh, not committed)
 src-tauri/resources/bin/ffmpeg
 src-tauri/resources/bin/ffmpeg.exe
+src-tauri/resources/bin/aria2c
+src-tauri/resources/bin/aria2c.exe

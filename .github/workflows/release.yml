@@ -44,7 +44,7 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
-      - name: Bundle ffmpeg (Windows)
+      - name: Bundle ffmpeg + aria2 (Windows)
         if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
@@ -53,6 +53,10 @@ jobs:
           Expand-Archive ffmpeg.zip -DestinationPath fftmp
           $exe = Get-ChildItem fftmp -Recurse -Filter ffmpeg.exe | Select-Object -First 1
           Copy-Item $exe.FullName src-tauri/resources/bin/ffmpeg.exe
+          Invoke-WebRequest -Uri "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip" -OutFile aria2.zip
+          Expand-Archive aria2.zip -DestinationPath ariatmp
+          $a = Get-ChildItem ariatmp -Recurse -Filter aria2c.exe | Select-Object -First 1
+          Copy-Item $a.FullName src-tauri/resources/bin/aria2c.exe
 
       - name: Bundle ffmpeg (macOS)
         if: matrix.platform == 'macos-latest'

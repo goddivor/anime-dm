@@ -5,6 +5,7 @@ mod worker;
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use addon_api::{Episode, Hoster, Preference, UrlInput, Video};
@@ -20,6 +21,18 @@ struct Engine {
     http: reqwest::Client,
     tasks: Arc<Mutex<HashMap<u64, JoinHandle<()>>>>,
     pids: Arc<Mutex<HashMap<u64, u32>>>,
+    // Number of downloads currently running, and the live limit (IDM-style):
+    // extra downloads wait as "queued" so a host isn't hammered by all at once.
+    active: Arc<AtomicUsize>,
+    limit: Arc<AtomicUsize>,
+}
+
+// Decrements the active-download counter when a download task ends (any path).
+struct SlotGuard(Arc<AtomicUsize>);
+impl Drop for SlotGuard {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
 }
 
 struct Db(Mutex<Connection>);
@@ -115,6 +128,12 @@ struct Settings {
     skip_delete_confirm: bool,
     #[serde(default)]
     theme: String,
+    #[serde(default)]
+    use_aria2: bool,
+    #[serde(default)]
+    aria2_connections: u8,
+    #[serde(default)]
+    max_concurrent_downloads: u8,
 }
 
 #[derive(Serialize)]
@@ -156,10 +175,20 @@ fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {
 /// Resolve the ffmpeg binary: the copy bundled under `resources/bin/` first
 /// (so a packaged app needs no system install), then the system `PATH`.
 fn ffmpeg_bin(app: &AppHandle) -> String {
+    resolve_bin(app, "ffmpeg")
+}
+
+/// Resolve the aria2 binary the same way (bundled `resources/bin/` then `PATH`).
+fn aria2_bin(app: &AppHandle) -> String {
+    resolve_bin(app, "aria2c")
+}
+
+// Find a bundled executable under resources/bin/, else fall back to its PATH name.
+fn resolve_bin(app: &AppHandle, stem: &str) -> String {
     let name = if cfg!(target_os = "windows") {
-        "ffmpeg.exe"
+        format!("{stem}.exe")
     } else {
-        "ffmpeg"
+        stem.to_string()
     };
     let bases = [
         app.path()
@@ -173,7 +202,7 @@ fn ffmpeg_bin(app: &AppHandle) -> String {
         ),
     ];
     for base in bases.into_iter().flatten() {
-        let p = base.join(name);
+        let p = base.join(&name);
         if p.is_file() {
             #[cfg(unix)]
             {
@@ -188,7 +217,7 @@ fn ffmpeg_bin(app: &AppHandle) -> String {
             return p.to_string_lossy().into_owned();
         }
     }
-    "ffmpeg".to_string()
+    name
 }
 
 fn read_settings(app: &AppHandle) -> Settings {
@@ -230,6 +259,23 @@ fn set_last_dir(app: AppHandle, dir: String) -> Result<(), String> {
 fn set_theme(app: AppHandle, theme: String) -> Result<(), String> {
     let mut settings = read_settings(&app);
     settings.theme = theme;
+    write_settings(&app, &settings)
+}
+
+#[tauri::command]
+fn set_aria2(app: AppHandle, enabled: bool, connections: u8) -> Result<(), String> {
+    let mut settings = read_settings(&app);
+    settings.use_aria2 = enabled;
+    settings.aria2_connections = connections.clamp(3, 8);
+    write_settings(&app, &settings)
+}
+
+#[tauri::command]
+fn set_max_concurrent(app: AppHandle, engine: State<'_, Engine>, count: u8) -> Result<(), String> {
+    let n = count.clamp(1, 5);
+    engine.limit.store(n as usize, Ordering::Relaxed);
+    let mut settings = read_settings(&app);
+    settings.max_concurrent_downloads = n;
     write_settings(&app, &settings)
 }
 
@@ -1004,8 +1050,28 @@ async fn start_download(
     let tasks = engine.tasks.clone();
     let tasks_body = tasks.clone();
     let pids_body = engine.pids.clone();
+    let active = engine.active.clone();
+    let limit = engine.limit.clone();
 
     let handle = tauri::async_runtime::spawn(async move {
+        // Wait for a free download slot (shown as "queued"), then hold it for
+        // the whole resolve + download so only `limit` run at once.
+        emit_progress(&app, id, "queued", None, None, None, None);
+        loop {
+            let cur = active.load(Ordering::Relaxed);
+            if cur < limit.load(Ordering::Relaxed).max(1) {
+                if active
+                    .compare_exchange(cur, cur + 1, Ordering::SeqCst, Ordering::Relaxed)
+                    .is_ok()
+                {
+                    break;
+                }
+            } else {
+                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+            }
+        }
+        let _slot = SlotGuard(active.clone());
+
         emit_progress(&app, id, "resolving", None, None, None, None);
 
         let resolved = resolve_video(dir, addon_id, episode_url, player_name).await;
@@ -1025,29 +1091,56 @@ async fn start_download(
 
         emit_progress(&app, id, "downloading", None, None, None, Some(video.url.clone()));
 
-        let app_cb = app.clone();
-        let out_cb = out.clone();
-        let pids = pids_body.clone();
         let ffmpeg = ffmpeg_bin(&app);
-        let result = worker::downloader::download(
-            video.url,
-            video.headers,
-            out.clone(),
-            ffmpeg,
-            move |p, speed| {
-                let size = std::fs::metadata(&out_cb).ok().map(|m| m.len());
-                emit_progress(&app_cb, id, "downloading", p, speed, size, None);
-            },
-            move |pid| match pid {
-                Some(p) => {
-                    pids.lock().unwrap().insert(id, p);
+        let settings = read_settings(&app);
+        let url = video.url;
+        let headers = video.headers;
+
+        // aria2 (opt-in) downloads in parallel and remuxes HLS with ffmpeg;
+        // any failure falls back to the proven ffmpeg-only path.
+        let result = if settings.use_aria2 {
+            let aria2 = aria2_bin(&app);
+            let conn = if settings.aria2_connections == 0 {
+                4
+            } else {
+                settings.aria2_connections.clamp(3, 8)
+            };
+            match worker::aria2::download(
+                url.clone(),
+                headers.clone(),
+                out.clone(),
+                aria2,
+                ffmpeg.clone(),
+                conn,
+                mk_progress(app.clone(), out.clone(), id),
+                mk_pid(pids_body.clone(), id),
+            )
+            .await
+            {
+                Ok(()) => Ok(()),
+                Err(_) => {
+                    worker::downloader::download(
+                        url,
+                        headers,
+                        out.clone(),
+                        ffmpeg,
+                        mk_progress(app.clone(), out.clone(), id),
+                        mk_pid(pids_body.clone(), id),
+                    )
+                    .await
                 }
-                None => {
-                    pids.lock().unwrap().remove(&id);
-                }
-            },
-        )
-        .await;
+            }
+        } else {
+            worker::downloader::download(
+                url,
+                headers,
+                out.clone(),
+                ffmpeg,
+                mk_progress(app.clone(), out.clone(), id),
+                mk_pid(pids_body.clone(), id),
+            )
+            .await
+        };
 
         match result {
             Ok(()) => {
@@ -1170,6 +1263,32 @@ async fn resolve_video(
 }
 
 #[allow(clippy::too_many_arguments)]
+// A progress callback for a download: emits `download://progress`. Uses the
+// size reported by the downloader (HLS segments live in a temp dir), falling
+// back to the output file's size (direct download writes there).
+fn mk_progress(
+    app: AppHandle,
+    out: PathBuf,
+    id: u64,
+) -> impl Fn(Option<f32>, Option<String>, Option<u64>) {
+    move |p, speed, size| {
+        let size = size.or_else(|| std::fs::metadata(&out).ok().map(|m| m.len()));
+        emit_progress(&app, id, "downloading", p, speed, size, None);
+    }
+}
+
+// A pid callback: tracks the active child process so pause/resume can signal it.
+fn mk_pid(pids: Arc<Mutex<HashMap<u64, u32>>>, id: u64) -> impl Fn(Option<u32>) {
+    move |pid| match pid {
+        Some(p) => {
+            pids.lock().unwrap().insert(id, p);
+        }
+        None => {
+            pids.lock().unwrap().remove(&id);
+        }
+    }
+}
+
 fn emit_progress(
     app: &AppHandle,
     id: u64,
@@ -1211,6 +1330,8 @@ pub fn run() {
         http,
         tasks: Arc::new(Mutex::new(HashMap::new())),
         pids: Arc::new(Mutex::new(HashMap::new())),
+        active: Arc::new(AtomicUsize::new(0)),
+        limit: Arc::new(AtomicUsize::new(3)),
     };
 
     tauri::Builder::default()
@@ -1222,6 +1343,13 @@ pub fn run() {
             std::fs::create_dir_all(&dir)?;
             let conn = db::open(&dir.join("anime-dm.db"))?;
             app.manage(Db(Mutex::new(conn)));
+            let settings = read_settings(&app.handle());
+            let n = if settings.max_concurrent_downloads == 0 {
+                3
+            } else {
+                settings.max_concurrent_downloads.clamp(1, 5) as usize
+            };
+            app.state::<Engine>().limit.store(n, Ordering::Relaxed);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1229,6 +1357,8 @@ pub fn run() {
             set_lang,
             set_last_dir,
             set_theme,
+            set_aria2,
+            set_max_concurrent,
             set_skip_delete_confirm,
             create_dir,
             delete_files,
