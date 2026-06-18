@@ -16,6 +16,7 @@ add_executable(anime-dm WIN32
     app/ui/MenuBar.cpp
     app/ui/Toolbar.cpp
     app/ui/Sidebar.cpp
+    app/ui/ContextMenu.cpp
     app/ui/DownloadsView.cpp
     app/resources/app.rc
 )
