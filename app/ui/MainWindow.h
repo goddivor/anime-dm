@@ -4,6 +4,7 @@
 
 #include "ui/DownloadsView.h"
 #include "ui/MenuBar.h"
+#include "ui/Sidebar.h"
 #include "ui/Toolbar.h"
 
 // Top-level application window backed by a registered Win32 window class.
@@ -17,8 +18,13 @@ private:
     static LRESULT CALLBACK WndProcTrampoline(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
     LRESULT HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam);
     void OnCreate();
-    void OnSize(int width, int height);
     void OnCommand(int commandId);
+    void Relayout();
+    RECT SplitterRect() const;
+    bool OnSetCursor();
+    void OnLeftButtonDown(int x);
+    void OnMouseMove(int x);
+    void OnLeftButtonUp();
     void ApplyUiFont();
 
     HWND hwnd_ = nullptr;
@@ -26,5 +32,8 @@ private:
     HFONT uiFont_ = nullptr;
     MenuBar menuBar_;
     Toolbar toolbar_;
+    Sidebar sidebar_;
     DownloadsView downloads_;
+    int sidebarWidth_ = 230;
+    bool draggingSplitter_ = false;
 };
