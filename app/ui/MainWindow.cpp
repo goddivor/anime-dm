@@ -1,12 +1,28 @@
 #include "ui/MainWindow.h"
 
 #include <commctrl.h>
+#include <windowsx.h>
 
 #include "ui/Commands.h"
 
 namespace {
 constexpr wchar_t kWindowClass[] = L"AnimeDmMainWindow";
+constexpr int kSplitterWidth = 5;
+constexpr int kMinSidebarWidth = 140;
+constexpr int kMinListWidth = 240;
+
+// Clamps a candidate sidebar width to keep both panes usable.
+int ClampSidebarWidth(int candidate, int clientWidth) {
+    int maxWidth = clientWidth - kSplitterWidth - kMinListWidth;
+    if (candidate < kMinSidebarWidth) {
+        candidate = kMinSidebarWidth;
+    }
+    if (maxWidth >= kMinSidebarWidth && candidate > maxWidth) {
+        candidate = maxWidth;
+    }
+    return candidate;
 }
+}  // namespace
 
 // Registers the window class and creates the top-level window.
 bool MainWindow::Create(HINSTANCE instance, const wchar_t* title) {
@@ -58,10 +74,24 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         OnCreate();
         return 0;
     case WM_SIZE:
-        OnSize(LOWORD(lParam), HIWORD(lParam));
+        Relayout();
         return 0;
     case WM_COMMAND:
         OnCommand(LOWORD(wParam));
+        return 0;
+    case WM_SETCURSOR:
+        if (LOWORD(lParam) == HTCLIENT && OnSetCursor()) {
+            return TRUE;
+        }
+        return DefWindowProcW(hwnd_, msg, wParam, lParam);
+    case WM_LBUTTONDOWN:
+        OnLeftButtonDown(GET_X_LPARAM(lParam));
+        return 0;
+    case WM_MOUSEMOVE:
+        OnMouseMove(GET_X_LPARAM(lParam));
+        return 0;
+    case WM_LBUTTONUP:
+        OnLeftButtonUp();
         return 0;
     case WM_DESTROY:
         if (uiFont_ != nullptr) {
@@ -81,6 +111,7 @@ void MainWindow::OnCreate() {
 
     menuBar_.AttachTo(hwnd_);
     toolbar_.Create(hwnd_, instance);
+    sidebar_.Create(hwnd_, instance);
 
     statusBar_ = CreateWindowExW(
         0, STATUSCLASSNAMEW, nullptr,
@@ -93,18 +124,84 @@ void MainWindow::OnCreate() {
     SendMessageW(statusBar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(L"Prêt"));
 }
 
-// Lays out the toolbar on top, the status bar at the bottom, list in between.
-void MainWindow::OnSize(int width, int height) {
+// Lays out the toolbar, status bar, sidebar, splitter and downloads list.
+void MainWindow::Relayout() {
     toolbar_.Resize();
     SendMessageW(statusBar_, WM_SIZE, 0, 0);
 
-    int toolbarHeight = toolbar_.Height();
+    RECT client = {};
+    GetClientRect(hwnd_, &client);
+
+    int top = toolbar_.Height();
 
     RECT statusRect = {};
     GetWindowRect(statusBar_, &statusRect);
     int statusHeight = statusRect.bottom - statusRect.top;
 
-    downloads_.SetBounds(0, toolbarHeight, width, height - toolbarHeight - statusHeight);
+    int contentHeight = client.bottom - top - statusHeight;
+    sidebarWidth_ = ClampSidebarWidth(sidebarWidth_, client.right);
+
+    sidebar_.SetBounds(0, top, sidebarWidth_, contentHeight);
+    int listX = sidebarWidth_ + kSplitterWidth;
+    downloads_.SetBounds(listX, top, client.right - listX, contentHeight);
+}
+
+// Returns the draggable splitter band between the sidebar and the list.
+RECT MainWindow::SplitterRect() const {
+    RECT client = {};
+    GetClientRect(hwnd_, &client);
+
+    RECT statusRect = {};
+    GetWindowRect(statusBar_, &statusRect);
+    int statusHeight = statusRect.bottom - statusRect.top;
+
+    RECT rect = {};
+    rect.left = sidebarWidth_;
+    rect.right = sidebarWidth_ + kSplitterWidth;
+    rect.top = toolbar_.Height();
+    rect.bottom = client.bottom - statusHeight;
+    return rect;
+}
+
+// Shows the horizontal resize cursor while hovering the splitter band.
+bool MainWindow::OnSetCursor() {
+    POINT pt = {};
+    GetCursorPos(&pt);
+    ScreenToClient(hwnd_, &pt);
+
+    RECT splitter = SplitterRect();
+    if (draggingSplitter_ || PtInRect(&splitter, pt)) {
+        SetCursor(LoadCursorW(nullptr, IDC_SIZEWE));
+        return true;
+    }
+    return false;
+}
+
+// Starts a splitter drag when the press lands on the splitter band.
+void MainWindow::OnLeftButtonDown(int x) {
+    if (x >= sidebarWidth_ && x < sidebarWidth_ + kSplitterWidth) {
+        draggingSplitter_ = true;
+        SetCapture(hwnd_);
+    }
+}
+
+// Resizes the sidebar to follow the cursor during a splitter drag.
+void MainWindow::OnMouseMove(int x) {
+    if (!draggingSplitter_) {
+        return;
+    }
+    RECT client = {};
+    GetClientRect(hwnd_, &client);
+    sidebarWidth_ = ClampSidebarWidth(x, client.right);
+    Relayout();
+}
+
+// Ends an in-progress splitter drag.
+void MainWindow::OnLeftButtonUp() {
+    if (draggingSplitter_) {
+        draggingSplitter_ = false;
+        ReleaseCapture();
+    }
 }
 
 // Dispatches menu and toolbar commands.
@@ -128,6 +225,7 @@ void MainWindow::ApplyUiFont() {
 
     uiFont_ = CreateFontIndirectW(&metrics.lfMessageFont);
     SendMessageW(toolbar_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
+    SendMessageW(sidebar_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(downloads_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(statusBar_, WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
 }
