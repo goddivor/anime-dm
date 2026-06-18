@@ -25,3 +25,29 @@ BEGIN
     DEFPUSHBUTTON   "Télécharger", IDOK, 288, 252, 60, 16, WS_TABSTOP
     PUSHBUTTON      "Annuler", IDCANCEL, 352, 252, 56, 16, WS_TABSTOP
 END
+
+IDD_ABOUT DIALOGEX 0, 0, 260, 116
+STYLE DS_MODALFRAME | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "À propos"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT           "Anime Download Manager", IDC_STATIC, 16, 16, 228, 12
+    LTEXT           "Version 0.1.0", IDC_STATIC, 16, 34, 228, 10
+    LTEXT           "Gestionnaire de téléchargement d'animés pour Windows (C++ / Win32).",
+                    IDC_STATIC, 16, 52, 228, 24
+    DEFPUSHBUTTON   "OK", IDOK, 102, 90, 56, 16, WS_TABSTOP
+END
+
+IDD_SHORTCUTS DIALOGEX 0, 0, 260, 160
+STYLE DS_MODALFRAME | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Raccourcis clavier"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT           "Ctrl + N", IDC_STATIC, 16, 18, 70, 10
+    LTEXT           "Ajouter un téléchargement", IDC_STATIC, 96, 18, 148, 10
+    LTEXT           "Suppr", IDC_STATIC, 16, 36, 70, 10
+    LTEXT           "Supprimer la sélection", IDC_STATIC, 96, 36, 148, 10
+    LTEXT           "Échap", IDC_STATIC, 16, 54, 70, 10
+    LTEXT           "Fermer la boîte de dialogue", IDC_STATIC, 96, 54, 148, 10
+    DEFPUSHBUTTON   "OK", IDOK, 102, 134, 56, 16, WS_TABSTOP
+END

@@ -13,4 +13,7 @@
 #define IDC_ADD_DEST 205
 #define IDC_ADD_BROWSE 206
 
+#define IDD_ABOUT 210
+#define IDD_SHORTCUTS 211
+
 #endif

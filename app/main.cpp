@@ -16,10 +16,13 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int cmdShow) {
     }
     window.Show(cmdShow);
 
+    HACCEL accel = window.Accelerator();
     MSG msg = {};
     while (GetMessageW(&msg, nullptr, 0, 0)) {
-        TranslateMessage(&msg);
-        DispatchMessageW(&msg);
+        if (!TranslateAcceleratorW(window.Handle(), accel, &msg)) {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
     }
     return static_cast<int>(msg.wParam);
 }
