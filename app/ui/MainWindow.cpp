@@ -2,6 +2,8 @@
 
 #include <commctrl.h>
 
+#include "ui/Commands.h"
+
 namespace {
 constexpr wchar_t kWindowClass[] = L"AnimeDmMainWindow";
 }
@@ -58,6 +60,9 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_SIZE:
         OnSize(LOWORD(lParam), HIWORD(lParam));
         return 0;
+    case WM_COMMAND:
+        OnCommand(LOWORD(wParam));
+        return 0;
     case WM_DESTROY:
         if (uiFont_ != nullptr) {
             DeleteObject(uiFont_);
@@ -70,9 +75,12 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     }
 }
 
-// Builds the child controls: a status bar and the downloads list.
+// Builds the menu bar, toolbar, downloads list and status bar.
 void MainWindow::OnCreate() {
     HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+
+    menuBar_.AttachTo(hwnd_);
+    toolbar_.Create(hwnd_, instance);
 
     statusBar_ = CreateWindowExW(
         0, STATUSCLASSNAMEW, nullptr,
@@ -85,15 +93,29 @@ void MainWindow::OnCreate() {
     SendMessageW(statusBar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(L"Prêt"));
 }
 
-// Lays out the status bar at the bottom and the list above it.
+// Lays out the toolbar on top, the status bar at the bottom, list in between.
 void MainWindow::OnSize(int width, int height) {
+    toolbar_.Resize();
     SendMessageW(statusBar_, WM_SIZE, 0, 0);
+
+    int toolbarHeight = toolbar_.Height();
 
     RECT statusRect = {};
     GetWindowRect(statusBar_, &statusRect);
     int statusHeight = statusRect.bottom - statusRect.top;
 
-    downloads_.SetBounds(0, 0, width, height - statusHeight);
+    downloads_.SetBounds(0, toolbarHeight, width, height - toolbarHeight - statusHeight);
+}
+
+// Dispatches menu and toolbar commands.
+void MainWindow::OnCommand(int commandId) {
+    switch (commandId) {
+    case ID_FILE_EXIT:
+        DestroyWindow(hwnd_);
+        break;
+    default:
+        break;
+    }
 }
 
 // Applies the system message font to the child controls for a native look.
@@ -105,6 +127,7 @@ void MainWindow::ApplyUiFont() {
     }
 
     uiFont_ = CreateFontIndirectW(&metrics.lfMessageFont);
+    SendMessageW(toolbar_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(downloads_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(statusBar_, WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
 }

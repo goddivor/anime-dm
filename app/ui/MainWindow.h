@@ -3,6 +3,8 @@
 #include <windows.h>
 
 #include "ui/DownloadsView.h"
+#include "ui/MenuBar.h"
+#include "ui/Toolbar.h"
 
 // Top-level application window backed by a registered Win32 window class.
 class MainWindow {
@@ -16,10 +18,13 @@ private:
     LRESULT HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam);
     void OnCreate();
     void OnSize(int width, int height);
+    void OnCommand(int commandId);
     void ApplyUiFont();
 
     HWND hwnd_ = nullptr;
     HWND statusBar_ = nullptr;
     HFONT uiFont_ = nullptr;
+    MenuBar menuBar_;
+    Toolbar toolbar_;
     DownloadsView downloads_;
 };
