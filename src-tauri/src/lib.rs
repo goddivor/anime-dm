@@ -1206,6 +1206,11 @@ fn emit_finished(app: &AppHandle, id: u64, ok: bool, error: Option<String>, path
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // WebKitGTK's DMABUF renderer shows a blank window in packaged builds on
+    // several Linux GPU/driver combos; disable it so the UI actually renders.
+    #[cfg(target_os = "linux")]
+    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+
     let http = worker::net::client().expect("HTTP client init");
     let engine = Engine {
         http,

@@ -66,6 +66,9 @@ where
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped());
+    // Don't pop a console window for the ffmpeg subprocess on Windows.
+    #[cfg(windows)]
+    cmd.creation_flags(0x08000000);
 
     let mut child = cmd
         .spawn()

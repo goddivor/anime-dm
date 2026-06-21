@@ -4,6 +4,17 @@ use std::process::Command;
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
+/// Suppress the console window that console tools (ImageMagick, attrib) would
+/// otherwise pop on Windows. No-op on other platforms.
+fn no_window(cmd: &mut Command) -> &mut Command {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    cmd
+}
+
 /// A folder-icon template: a faithful ImageMagick argument sequence.
 /// Placeholders: `{INPUT}` = source poster file, `{ASSETS}` = bundled layers dir.
 /// Recipes are ported from RightClickFolderIconTools (base compositing only;
@@ -273,8 +284,7 @@ fn imagemagick(assets_dir: &Path) -> Option<String> {
         }
     }
     for bin in ["magick", "convert"] {
-        if Command::new(bin)
-            .arg("-version")
+        if no_window(Command::new(bin).arg("-version"))
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false)
@@ -325,9 +335,7 @@ fn compose(
         }
         args.push(target.to_string_lossy().into_owned());
 
-        let output = Command::new(bin)
-            .args(&args)
-            .env("MAGICK_THREAD_LIMIT", "2")
+        let output = no_window(Command::new(bin).args(&args).env("MAGICK_THREAD_LIMIT", "2"))
             .output()
             .map_err(|e| e.to_string())?;
         if !output.status.success() {
@@ -431,9 +439,9 @@ fn set_from_cache(cached: &Path, folder: &Path) -> Result<(), String> {
     );
     std::fs::write(&desktop_ini, ini).map_err(|e| e.to_string())?;
 
-    let _ = Command::new("attrib").args(["+H", "+S", &desktop_ini.to_string_lossy()]).status();
-    let _ = Command::new("attrib").args(["+H", &ico.to_string_lossy()]).status();
-    let _ = Command::new("attrib").args(["+R", &folder.to_string_lossy()]).status();
+    let _ = no_window(Command::new("attrib").args(["+H", "+S", &desktop_ini.to_string_lossy()])).status();
+    let _ = no_window(Command::new("attrib").args(["+H", &ico.to_string_lossy()])).status();
+    let _ = no_window(Command::new("attrib").args(["+R", &folder.to_string_lossy()])).status();
     Ok(())
 }
 
