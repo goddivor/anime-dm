@@ -1,27 +1,27 @@
 ---
-name: "✨ Demande de fonctionnalité"
-about: Proposer une nouvelle fonctionnalité ou amélioration
+name: "✨ Feature request"
+about: Propose a new feature or improvement
 title: "feat: "
 labels: ["enhancement"]
 ---
 
-## Problème / besoin
+## Problem / need
 
-<!-- Quel manque cette fonctionnalité comble-t-elle ? -->
+<!-- What gap does this feature fill? -->
 
-## Solution proposée
+## Proposed solution
 
-<!-- Décris le comportement souhaité. -->
+<!-- Describe the desired behavior. -->
 
-## Alternatives envisagées
+## Alternatives considered
 
-## Périmètre
+## Scope
 
 - [ ] UI / UX
 - [ ] Scraping / extraction (worker)
-- [ ] Téléchargement
-- [ ] Autre :
+- [ ] Download
+- [ ] Other:
 
-## Contexte additionnel
+## Additional context
 
-<!-- Maquettes, liens, exemples… -->
+<!-- Mockups, links, examples… -->

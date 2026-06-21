@@ -1,1 +1,22 @@
+# Rust
 /target
+/src-tauri/target
+
+# Node / frontend
+node_modules
+dist
+dist-ssr
+.vite
+*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor
+.DS_Store
+
+# Bundled ffmpeg (fetched per-platform via scripts/fetch-ffmpeg.sh, not committed)
+src-tauri/resources/bin/ffmpeg
+src-tauri/resources/bin/ffmpeg.exe
