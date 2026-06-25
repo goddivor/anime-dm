@@ -110,6 +110,8 @@ struct Settings {
     #[serde(default)]
     folder_template: String,
     #[serde(default)]
+    aniyomi_adapt: bool,
+    #[serde(default)]
     last_dir: String,
     #[serde(default)]
     skip_delete_confirm: bool,
@@ -610,6 +612,13 @@ fn set_folder_icons(app: AppHandle, enabled: bool, template: String) -> Result<(
 }
 
 #[tauri::command]
+fn set_aniyomi_adapt(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let mut settings = read_settings(&app);
+    settings.aniyomi_adapt = enabled;
+    write_settings(&app, &settings)
+}
+
+#[tauri::command]
 fn add_repo(app: AppHandle, url: String) -> Result<(), String> {
     let url = url.trim().to_string();
     if url.is_empty() {
@@ -989,6 +998,29 @@ async fn apply_folder_icon(
     .map_err(|e| e.to_string())?
 }
 
+// True when the folder already has Aniyomi's local-source files (cover + .nomedia).
+#[tauri::command]
+fn has_aniyomi_config(folder: String) -> bool {
+    let p = std::path::Path::new(&folder);
+    p.join("cover.jpg").is_file() && p.join(".nomedia").is_file()
+}
+
+// Make a downloaded anime folder readable by Aniyomi's local source: write the
+// poster as cover.jpg and an empty .nomedia.
+#[tauri::command]
+fn adapt_to_aniyomi(folder: String, poster_data: String) -> Result<(), String> {
+    use base64::Engine as _;
+    let dir = std::path::Path::new(&folder);
+    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    let b64 = poster_data.rsplit(',').next().unwrap_or(&poster_data);
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(b64.trim())
+        .map_err(|e| format!("affiche illisible : {e}"))?;
+    std::fs::write(dir.join("cover.jpg"), &bytes).map_err(|e| e.to_string())?;
+    std::fs::write(dir.join(".nomedia"), b"").map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
 async fn start_download(
     app: AppHandle,
@@ -1244,6 +1276,7 @@ pub fn run() {
             open_episodes,
             list_apps,
             set_folder_icons,
+            set_aniyomi_adapt,
             add_repo,
             remove_repo,
             set_repo_disabled,
@@ -1261,6 +1294,8 @@ pub fn run() {
             fetch_image,
             list_folder_templates,
             apply_folder_icon,
+            has_aniyomi_config,
+            adapt_to_aniyomi,
             start_download,
             pause_download,
             pause_all,
