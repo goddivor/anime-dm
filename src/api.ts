@@ -38,6 +38,7 @@ export const getSettings = () =>
     lang: string;
     folderIcons: boolean;
     folderTemplate: string;
+    aniyomiAdapt: boolean;
     lastDir: string;
     skipDeleteConfirm: boolean;
     theme: string;
@@ -51,10 +52,16 @@ export const deleteDiskFiles = (paths: string[]) => invoke<void>("delete_files",
 export const createDir = (path: string) => invoke<void>("create_dir", { path });
 export const setFolderIcons = (enabled: boolean, template: string) =>
   invoke<void>("set_folder_icons", { enabled, template });
+export const setAniyomiAdapt = (enabled: boolean) =>
+  invoke<void>("set_aniyomi_adapt", { enabled });
 export const listFolderTemplates = () =>
   invoke<{ id: string; name: string }[]>("list_folder_templates");
 export const applyFolderIcon = (p: { folder: string; posterData: string; template: string }) =>
   invoke<string>("apply_folder_icon", p);
+export const hasAniyomiConfig = (folder: string) =>
+  invoke<boolean>("has_aniyomi_config", { folder });
+export const adaptToAniyomi = (folder: string, posterData: string) =>
+  invoke<void>("adapt_to_aniyomi", { folder, posterData });
 export const addRepo = (url: string) => invoke<void>("add_repo", { url });
 export const removeRepo = (url: string) => invoke<void>("remove_repo", { url });
 export const listRepos = () => invoke<RepoInfo[]>("list_repos");
