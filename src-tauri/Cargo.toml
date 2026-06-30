@@ -1,6 +1,6 @@
 [package]
 name = "anime-dm"
-version = "0.3.0"
+version = "0.2.1"
 description = "Anime Download Manager — gestionnaire de téléchargement type IDM pour sites d'animés (voir-anime.to en premier)"
 edition = "2021"
 
