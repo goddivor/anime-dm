@@ -44,7 +44,7 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
-      - name: Bundle ffmpeg (Windows)
+      - name: Bundle ffmpeg + ImageMagick (Windows)
         if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
@@ -53,6 +53,11 @@ jobs:
           Expand-Archive ffmpeg.zip -DestinationPath fftmp
           $exe = Get-ChildItem fftmp -Recurse -Filter ffmpeg.exe | Select-Object -First 1
           Copy-Item $exe.FullName src-tauri/resources/bin/ffmpeg.exe
+          New-Item -ItemType Directory -Force src-tauri/resources/folder-templates/bin | Out-Null
+          Invoke-WebRequest -Uri "https://github.com/ImageMagick/ImageMagick/releases/download/7.1.2-26/ImageMagick-7.1.2-26-portable-Q16-HDRI-x64.7z" -OutFile magick.7z
+          7z x magick.7z -oimtmp -y
+          $mg = Get-ChildItem imtmp -Recurse -Filter magick.exe | Select-Object -First 1
+          Copy-Item $mg.FullName src-tauri/resources/folder-templates/bin/magick.exe
 
       - name: Bundle ffmpeg (macOS)
         if: matrix.platform == 'macos-latest'

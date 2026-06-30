@@ -255,29 +255,37 @@ pub fn assets_dir(app: &AppHandle) -> Result<PathBuf, String> {
 /// back to a system `magick`, then `convert`.
 #[allow(unused_variables)]
 fn imagemagick(assets_dir: &Path) -> Option<String> {
-    #[cfg(target_os = "linux")]
+    // Bundled IM7 magick: `magick` (Linux ELF, committed) and `magick.exe`
+    // (Windows, fetched at build). macOS has no bundled binary -> system magick.
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     {
-        use std::os::unix::fs::PermissionsExt;
+        let name = if cfg!(windows) { "magick.exe" } else { "magick" };
         // Try the resolved assets dir, then the source tree (robust in `tauri dev`
         // where resource_dir may be a stale copy without bin/).
         let candidates = [
-            assets_dir.join("bin").join("magick"),
+            assets_dir.join("bin").join(name),
             PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                 .join("resources")
                 .join("folder-templates")
                 .join("bin")
-                .join("magick"),
+                .join(name),
         ];
         for bundled in candidates {
             if bundled.is_file() {
                 // Restore the executable bit only if missing — writing it every time
                 // would trip the `tauri dev` file watcher and restart the app.
-                let exec = std::fs::metadata(&bundled)
-                    .map(|m| m.permissions().mode() & 0o111 != 0)
-                    .unwrap_or(false);
-                if !exec {
-                    let _ =
-                        std::fs::set_permissions(&bundled, std::fs::Permissions::from_mode(0o755));
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    let exec = std::fs::metadata(&bundled)
+                        .map(|m| m.permissions().mode() & 0o111 != 0)
+                        .unwrap_or(false);
+                    if !exec {
+                        let _ = std::fs::set_permissions(
+                            &bundled,
+                            std::fs::Permissions::from_mode(0o755),
+                        );
+                    }
                 }
                 return Some(bundled.to_string_lossy().into_owned());
             }
