@@ -24,6 +24,8 @@ import {
   setLangPref,
   setThemePref,
   applyFolderIcon,
+  hasAniyomiConfig,
+  adaptToAniyomi,
   listFolderTemplates,
   fetchImage,
   openFile,
@@ -136,7 +138,12 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [iconTemplates, setIconTemplates] = useState<{ id: string; name: string }[]>([]);
-  const [iconMenu, setIconMenu] = useState<{ x: number; y: number; groupId: number } | null>(null);
+  const [iconMenu, setIconMenu] = useState<{
+    x: number;
+    y: number;
+    groupId: number;
+    aniyomi?: boolean;
+  } | null>(null);
   const [info, setInfo] = useState<{ title: string; lines: string[] } | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const skipDeleteConfirm = useRef(false);
@@ -298,6 +305,39 @@ export default function App() {
     );
   };
 
+  // Write Aniyomi's local-source files (cover.jpg + .nomedia) into the anime folder.
+  const adaptAnimeToAniyomi = async (groupId: number) => {
+    let g = groups.find((x) => x.id === groupId);
+    const row = rows.find((r) => r.animeId === groupId);
+    if (!g || !row) {
+      setMessage(t("foldericon.no_folder"));
+      return;
+    }
+    const folder = row.outPath.replace(/[/\\][^/\\]*$/, "");
+    let data = g.posterData ?? undefined;
+    if (!data) {
+      if (!g.posterUrl) {
+        setMessage(t("foldericon.no_folder"));
+        return;
+      }
+      try {
+        data = await fetchImage(g.posterUrl, g.url);
+        g = { ...g, posterData: data };
+        setGroups((gs) => gs.map((x) => (x.id === groupId ? g! : x)));
+        persistGroup(g);
+      } catch (e) {
+        setMessage(String(e));
+        return;
+      }
+    }
+    try {
+      await adaptToAniyomi(folder, data);
+      setMessage(t("anime.adapt_aniyomi_done"));
+    } catch (e) {
+      setMessage(String(e));
+    }
+  };
+
   // Remove an anime: its episodes, its group record, optionally its files.
   const doRemoveAnime = (groupId: number, deleteFiles: boolean) => {
     const eps = rows.filter((r) => r.animeId === groupId);
@@ -394,6 +434,9 @@ export default function App() {
                   persistGroup({ ...group, iconTemplate: tpl });
                 })
                 .catch(() => {});
+            }
+            if (s.aniyomiAdapt) {
+              adaptToAniyomi(animeDir, data).catch(() => {});
             }
           })
           .catch(() => {});
@@ -893,7 +936,20 @@ export default function App() {
                   onClose={() => setSidebarOn(false)}
                   selected={selected}
                   onSelectRow={selectSingle}
-                  onAnimeContext={(groupId, x, y) => setIconMenu({ x, y, groupId })}
+                  onAnimeContext={(groupId, x, y) => {
+                    setIconMenu({ x, y, groupId });
+                    const row = rows.find((r) => r.animeId === groupId);
+                    if (row) {
+                      const folder = row.outPath.replace(/[/\\][^/\\]*$/, "");
+                      hasAniyomiConfig(folder)
+                        .then((has) =>
+                          setIconMenu((m) =>
+                            m && m.groupId === groupId ? { ...m, aniyomi: has } : m,
+                          ),
+                        )
+                        .catch(() => {});
+                    }
+                  }}
                   onEpisodeContext={onContext}
                   t={t}
                 />
@@ -926,6 +982,15 @@ export default function App() {
               label: t("ctx.open_folder"),
               onClick: () => openAnimeFolder(iconMenu.groupId),
             },
+            ...(iconMenu.aniyomi === false
+              ? [
+                  {
+                    key: "aniyomi",
+                    label: t("anime.adapt_aniyomi"),
+                    onClick: () => adaptAnimeToAniyomi(iconMenu.groupId),
+                  },
+                ]
+              : []),
             { key: "s0", sep: true },
             {
               key: "icon",

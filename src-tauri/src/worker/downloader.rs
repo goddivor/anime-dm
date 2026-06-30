@@ -20,6 +20,13 @@ where
     F: Fn(Option<f32>, Option<String>) + Send,
     P: Fn(Option<u32>) + Send,
 {
+    // ffmpeg does not create parent directories, so ensure the anime subfolder
+    // exists (it would otherwise only be created by the folder-icon step).
+    if let Some(parent) = out.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("création du dossier de sortie : {e}"))?;
+    }
+
     let mut last = String::new();
     for attempt in 1..=2 {
         match run_ffmpeg(&url, &headers, &out, &ffmpeg, &on_progress, &on_pid).await {
