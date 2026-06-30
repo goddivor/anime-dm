@@ -438,9 +438,23 @@ fn set_from_cache(cached: &Path, folder: &Path) -> Result<(), String> {
 fn set_from_cache(cached: &Path, folder: &Path) -> Result<(), String> {
     std::fs::create_dir_all(folder).map_err(|e| e.to_string())?;
     let ico = folder.join("folder.ico");
-    std::fs::copy(cached, &ico).map_err(|e| e.to_string())?;
-
     let desktop_ini = folder.join("desktop.ini");
+
+    // A previous apply marked these hidden/system and the folder read-only.
+    // Windows refuses to overwrite a hidden/system file, so clear the attributes
+    // and remove the old files first (otherwise the rewrite is ACCESS DENIED,
+    // os error 5).
+    let _ = no_window(Command::new("attrib").args(["-R", &folder.to_string_lossy()])).status();
+    for f in [&ico, &desktop_ini] {
+        if f.exists() {
+            let _ =
+                no_window(Command::new("attrib").args(["-H", "-S", "-R", &f.to_string_lossy()]))
+                    .status();
+            let _ = std::fs::remove_file(f);
+        }
+    }
+
+    std::fs::copy(cached, &ico).map_err(|e| e.to_string())?;
     let ini = format!(
         "[.ShellClassInfo]\r\nIconResource={},0\r\n[ViewState]\r\nMode=\r\nVid=\r\nFolderType=Generic\r\n",
         ico.display()
