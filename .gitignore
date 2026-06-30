@@ -20,3 +20,6 @@ yarn-error.log*
 # Bundled ffmpeg (fetched per-platform via scripts/fetch-ffmpeg.sh, not committed)
 src-tauri/resources/bin/ffmpeg
 src-tauri/resources/bin/ffmpeg.exe
+
+# Bundled ImageMagick for Windows (fetched via scripts/fetch-imagemagick.sh)
+src-tauri/resources/folder-templates/bin/magick.exe
