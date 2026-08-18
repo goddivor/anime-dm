@@ -5,6 +5,7 @@
 #include <windowsx.h>
 
 #include "ui/AddDialog.h"
+#include "ui/AddonsDialog.h"
 #include "ui/Commands.h"
 #include "ui/ContextMenu.h"
 #include "ui/HelpDialogs.h"
@@ -116,8 +117,7 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
             if (notify->hwndFrom == toolbar_.Handle()) {
                 return OnToolbarCustomDraw(reinterpret_cast<NMTBCUSTOMDRAW*>(lParam));
             }
-            if (notify->hwndFrom == downloads_.Handle() ||
-                notify->hwndFrom == extensions_.Handle()) {
+            if (notify->hwndFrom == downloads_.Handle()) {
                 return OnListCustomDraw(reinterpret_cast<NMLVCUSTOMDRAW*>(lParam));
             }
         }
@@ -177,7 +177,6 @@ void MainWindow::OnCreate() {
     sidebar_.Create(hwnd_, instance);
 
     downloads_.Create(hwnd_, instance);
-    extensions_.Create(hwnd_, instance);
     ApplyUiFont();
 
     ACCEL accels[] = {
@@ -200,7 +199,6 @@ void MainWindow::ApplyTheme() {
     menuBar_.SetTheme(themeCommand_);
     menuBar_.SetLanguage(languageCommand_);
     theme_.ApplyToList(downloads_.Handle());
-    theme_.ApplyToList(extensions_.Handle());
     sidebar_.ApplyTheme(theme_);
     toolbar_.ApplyTheme(theme_);
     InvalidateRect(hwnd_, nullptr, TRUE);
@@ -216,7 +214,6 @@ void MainWindow::Retranslate() {
     toolbar_.Retranslate();
     sidebar_.Retranslate();
     downloads_.Retranslate();
-    extensions_.Retranslate();
     Relayout();
 }
 
@@ -272,26 +269,6 @@ LRESULT MainWindow::OnToolbarCustomDraw(NMTBCUSTOMDRAW* draw) {
     }
 }
 
-// Switches between the downloads and extensions screens.
-void MainWindow::ShowView(View view) {
-    if (currentView_ == view) {
-        return;
-    }
-    currentView_ = view;
-
-    bool downloads = view == View::Downloads;
-    sidebar_.SetVisible(downloads && sidebarVisible_);
-    ShowWindow(downloads_.Handle(), downloads ? SW_SHOW : SW_HIDE);
-    extensions_.SetVisible(!downloads);
-
-    Relayout();
-}
-
-// Reports whether the categories panel is currently part of the layout.
-bool MainWindow::SidebarShown() const {
-    return currentView_ == View::Downloads && sidebarVisible_;
-}
-
 // Lays out the toolbar, status bar and the active content view.
 void MainWindow::Relayout() {
     toolbar_.Resize();
@@ -301,11 +278,6 @@ void MainWindow::Relayout() {
 
     int top = toolbar_.Height();
     int contentHeight = client.bottom - top;
-
-    if (currentView_ == View::Extensions) {
-        extensions_.SetBounds(0, top, client.right, contentHeight);
-        return;
-    }
 
     if (!sidebarVisible_) {
         downloads_.SetBounds(0, top, client.right, contentHeight);
@@ -333,7 +305,7 @@ RECT MainWindow::SplitterRect() const {
 
 // Shows the horizontal resize cursor while hovering the splitter band.
 bool MainWindow::OnSetCursor() {
-    if (!SidebarShown()) {
+    if (!sidebarVisible_) {
         return false;
     }
     POINT pt = {};
@@ -350,7 +322,7 @@ bool MainWindow::OnSetCursor() {
 
 // Starts a splitter drag when the press lands on the splitter band.
 void MainWindow::OnLeftButtonDown(int x) {
-    if (!SidebarShown()) {
+    if (!sidebarVisible_) {
         return;
     }
     if (x >= sidebarWidth_ && x < sidebarWidth_ + kSplitterWidth) {
@@ -421,12 +393,12 @@ void MainWindow::OnCommand(int commandId) {
         ShowAboutDialog(hwnd_, instance);
         break;
     case ID_VIEW_ADDONS:
-        ShowView(currentView_ == View::Extensions ? View::Downloads : View::Extensions);
+        ShowAddonsDialog(hwnd_, instance);
         break;
     case ID_VIEW_CATEGORIES:
         sidebarVisible_ = !sidebarVisible_;
         menuBar_.SetCategoriesChecked(sidebarVisible_);
-        sidebar_.SetVisible(SidebarShown());
+        sidebar_.SetVisible(sidebarVisible_);
         Relayout();
         break;
     case ID_MODE_DARK:
@@ -486,5 +458,4 @@ void MainWindow::ApplyUiFont() {
     SendMessageW(sidebar_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(sidebar_.HeaderHandle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(downloads_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
-    SendMessageW(extensions_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
 }

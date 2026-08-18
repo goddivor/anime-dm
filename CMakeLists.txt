@@ -17,7 +17,7 @@ add_executable(anime-dm WIN32
     app/ui/Toolbar.cpp
     app/ui/IconFactory.cpp
     app/ui/Sidebar.cpp
-    app/ui/ExtensionsView.cpp
+    app/ui/AddonsDialog.cpp
     app/ui/ContextMenu.cpp
     app/ui/AddDialog.cpp
     app/ui/HelpDialogs.cpp
