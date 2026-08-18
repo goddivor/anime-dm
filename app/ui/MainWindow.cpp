@@ -111,8 +111,14 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         break;
     case WM_NOTIFY: {
         auto* notify = reinterpret_cast<NMHDR*>(lParam);
-        if (notify->code == NM_CUSTOMDRAW && notify->hwndFrom == toolbar_.Handle()) {
-            return OnToolbarCustomDraw(reinterpret_cast<NMTBCUSTOMDRAW*>(lParam));
+        if (notify->code == NM_CUSTOMDRAW) {
+            if (notify->hwndFrom == toolbar_.Handle()) {
+                return OnToolbarCustomDraw(reinterpret_cast<NMTBCUSTOMDRAW*>(lParam));
+            }
+            if (notify->hwndFrom == downloads_.Handle() ||
+                notify->hwndFrom == extensions_.Handle()) {
+                return OnListCustomDraw(reinterpret_cast<NMLVCUSTOMDRAW*>(lParam));
+            }
         }
         break;
     }
@@ -219,6 +225,44 @@ void MainWindow::Retranslate() {
     extensions_.Retranslate();
     SendMessageW(statusBar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(Str(STR_STATUS_READY)));
     Relayout();
+}
+
+// Draws the column separators of a list, which the built-in grid lines only
+// render in a fixed light colour that glares on a dark background.
+LRESULT MainWindow::OnListCustomDraw(NMLVCUSTOMDRAW* draw) {
+    if (draw->nmcd.dwDrawStage == CDDS_PREPAINT) {
+        return CDRF_NOTIFYPOSTPAINT;
+    }
+    if (draw->nmcd.dwDrawStage != CDDS_POSTPAINT) {
+        return CDRF_DODEFAULT;
+    }
+
+    HWND list = draw->nmcd.hdr.hwndFrom;
+    HWND header = ListView_GetHeader(list);
+    if (header == nullptr) {
+        return CDRF_DODEFAULT;
+    }
+
+    RECT client = {};
+    GetClientRect(list, &client);
+
+    HDC dc = draw->nmcd.hdc;
+    HPEN pen = CreatePen(PS_SOLID, 1, theme_.Colors().line);
+    HPEN previous = static_cast<HPEN>(SelectObject(dc, pen));
+
+    int columns = Header_GetItemCount(header);
+    for (int column = 0; column < columns; ++column) {
+        RECT item = {};
+        if (!Header_GetItemRect(header, column, &item)) {
+            continue;
+        }
+        MoveToEx(dc, item.right - 1, item.bottom, nullptr);
+        LineTo(dc, item.right - 1, client.bottom);
+    }
+
+    SelectObject(dc, previous);
+    DeleteObject(pen);
+    return CDRF_DODEFAULT;
 }
 
 // Paints the toolbar background and captions with the active palette.

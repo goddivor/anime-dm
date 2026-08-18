@@ -28,6 +28,7 @@ private:
     void ApplyTheme();
     void Retranslate();
     LRESULT OnToolbarCustomDraw(NMTBCUSTOMDRAW* draw);
+    LRESULT OnListCustomDraw(NMLVCUSTOMDRAW* draw);
     void OnContextMenu(HWND target, int x, int y);
     void ShowView(View view);
     bool SidebarShown() const;
