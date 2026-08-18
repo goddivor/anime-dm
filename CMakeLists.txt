@@ -28,6 +28,7 @@ add_executable(anime-dm WIN32
     app/ui/AddonsDialog.cpp
     app/ui/ContextMenu.cpp
     app/ui/AddDialog.cpp
+    app/ui/AddSelection.cpp
     app/ui/HelpDialogs.cpp
     app/ui/NoticeDialog.cpp
     app/ui/SearchDialog.cpp

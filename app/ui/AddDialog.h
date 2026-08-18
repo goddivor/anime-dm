@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -8,11 +9,12 @@
 class AddonStore;
 class Http;
 
-// One episode the user picked.
+// One episode the user picked, with the player it should use.
 struct AddRequestEpisode {
     double number = 0.0;
     std::string name;
     std::string url;
+    std::string player;  // empty means the source decides
 };
 
 // What the dialog hands back when the user confirms.

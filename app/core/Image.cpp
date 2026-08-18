@@ -15,11 +15,11 @@ using std::min;
 namespace {
 
 // Creates the top-down 32-bit surface GDI+ and the image lists share.
-HBITMAP CreateSurface(int size, void** bits) {
+HBITMAP CreateSurface(int width, int height, void** bits) {
     BITMAPINFO info = {};
     info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    info.bmiHeader.biWidth = size;
-    info.bmiHeader.biHeight = -size;
+    info.bmiHeader.biWidth = width;
+    info.bmiHeader.biHeight = -height;
     info.bmiHeader.biPlanes = 1;
     info.bmiHeader.biBitCount = 32;
     info.bmiHeader.biCompression = BI_RGB;
@@ -37,17 +37,17 @@ namespace image {
 // A fully transparent square.
 HBITMAP Transparent(int size) {
     void* bits = nullptr;
-    HBITMAP bitmap = CreateSurface(size, &bits);
+    HBITMAP bitmap = CreateSurface(size, size, &bits);
     if (bitmap != nullptr && bits != nullptr) {
         std::memset(bits, 0, static_cast<size_t>(size) * static_cast<size_t>(size) * 4);
     }
     return bitmap;
 }
 
-// Decodes an encoded image and scales it to a square bitmap with an alpha
-// channel, ready for an image list.
-HBITMAP DecodeSquare(const std::vector<uint8_t>& bytes, int size) {
-    if (bytes.empty() || size <= 0) {
+// Decodes an encoded image and scales it to the requested size, keeping an
+// alpha channel.
+HBITMAP Decode(const std::vector<uint8_t>& bytes, int width, int height) {
+    if (bytes.empty() || width <= 0 || height <= 0) {
         return nullptr;
     }
 
@@ -63,21 +63,26 @@ HBITMAP DecodeSquare(const std::vector<uint8_t>& bytes, int size) {
     }
 
     void* bits = nullptr;
-    HBITMAP bitmap = CreateSurface(size, &bits);
+    HBITMAP bitmap = CreateSurface(width, height, &bits);
     if (bitmap == nullptr) {
         return nullptr;
     }
 
-    Gdiplus::Bitmap surface(size, size, size * 4, PixelFormat32bppPARGB,
+    Gdiplus::Bitmap surface(width, height, width * 4, PixelFormat32bppPARGB,
                             static_cast<BYTE*>(bits));
     Gdiplus::Graphics graphics(&surface);
     graphics.Clear(Gdiplus::Color(0, 0, 0, 0));
     graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
     graphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
-    graphics.DrawImage(&source, 0, 0, size, size);
+    graphics.DrawImage(&source, 0, 0, width, height);
     graphics.Flush();
 
     return bitmap;
+}
+
+// Decodes an encoded image into a square, ready for an image list.
+HBITMAP DecodeSquare(const std::vector<uint8_t>& bytes, int size) {
+    return Decode(bytes, size, size);
 }
 
 }  // namespace image

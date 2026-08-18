@@ -13,6 +13,9 @@ namespace image {
 // channel. Returns nullptr when the bytes cannot be read.
 HBITMAP DecodeSquare(const std::vector<uint8_t>& bytes, int size);
 
+// Same, at a free width and height, for artwork that is not square.
+HBITMAP Decode(const std::vector<uint8_t>& bytes, int width, int height);
+
 // A fully transparent square, to keep a row without icon in step with the
 // others in an image list.
 HBITMAP Transparent(int size);
