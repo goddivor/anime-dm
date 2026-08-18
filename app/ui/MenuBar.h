@@ -6,6 +6,7 @@
 class MenuBar {
 public:
     void AttachTo(HWND window);
+    void Rebuild(HWND window);
     void SetCategoriesChecked(bool checked);
     void SetTheme(int commandId);
     void SetLanguage(int commandId);

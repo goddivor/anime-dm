@@ -3,8 +3,22 @@
 #include <commctrl.h>
 
 #include "ui/Resource.h"
+#include "ui/Strings.h"
 
 namespace {
+
+// Applies the active language to every caption of the dialog.
+void Retranslate(HWND dialog) {
+    SetDialogTitle(dialog, STR_DLG_ADD_TITLE);
+    SetDialogText(dialog, IDC_ADD_LBL_SOURCE, STR_DLG_ADD_SOURCE);
+    SetDialogText(dialog, IDC_ADD_LBL_URL, STR_DLG_ADD_URL);
+    SetDialogText(dialog, IDC_ADD_FETCH, STR_DLG_ADD_FETCH);
+    SetDialogText(dialog, IDC_ADD_LBL_EPISODES, STR_DLG_ADD_EPISODES);
+    SetDialogText(dialog, IDC_ADD_LBL_DEST, STR_DLG_ADD_DEST);
+    SetDialogText(dialog, IDC_ADD_BROWSE, STR_DLG_BROWSE);
+    SetDialogText(dialog, IDOK, STR_DLG_ADD_START);
+    SetDialogText(dialog, IDCANCEL, STR_DLG_CANCEL);
+}
 
 // Configures the episodes ListView with checkboxes and its columns.
 void InitEpisodesList(HWND dialog) {
@@ -17,12 +31,12 @@ void InitEpisodesList(HWND dialog) {
 
     col.iSubItem = 0;
     col.cx = 70;
-    col.pszText = const_cast<wchar_t*>(L"Épisode");
+    col.pszText = const_cast<wchar_t*>(Str(STR_DLG_ADD_EPISODES));
     ListView_InsertColumn(list, 0, &col);
 
     col.iSubItem = 1;
     col.cx = 520;
-    col.pszText = const_cast<wchar_t*>(L"Titre");
+    col.pszText = const_cast<wchar_t*>(Str(STR_COL_FILENAME));
     ListView_InsertColumn(list, 1, &col);
 }
 
@@ -30,6 +44,7 @@ void InitEpisodesList(HWND dialog) {
 INT_PTR CALLBACK AddDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
     case WM_INITDIALOG:
+        Retranslate(dialog);
         InitEpisodesList(dialog);
         return TRUE;
     case WM_COMMAND:

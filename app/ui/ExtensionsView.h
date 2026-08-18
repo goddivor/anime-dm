@@ -7,6 +7,7 @@ class ExtensionsView {
 public:
     bool Create(HWND parent, HINSTANCE instance);
     void SetBounds(int x, int y, int width, int height);
+    void Retranslate();
     void SetVisible(bool visible);
     HWND Handle() const { return hwnd_; }
 

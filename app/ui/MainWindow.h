@@ -6,6 +6,7 @@
 #include "ui/ExtensionsView.h"
 #include "ui/MenuBar.h"
 #include "ui/Sidebar.h"
+#include "ui/Theme.h"
 #include "ui/Toolbar.h"
 
 // Top-level application window backed by a registered Win32 window class.
@@ -24,6 +25,9 @@ private:
     void OnCreate();
     void OnCommand(int commandId);
     void ShowSoon(int commandId);
+    void ApplyTheme();
+    void Retranslate();
+    LRESULT OnToolbarCustomDraw(NMTBCUSTOMDRAW* draw);
     void OnContextMenu(HWND target, int x, int y);
     void ShowView(View view);
     bool SidebarShown() const;
@@ -44,7 +48,10 @@ private:
     Sidebar sidebar_;
     DownloadsView downloads_;
     ExtensionsView extensions_;
+    Theme theme_;
     View currentView_ = View::Downloads;
+    int themeCommand_ = 0;
+    int languageCommand_ = 0;
     int sidebarWidth_ = 230;
     bool sidebarVisible_ = true;
     bool draggingSplitter_ = false;

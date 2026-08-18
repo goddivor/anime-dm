@@ -23,10 +23,11 @@ constexpr int kToolbarSize = 24;
 constexpr int kCategorySize = 16;
 constexpr float kGrid = 24.0f;
 
-// Returns the monochrome stroke colour, matching the current system text colour.
+COLORREF g_stroke = RGB(0x00, 0x00, 0x00);
+
+// Returns the monochrome stroke colour the current image list is drawn with.
 Color StrokeColor() {
-    COLORREF system = GetSysColor(COLOR_BTNTEXT);
-    return Color(0xFF, GetRValue(system), GetGValue(system), GetBValue(system));
+    return Color(0xFF, GetRValue(g_stroke), GetGValue(g_stroke), GetBValue(g_stroke));
 }
 
 // Applies the rounded caps and joins that give the glyphs their lucide look.
@@ -246,11 +247,13 @@ GdiPlusRuntime::~GdiPlusRuntime() {
 }
 
 // Builds the 24x24 toolbar glyphs used by the primary action bar.
-HIMAGELIST CreateToolbarImageList() {
+HIMAGELIST CreateToolbarImageList(COLORREF stroke) {
+    g_stroke = stroke;
     return BuildImageList(kToolbarSize, ICON_COUNT, DrawToolbarGlyph);
 }
 
 // Builds the 16x16 glyphs used by the categories tree.
-HIMAGELIST CreateCategoryImageList() {
+HIMAGELIST CreateCategoryImageList(COLORREF stroke) {
+    g_stroke = stroke;
     return BuildImageList(kCategorySize, CAT_COUNT, DrawCategoryGlyph);
 }

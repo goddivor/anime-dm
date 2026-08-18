@@ -43,8 +43,8 @@ private:
 
 // Builds a 24x24 alpha-blended image list with the toolbar glyphs (no assets).
 // The caller owns the returned list and must ImageList_Destroy it.
-HIMAGELIST CreateToolbarImageList();
+HIMAGELIST CreateToolbarImageList(COLORREF stroke);
 
 // Builds a 16x16 alpha-blended image list with the category tree glyphs.
 // The caller owns the returned list and must ImageList_Destroy it.
-HIMAGELIST CreateCategoryImageList();
+HIMAGELIST CreateCategoryImageList(COLORREF stroke);

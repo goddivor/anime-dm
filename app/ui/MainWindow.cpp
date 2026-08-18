@@ -1,6 +1,7 @@
 #include "ui/MainWindow.h"
 
 #include <commctrl.h>
+#include <uxtheme.h>
 #include <windowsx.h>
 
 #include "ui/AddDialog.h"
@@ -9,6 +10,7 @@
 #include "ui/HelpDialogs.h"
 #include "ui/SearchDialog.h"
 #include "ui/SettingsDialog.h"
+#include "ui/Strings.h"
 
 namespace {
 constexpr wchar_t kWindowClass[] = L"AnimeDmMainWindow";
@@ -87,6 +89,30 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_CONTEXTMENU:
         OnContextMenu(reinterpret_cast<HWND>(wParam), GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
         return 0;
+    case WM_ERASEBKGND: {
+        HBRUSH brush = theme_.WindowBrush();
+        if (brush == nullptr) {
+            break;
+        }
+        RECT client = {};
+        GetClientRect(hwnd_, &client);
+        FillRect(reinterpret_cast<HDC>(wParam), &client, brush);
+        return 1;
+    }
+    case WM_NOTIFY: {
+        auto* notify = reinterpret_cast<NMHDR*>(lParam);
+        if (notify->code == NM_CUSTOMDRAW && notify->hwndFrom == toolbar_.Handle()) {
+            return OnToolbarCustomDraw(reinterpret_cast<NMTBCUSTOMDRAW*>(lParam));
+        }
+        break;
+    }
+    case WM_SETTINGCHANGE:
+        if (theme_.Mode() == ThemeMode::System && lParam != 0 &&
+            lstrcmpiW(reinterpret_cast<const wchar_t*>(lParam), L"ImmersiveColorSet") == 0) {
+            theme_.SetMode(ThemeMode::System);
+            ApplyTheme();
+        }
+        break;
     case WM_SETCURSOR:
         if (LOWORD(lParam) == HTCLIENT && OnSetCursor()) {
             return TRUE;
@@ -113,18 +139,23 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         PostQuitMessage(0);
         return 0;
     default:
-        return DefWindowProcW(hwnd_, msg, wParam, lParam);
+        break;
     }
+    return DefWindowProcW(hwnd_, msg, wParam, lParam);
 }
 
 // Builds the menu bar, toolbar, downloads list and status bar.
 void MainWindow::OnCreate() {
     HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
 
+    themeCommand_ = ID_MODE_SYSTEM;
+    languageCommand_ = ID_LANG_FR;
+    theme_.SetMode(ThemeMode::System);
+
     menuBar_.AttachTo(hwnd_);
     menuBar_.SetCategoriesChecked(sidebarVisible_);
-    menuBar_.SetTheme(ID_MODE_SYSTEM);
-    menuBar_.SetLanguage(ID_LANG_FR);
+    menuBar_.SetTheme(themeCommand_);
+    menuBar_.SetLanguage(languageCommand_);
     toolbar_.Create(hwnd_, instance);
     sidebar_.Create(hwnd_, instance);
 
@@ -146,7 +177,48 @@ void MainWindow::OnCreate() {
     };
     accel_ = CreateAcceleratorTableW(accels, ARRAYSIZE(accels));
 
-    SendMessageW(statusBar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(L"Prêt"));
+    SendMessageW(statusBar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(Str(STR_STATUS_READY)));
+    ApplyTheme();
+}
+
+// Pushes the active palette onto the frame and every child control.
+void MainWindow::ApplyTheme() {
+    theme_.ApplyToFrame(hwnd_);
+    theme_.ApplyToList(downloads_.Handle());
+    theme_.ApplyToList(extensions_.Handle());
+    sidebar_.ApplyTheme(theme_);
+    toolbar_.ApplyTheme(theme_);
+    SetWindowTheme(statusBar_, theme_.IsDark() ? L"DarkMode_Explorer" : L"Explorer", nullptr);
+    InvalidateRect(hwnd_, nullptr, TRUE);
+    DrawMenuBar(hwnd_);
+}
+
+// Rebuilds every caption of the shell in the active language.
+void MainWindow::Retranslate() {
+    menuBar_.Rebuild(hwnd_);
+    menuBar_.SetCategoriesChecked(sidebarVisible_);
+    menuBar_.SetTheme(themeCommand_);
+    menuBar_.SetLanguage(languageCommand_);
+    toolbar_.Retranslate();
+    sidebar_.Retranslate();
+    downloads_.Retranslate();
+    extensions_.Retranslate();
+    SendMessageW(statusBar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(Str(STR_STATUS_READY)));
+    Relayout();
+}
+
+// Paints the toolbar background and captions with the active palette.
+LRESULT MainWindow::OnToolbarCustomDraw(NMTBCUSTOMDRAW* draw) {
+    switch (draw->nmcd.dwDrawStage) {
+    case CDDS_PREPAINT:
+        FillRect(draw->nmcd.hdc, &draw->nmcd.rc, theme_.SurfaceBrush());
+        return CDRF_NOTIFYITEMDRAW;
+    case CDDS_ITEMPREPAINT:
+        draw->clrText = theme_.Colors().text;
+        return TBCDRF_USECDCOLORS;
+    default:
+        return CDRF_DODEFAULT;
+    }
 }
 
 // Switches between the downloads and extensions screens.
@@ -278,7 +350,7 @@ void MainWindow::ShowSoon(int commandId) {
     }
 
     wchar_t message[192] = {};
-    wsprintfW(message, L"\u00ab %s \u00bb : \u00e0 venir", label);
+    wsprintfW(message, Str(STR_STATUS_SOON), label);
     SendMessageW(statusBar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(message));
 }
 
@@ -317,13 +389,18 @@ void MainWindow::OnCommand(int commandId) {
     case ID_MODE_DARK:
     case ID_MODE_LIGHT:
     case ID_MODE_SYSTEM:
+        themeCommand_ = commandId;
+        theme_.SetMode(commandId == ID_MODE_DARK    ? ThemeMode::Dark
+                       : commandId == ID_MODE_LIGHT ? ThemeMode::Light
+                                                    : ThemeMode::System);
         menuBar_.SetTheme(commandId);
-        ShowSoon(commandId);
+        ApplyTheme();
         break;
     case ID_LANG_EN:
     case ID_LANG_FR:
-        menuBar_.SetLanguage(commandId);
-        ShowSoon(commandId);
+        languageCommand_ = commandId;
+        ::SetLanguage(commandId == ID_LANG_EN ? Language::English : Language::French);
+        Retranslate();
         break;
     case ID_TASK_QUIT:
         DestroyWindow(hwnd_);

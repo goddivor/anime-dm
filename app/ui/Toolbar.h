@@ -3,13 +3,17 @@
 #include <windows.h>
 #include <commctrl.h>
 
-// Owns the top toolbar control with the primary download actions and the search box.
+class Theme;
+
+// Owns the top toolbar control with the primary download actions.
 class Toolbar {
 public:
     ~Toolbar();
 
     bool Create(HWND parent, HINSTANCE instance);
     void Resize();
+    void Retranslate();
+    void ApplyTheme(const Theme& theme);
     int Height() const;
     HWND Handle() const { return hwnd_; }
 

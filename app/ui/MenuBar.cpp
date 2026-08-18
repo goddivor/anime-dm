@@ -1,6 +1,7 @@
 #include "ui/MenuBar.h"
 
 #include "ui/Commands.h"
+#include "ui/Strings.h"
 
 namespace {
 
@@ -28,154 +29,147 @@ HMENU BuildPopup(const Entry* entries, size_t count) {
 }
 
 // Appends a nested popup under the given label.
-void AppendSubMenu(HMENU parent, const wchar_t* label, const Entry* entries, size_t count) {
+void AppendSubMenu(HMENU parent, StringId label, const Entry* entries, size_t count) {
     HMENU sub = BuildPopup(entries, count);
-    AppendMenuW(parent, MF_POPUP, reinterpret_cast<UINT_PTR>(sub), label);
+    AppendMenuW(parent, MF_POPUP, reinterpret_cast<UINT_PTR>(sub), Str(label));
 }
 
-constexpr Entry kExport[] = {
-    {ID_TASK_EXPORT_ADM, L"Vers un fichier d'exportation d'ADM"},
-    {ID_TASK_EXPORT_TXT, L"Vers un fichier texte (.txt)"},
-    {ID_TASK_EXPORT_JSON, L"Vers un fichier JSON (.json)"},
-    {ID_TASK_EXPORT_SHEET, L"Vers un tableur (.xlsx, .csv, .ods)"},
-};
-
-constexpr Entry kImport[] = {
-    {ID_TASK_IMPORT_ADM, L"Depuis un fichier d'exportation d'ADM"},
-    {ID_TASK_IMPORT_TXT, L"Depuis un fichier texte (.txt)"},
-    {ID_TASK_IMPORT_JSON, L"Depuis un fichier JSON (.json)"},
-    {ID_TASK_IMPORT_SHEET, L"Depuis un tableur (.xlsx, .csv, .ods)"},
-};
-
-constexpr Entry kStartQueue[] = {
-    {ID_QUEUE_START_MAIN, L"File principale"},
-    {ID_QUEUE_START_SCHEDULER, L"File du planificateur"},
-};
-
-constexpr Entry kStopQueue[] = {
-    {ID_QUEUE_STOP_MAIN, L"File principale"},
-    {ID_QUEUE_STOP_SCHEDULER, L"File du planificateur"},
-};
-
-constexpr Entry kLimiter[] = {
-    {ID_LIMITER_ENABLE, L"Activer"},
-    {ID_LIMITER_DISABLE, L"Désactiver"},
-    {ID_LIMITER_SETTINGS, L"Paramètres"},
-};
-
-constexpr Entry kSort[] = {
-    {ID_SORT_DATE_ADDED, L"Par ordre d'ajout"},
-    {ID_SORT_NAME, L"Par nom de fichier"},
-    {ID_SORT_SIZE, L"Par taille"},
-    {ID_SORT_STATUS, L"Par statut"},
-    {ID_SORT_TIME_LEFT, L"Par temps restant"},
-    {ID_SORT_SPEED, L"Par vitesse"},
-    {ID_SORT_LAST_TRY, L"Par date du dernier essai"},
-    {ID_SORT_LOCATION, L"Par emplacement"},
-    {ID_SORT_ADDRESS, L"Par adresse"},
-    {ID_SORT_PARENT_PAGE, L"Par page web parente"},
-};
-
-constexpr Entry kToolbar[] = {
-    {ID_TOOLBAR_CUSTOMIZE, L"Personnaliser la barre d'outils"},
-    {ID_TOOLBAR_INTERFACE, L"Interface"},
-};
-
-constexpr Entry kMode[] = {
-    {ID_MODE_DARK, L"Sombre"},
-    {ID_MODE_LIGHT, L"Claire"},
-    {ID_MODE_SYSTEM, L"Système"},
-};
-
-constexpr Entry kFont[] = {
-    {ID_FONT_SELECT, L"Sélectionner la police"},
-    {ID_FONT_RESET, L"Rétablir la police par défaut"},
-};
-
-constexpr Entry kLanguage[] = {
-    {ID_LANG_EN, L"English"},
-    {ID_LANG_FR, L"Français"},
-};
-
-constexpr Entry kAbout[] = {
-    {ID_HELP_ABOUT, L"À propos"},
-    {ID_HELP_AUTHORS, L"Auteurs"},
-    {ID_HELP_LICENSE, L"Licence"},
-    {ID_HELP_CREDITS, L"Crédits"},
-};
-
-// Builds the "Tâches" drop-down.
+// Builds the tasks drop-down.
 HMENU BuildTasksMenu() {
-    constexpr Entry head[] = {
-        {ID_TASK_ADD, L"Ajouter nouveau téléchargement\tCtrl+N"},
-        {ID_TASK_MANUAL, L"Téléchargement manuel"},
-        {ID_TASK_BATCH, L"Téléchargement par lot depuis presse-papiers\tCtrl+Maj+V"},
+    const Entry head[] = {
+        {ID_TASK_ADD, Str(STR_TASK_ADD)},
+        {ID_TASK_MANUAL, Str(STR_TASK_MANUAL)},
+        {ID_TASK_BATCH, Str(STR_TASK_BATCH)},
         {0, nullptr},
     };
+    const Entry exports[] = {
+        {ID_TASK_EXPORT_ADM, Str(STR_EXPORT_ADM)},
+        {ID_TASK_EXPORT_TXT, Str(STR_EXPORT_TXT)},
+        {ID_TASK_EXPORT_JSON, Str(STR_EXPORT_JSON)},
+        {ID_TASK_EXPORT_SHEET, Str(STR_EXPORT_SHEET)},
+    };
+    const Entry imports[] = {
+        {ID_TASK_IMPORT_ADM, Str(STR_IMPORT_ADM)},
+        {ID_TASK_IMPORT_TXT, Str(STR_IMPORT_TXT)},
+        {ID_TASK_IMPORT_JSON, Str(STR_IMPORT_JSON)},
+        {ID_TASK_IMPORT_SHEET, Str(STR_IMPORT_SHEET)},
+    };
+
     HMENU menu = BuildPopup(head, ARRAYSIZE(head));
-    AppendSubMenu(menu, L"Exporter", kExport, ARRAYSIZE(kExport));
-    AppendSubMenu(menu, L"Importer", kImport, ARRAYSIZE(kImport));
+    AppendSubMenu(menu, STR_TASK_EXPORT, exports, ARRAYSIZE(exports));
+    AppendSubMenu(menu, STR_TASK_IMPORT, imports, ARRAYSIZE(imports));
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(menu, MF_STRING, ID_TASK_QUIT, L"Quitter");
+    AppendMenuW(menu, MF_STRING, ID_TASK_QUIT, Str(STR_TASK_QUIT));
     return menu;
 }
 
-// Builds the "Fichier" drop-down.
+// Builds the file drop-down.
 HMENU BuildFileMenu() {
-    constexpr Entry entries[] = {
-        {ID_FILE_START, L"Démarrer le téléchargement"},
-        {ID_FILE_STOP, L"Arrêter le téléchargement"},
-        {ID_FILE_REDOWNLOAD, L"Re-télécharger"},
+    const Entry entries[] = {
+        {ID_FILE_START, Str(STR_FILE_START)},
+        {ID_FILE_STOP, Str(STR_FILE_STOP)},
+        {ID_FILE_REDOWNLOAD, Str(STR_FILE_REDOWNLOAD)},
         {0, nullptr},
-        {ID_FILE_REMOVE, L"Supprimer\tSuppr"},
+        {ID_FILE_REMOVE, Str(STR_FILE_REMOVE)},
     };
     return BuildPopup(entries, ARRAYSIZE(entries));
 }
 
-// Builds the "Téléchargement" drop-down.
+// Builds the downloads drop-down.
 HMENU BuildDownloadMenu() {
-    constexpr Entry head[] = {
-        {ID_DOWNLOAD_STOP_ALL, L"Tout arrêter"},
-        {ID_DOWNLOAD_REMOVE_COMPLETED, L"Supprimer les terminés"},
-        {ID_DOWNLOAD_DELETE_ALL, L"Tout supprimer"},
-        {ID_DOWNLOAD_SEARCH, L"Rechercher\tCtrl+F"},
+    const Entry head[] = {
+        {ID_DOWNLOAD_STOP_ALL, Str(STR_DL_STOP_ALL)},
+        {ID_DOWNLOAD_REMOVE_COMPLETED, Str(STR_DL_REMOVE_COMPLETED)},
+        {ID_DOWNLOAD_DELETE_ALL, Str(STR_DL_DELETE_ALL)},
+        {ID_DOWNLOAD_SEARCH, Str(STR_DL_SEARCH)},
         {0, nullptr},
-        {ID_DOWNLOAD_SCHEDULE, L"Planifier"},
+        {ID_DOWNLOAD_SCHEDULE, Str(STR_DL_SCHEDULE)},
     };
+    const Entry startQueue[] = {
+        {ID_QUEUE_START_MAIN, Str(STR_QUEUE_MAIN)},
+        {ID_QUEUE_START_SCHEDULER, Str(STR_QUEUE_SCHEDULER)},
+    };
+    const Entry stopQueue[] = {
+        {ID_QUEUE_STOP_MAIN, Str(STR_QUEUE_MAIN)},
+        {ID_QUEUE_STOP_SCHEDULER, Str(STR_QUEUE_SCHEDULER)},
+    };
+    const Entry limiter[] = {
+        {ID_LIMITER_ENABLE, Str(STR_LIMITER_ENABLE)},
+        {ID_LIMITER_DISABLE, Str(STR_LIMITER_DISABLE)},
+        {ID_LIMITER_SETTINGS, Str(STR_LIMITER_SETTINGS)},
+    };
+
     HMENU menu = BuildPopup(head, ARRAYSIZE(head));
-    AppendSubMenu(menu, L"Démarrer file d'attente", kStartQueue, ARRAYSIZE(kStartQueue));
-    AppendSubMenu(menu, L"Arrêter file d'attente", kStopQueue, ARRAYSIZE(kStopQueue));
-    AppendSubMenu(menu, L"Limiteur de vitesse", kLimiter, ARRAYSIZE(kLimiter));
-    AppendMenuW(menu, MF_STRING, ID_DOWNLOAD_BOOSTER, L"Booster de vitesse");
+    AppendSubMenu(menu, STR_DL_START_QUEUE, startQueue, ARRAYSIZE(startQueue));
+    AppendSubMenu(menu, STR_DL_STOP_QUEUE, stopQueue, ARRAYSIZE(stopQueue));
+    AppendSubMenu(menu, STR_LIMITER, limiter, ARRAYSIZE(limiter));
+    AppendMenuW(menu, MF_STRING, ID_DOWNLOAD_BOOSTER, Str(STR_BOOSTER));
     return menu;
 }
 
-// Builds the "Affichage" drop-down.
+// Builds the view drop-down.
 HMENU BuildViewMenu() {
-    constexpr Entry head[] = {
-        {ID_VIEW_ADDONS, L"Addon Store"},
+    const Entry head[] = {
+        {ID_VIEW_ADDONS, Str(STR_VIEW_ADDONS)},
         {0, nullptr},
-        {ID_VIEW_CATEGORIES, L"Panneau Catégories"},
+        {ID_VIEW_CATEGORIES, Str(STR_VIEW_CATEGORIES)},
     };
+    const Entry sort[] = {
+        {ID_SORT_DATE_ADDED, Str(STR_SORT_DATE_ADDED)},
+        {ID_SORT_NAME, Str(STR_SORT_NAME)},
+        {ID_SORT_SIZE, Str(STR_SORT_SIZE)},
+        {ID_SORT_STATUS, Str(STR_SORT_STATUS)},
+        {ID_SORT_TIME_LEFT, Str(STR_SORT_TIME_LEFT)},
+        {ID_SORT_SPEED, Str(STR_SORT_SPEED)},
+        {ID_SORT_LAST_TRY, Str(STR_SORT_LAST_TRY)},
+        {ID_SORT_LOCATION, Str(STR_SORT_LOCATION)},
+        {ID_SORT_ADDRESS, Str(STR_SORT_ADDRESS)},
+        {ID_SORT_PARENT_PAGE, Str(STR_SORT_PARENT_PAGE)},
+    };
+    const Entry toolbar[] = {
+        {ID_TOOLBAR_CUSTOMIZE, Str(STR_TOOLBAR_CUSTOMIZE)},
+        {ID_TOOLBAR_INTERFACE, Str(STR_TOOLBAR_INTERFACE)},
+    };
+    const Entry mode[] = {
+        {ID_MODE_DARK, Str(STR_MODE_DARK)},
+        {ID_MODE_LIGHT, Str(STR_MODE_LIGHT)},
+        {ID_MODE_SYSTEM, Str(STR_MODE_SYSTEM)},
+    };
+    const Entry font[] = {
+        {ID_FONT_SELECT, Str(STR_FONT_SELECT)},
+        {ID_FONT_RESET, Str(STR_FONT_RESET)},
+    };
+    const Entry language[] = {
+        {ID_LANG_EN, L"English"},
+        {ID_LANG_FR, L"Français"},
+    };
+
     HMENU menu = BuildPopup(head, ARRAYSIZE(head));
-    AppendSubMenu(menu, L"Classer les fichiers", kSort, ARRAYSIZE(kSort));
-    AppendSubMenu(menu, L"Barre d'outils", kToolbar, ARRAYSIZE(kToolbar));
-    AppendMenuW(menu, MF_STRING, ID_VIEW_COLUMNS, L"Personnaliser les colonnes");
-    AppendSubMenu(menu, L"Mode", kMode, ARRAYSIZE(kMode));
-    AppendSubMenu(menu, L"Police", kFont, ARRAYSIZE(kFont));
-    AppendSubMenu(menu, L"Langue", kLanguage, ARRAYSIZE(kLanguage));
+    AppendSubMenu(menu, STR_VIEW_SORT, sort, ARRAYSIZE(sort));
+    AppendSubMenu(menu, STR_VIEW_TOOLBAR, toolbar, ARRAYSIZE(toolbar));
+    AppendMenuW(menu, MF_STRING, ID_VIEW_COLUMNS, Str(STR_VIEW_COLUMNS));
+    AppendSubMenu(menu, STR_VIEW_MODE, mode, ARRAYSIZE(mode));
+    AppendSubMenu(menu, STR_VIEW_FONT, font, ARRAYSIZE(font));
+    AppendSubMenu(menu, STR_VIEW_LANGUAGE, language, ARRAYSIZE(language));
     return menu;
 }
 
-// Builds the "Aide" drop-down.
+// Builds the help drop-down.
 HMENU BuildHelpMenu() {
-    constexpr Entry head[] = {
-        {ID_HELP_HELP, L"Aide\tF1"},
-        {ID_HELP_SHORTCUTS, L"Raccourcis"},
-        {ID_HELP_UPDATE, L"Mise à jour rapide"},
+    const Entry head[] = {
+        {ID_HELP_HELP, Str(STR_HELP_HELP)},
+        {ID_HELP_SHORTCUTS, Str(STR_HELP_SHORTCUTS)},
+        {ID_HELP_UPDATE, Str(STR_HELP_UPDATE)},
     };
+    const Entry about[] = {
+        {ID_HELP_ABOUT, Str(STR_HELP_ABOUT)},
+        {ID_HELP_AUTHORS, Str(STR_HELP_AUTHORS)},
+        {ID_HELP_LICENSE, Str(STR_HELP_LICENSE)},
+        {ID_HELP_CREDITS, Str(STR_HELP_CREDITS)},
+    };
+
     HMENU menu = BuildPopup(head, ARRAYSIZE(head));
-    AppendSubMenu(menu, L"À propos", kAbout, ARRAYSIZE(kAbout));
+    AppendSubMenu(menu, STR_HELP_ABOUT, about, ARRAYSIZE(about));
     return menu;
 }
 
@@ -184,12 +178,23 @@ HMENU BuildHelpMenu() {
 // Assembles the top-level menu bar and installs it on the window.
 void MenuBar::AttachTo(HWND window) {
     bar_ = CreateMenu();
-    AppendMenuW(bar_, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildTasksMenu()), L"Tâches");
-    AppendMenuW(bar_, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildFileMenu()), L"Fichier");
-    AppendMenuW(bar_, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildDownloadMenu()), L"Téléchargement");
-    AppendMenuW(bar_, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildViewMenu()), L"Affichage");
-    AppendMenuW(bar_, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildHelpMenu()), L"Aide");
+    AppendMenuW(bar_, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildTasksMenu()), Str(STR_MENU_TASKS));
+    AppendMenuW(bar_, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildFileMenu()), Str(STR_MENU_FILE));
+    AppendMenuW(bar_, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildDownloadMenu()),
+                Str(STR_MENU_DOWNLOAD));
+    AppendMenuW(bar_, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildViewMenu()), Str(STR_MENU_VIEW));
+    AppendMenuW(bar_, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildHelpMenu()), Str(STR_MENU_HELP));
     SetMenu(window, bar_);
+}
+
+// Rebuilds the whole bar in the active language.
+void MenuBar::Rebuild(HWND window) {
+    HMENU previous = bar_;
+    AttachTo(window);
+    if (previous != nullptr) {
+        DestroyMenu(previous);
+    }
+    DrawMenuBar(window);
 }
 
 // Ticks the categories entry when the panel is visible.

@@ -5,10 +5,11 @@
 
 #include "ui/Commands.h"
 #include "ui/IconFactory.h"
+#include "ui/Strings.h"
+#include "ui/Theme.h"
 
 namespace {
 constexpr wchar_t kHeaderClass[] = L"AnimeDmCategoriesHeader";
-constexpr wchar_t kHeaderText[] = L"Catégories";
 constexpr int kHeaderHeight = 24;
 constexpr int kCloseBoxSize = 20;
 
@@ -23,34 +24,40 @@ RECT CloseBoxRect(HWND header) {
 
 // Paints the caption bar: label on the left, close cross on the right.
 void PaintHeader(HWND header) {
+    auto* state = reinterpret_cast<SidebarHeaderState*>(GetWindowLongPtrW(header, GWLP_USERDATA));
+    if (state == nullptr) {
+        return;
+    }
+
     PAINTSTRUCT paint = {};
     HDC dc = BeginPaint(header, &paint);
 
     RECT client = {};
     GetClientRect(header, &client);
-    FillRect(dc, &client, GetSysColorBrush(COLOR_BTNFACE));
+    HBRUSH background = CreateSolidBrush(state->surface);
+    FillRect(dc, &client, background);
+    DeleteObject(background);
 
-    HPEN pen = CreatePen(PS_SOLID, 1, GetSysColor(COLOR_BTNSHADOW));
+    HPEN pen = CreatePen(PS_SOLID, 1, state->line);
     HPEN oldPen = static_cast<HPEN>(SelectObject(dc, pen));
     MoveToEx(dc, client.left, client.bottom - 1, nullptr);
     LineTo(dc, client.right, client.bottom - 1);
 
-    auto font = reinterpret_cast<HFONT>(GetWindowLongPtrW(header, GWLP_USERDATA));
     HFONT oldFont = nullptr;
-    if (font != nullptr) {
-        oldFont = static_cast<HFONT>(SelectObject(dc, font));
+    if (state->font != nullptr) {
+        oldFont = static_cast<HFONT>(SelectObject(dc, state->font));
     }
     SetBkMode(dc, TRANSPARENT);
-    SetTextColor(dc, GetSysColor(COLOR_BTNTEXT));
+    SetTextColor(dc, state->text);
     RECT label = client;
     label.left += 8;
-    DrawTextW(dc, kHeaderText, -1, &label, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    DrawTextW(dc, Str(STR_SIDEBAR_TITLE), -1, &label, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     if (oldFont != nullptr) {
         SelectObject(dc, oldFont);
     }
 
     RECT box = CloseBoxRect(header);
-    HPEN cross = CreatePen(PS_SOLID, 1, GetSysColor(COLOR_BTNTEXT));
+    HPEN cross = CreatePen(PS_SOLID, 1, state->text);
     SelectObject(dc, cross);
     MoveToEx(dc, box.left + 6, box.top + 6, nullptr);
     LineTo(dc, box.right - 6, box.bottom - 6);
@@ -65,16 +72,22 @@ void PaintHeader(HWND header) {
 
 // Window procedure for the caption bar; the close cross hides the panel.
 LRESULT CALLBACK HeaderProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    auto* state = reinterpret_cast<SidebarHeaderState*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+
     switch (msg) {
     case WM_PAINT:
         PaintHeader(hwnd);
         return 0;
+    case WM_ERASEBKGND:
+        return 1;
     case WM_SETFONT:
-        SetWindowLongPtrW(hwnd, GWLP_USERDATA, static_cast<LONG_PTR>(wParam));
+        if (state != nullptr) {
+            state->font = reinterpret_cast<HFONT>(wParam);
+        }
         InvalidateRect(hwnd, nullptr, TRUE);
         return 0;
     case WM_GETFONT:
-        return GetWindowLongPtrW(hwnd, GWLP_USERDATA);
+        return state != nullptr ? reinterpret_cast<LRESULT>(state->font) : 0;
     case WM_LBUTTONDOWN: {
         POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
         RECT box = CloseBoxRect(hwnd);
@@ -117,9 +130,15 @@ Sidebar::~Sidebar() {
 // Creates the caption bar and the TreeView, then seeds the default categories.
 bool Sidebar::Create(HWND parent, HINSTANCE instance) {
     EnsureHeaderClass(instance);
+
+    headerState_.surface = GetSysColor(COLOR_BTNFACE);
+    headerState_.text = GetSysColor(COLOR_BTNTEXT);
+    headerState_.line = GetSysColor(COLOR_BTNSHADOW);
+
     header_ = CreateWindowExW(
         0, kHeaderClass, nullptr, WS_CHILD | WS_VISIBLE,
         0, 0, 0, 0, parent, nullptr, instance, nullptr);
+    SetWindowLongPtrW(header_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&headerState_));
 
     tree_ = CreateWindowExW(
         WS_EX_CLIENTEDGE, WC_TREEVIEWW, L"",
@@ -129,7 +148,7 @@ bool Sidebar::Create(HWND parent, HINSTANCE instance) {
         return false;
     }
 
-    icons_ = CreateCategoryImageList();
+    icons_ = CreateCategoryImageList(GetSysColor(COLOR_WINDOWTEXT));
     SendMessageW(tree_, TVM_SETIMAGELIST, TVSIL_NORMAL, reinterpret_cast<LPARAM>(icons_));
 
     Populate();
@@ -138,27 +157,52 @@ bool Sidebar::Create(HWND parent, HINSTANCE instance) {
 
 // Inserts the fixed category roots; the anime groups fill in at runtime.
 void Sidebar::Populate() {
-    HTREEITEM all = Insert(TVI_ROOT, L"Tous les animés", CAT_FOLDER, CAT_FOLDER);
+    HTREEITEM all = Insert(TVI_ROOT, Str(STR_CAT_ALL), CAT_FOLDER);
 
-    HTREEITEM queues = Insert(TVI_ROOT, L"File d'attente", CAT_QUEUE, CAT_QUEUE);
-    Insert(queues, L"File principale", CAT_QUEUE, CAT_QUEUE);
-    Insert(queues, L"File du planificateur", CAT_TIMER, CAT_TIMER);
+    HTREEITEM queues = Insert(TVI_ROOT, Str(STR_CAT_QUEUE), CAT_QUEUE);
+    Insert(queues, Str(STR_QUEUE_MAIN), CAT_QUEUE);
+    Insert(queues, Str(STR_QUEUE_SCHEDULER), CAT_TIMER);
 
     SendMessageW(tree_, TVM_EXPAND, TVE_EXPAND, reinterpret_cast<LPARAM>(queues));
     SendMessageW(tree_, TVM_SELECTITEM, TVGN_CARET, reinterpret_cast<LPARAM>(all));
 }
 
 // Appends a labelled item under the given parent and returns its handle.
-HTREEITEM Sidebar::Insert(HTREEITEM parent, const wchar_t* text, int icon, int selectedIcon) {
+HTREEITEM Sidebar::Insert(HTREEITEM parent, const wchar_t* text, int icon) {
     TVINSERTSTRUCTW insert = {};
     insert.hParent = parent;
     insert.hInsertAfter = TVI_LAST;
     insert.item.mask = TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE;
     insert.item.pszText = const_cast<wchar_t*>(text);
     insert.item.iImage = icon;
-    insert.item.iSelectedImage = selectedIcon;
+    insert.item.iSelectedImage = icon;
     return reinterpret_cast<HTREEITEM>(
         SendMessageW(tree_, TVM_INSERTITEMW, 0, reinterpret_cast<LPARAM>(&insert)));
+}
+
+// Rebuilds the tree and repaints the caption in the active language.
+void Sidebar::Retranslate() {
+    SendMessageW(tree_, TVM_DELETEITEM, 0, reinterpret_cast<LPARAM>(TVI_ROOT));
+    Populate();
+    InvalidateRect(header_, nullptr, TRUE);
+}
+
+// Pushes the palette onto the caption bar, the tree and its glyphs.
+void Sidebar::ApplyTheme(const Theme& theme) {
+    const ThemeColors& colors = theme.Colors();
+    headerState_.surface = colors.surface;
+    headerState_.text = colors.text;
+    headerState_.line = colors.line;
+    InvalidateRect(header_, nullptr, TRUE);
+
+    HIMAGELIST previous = icons_;
+    icons_ = CreateCategoryImageList(colors.text);
+    SendMessageW(tree_, TVM_SETIMAGELIST, TVSIL_NORMAL, reinterpret_cast<LPARAM>(icons_));
+    if (previous != nullptr) {
+        ImageList_Destroy(previous);
+    }
+
+    theme.ApplyToTree(tree_);
 }
 
 // Repositions the caption bar and the TreeView inside the panel bounds.

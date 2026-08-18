@@ -2,17 +2,19 @@
 
 #include <commctrl.h>
 
+#include "ui/Strings.h"
+
 namespace {
 struct Column {
-    const wchar_t* title;
+    StringId title;
     int width;
 };
 
 constexpr Column kColumns[] = {
-    {L"Nom", 260},
-    {L"Langue", 90},
-    {L"Version", 100},
-    {L"Statut", 140},
+    {STR_EXT_NAME, 260},
+    {STR_EXT_LANG, 90},
+    {STR_EXT_VERSION, 100},
+    {STR_EXT_STATUS, 140},
 };
 }  // namespace
 
@@ -41,8 +43,20 @@ void ExtensionsView::AddColumns() {
     for (const Column& column : kColumns) {
         col.iSubItem = index;
         col.cx = column.width;
-        col.pszText = const_cast<wchar_t*>(column.title);
+        col.pszText = const_cast<wchar_t*>(Str(column.title));
         ListView_InsertColumn(hwnd_, index, &col);
+        ++index;
+    }
+}
+
+// Refreshes the column captions after a language change.
+void ExtensionsView::Retranslate() {
+    LVCOLUMNW col = {};
+    col.mask = LVCF_TEXT;
+    int index = 0;
+    for (const Column& column : kColumns) {
+        col.pszText = const_cast<wchar_t*>(Str(column.title));
+        ListView_SetColumn(hwnd_, index, &col);
         ++index;
     }
 }

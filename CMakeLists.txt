@@ -22,6 +22,8 @@ add_executable(anime-dm WIN32
     app/ui/AddDialog.cpp
     app/ui/HelpDialogs.cpp
     app/ui/SearchDialog.cpp
+    app/ui/Strings.cpp
+    app/ui/Theme.cpp
     app/ui/SettingsDialog.cpp
     app/ui/DownloadsView.cpp
     app/resources/app.rc
@@ -40,7 +42,7 @@ if(MSVC)
     target_compile_options(anime-dm PRIVATE /W4 /utf-8 /permissive-)
 endif()
 
-target_link_libraries(anime-dm PRIVATE comctl32 gdiplus)
+target_link_libraries(anime-dm PRIVATE comctl32 gdiplus dwmapi uxtheme)
 
 # MinGW needs -municode to accept wWinMain as the entry point; MSVC detects it on its own.
 if(MINGW)

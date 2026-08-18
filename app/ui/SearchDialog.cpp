@@ -3,19 +3,29 @@
 #include <commctrl.h>
 
 #include "ui/Resource.h"
+#include "ui/Strings.h"
 
 namespace {
 
 struct Column {
-    const wchar_t* title;
+    StringId title;
     int width;
 };
 
 constexpr Column kColumns[] = {
-    {L"Nom du fichier", 220},
-    {L"Animé", 150},
-    {L"Statut", 90},
+    {STR_COL_FILENAME, 220},
+    {STR_DLG_SEARCH_ANIME_COL, 150},
+    {STR_COL_STATUS, 90},
 };
+
+// Applies the active language to every caption of the dialog.
+void Retranslate(HWND dialog) {
+    SetDialogTitle(dialog, STR_DLG_SEARCH_TITLE);
+    SetDialogText(dialog, IDC_SEARCH_LBL_QUERY, STR_DLG_SEARCH_QUERY);
+    SetDialogText(dialog, IDC_SEARCH_LBL_SCOPE, STR_DLG_SEARCH_SCOPE);
+    SetDialogText(dialog, IDOK, STR_DLG_SEARCH_RUN);
+    SetDialogText(dialog, IDCANCEL, STR_DLG_CLOSE);
+}
 
 // Inserts the report columns of the results list.
 void InitResults(HWND dialog) {
@@ -28,7 +38,7 @@ void InitResults(HWND dialog) {
     for (const Column& column : kColumns) {
         col.iSubItem = index;
         col.cx = column.width;
-        col.pszText = const_cast<wchar_t*>(column.title);
+        col.pszText = const_cast<wchar_t*>(Str(column.title));
         ListView_InsertColumn(results, index, &col);
         ++index;
     }
@@ -36,10 +46,13 @@ void InitResults(HWND dialog) {
 
 // Fills the scope combo and puts the caret in the query field.
 void InitControls(HWND dialog) {
-    const wchar_t* scopes[] = {L"Tout", L"Nom du fichier", L"Animé", L"Adresse"};
-    for (const wchar_t* scope : scopes) {
+    Retranslate(dialog);
+
+    const StringId scopes[] = {STR_SCOPE_ALL, STR_SCOPE_FILENAME, STR_SCOPE_ANIME,
+                               STR_SCOPE_ADDRESS};
+    for (StringId scope : scopes) {
         SendDlgItemMessageW(dialog, IDC_SEARCH_SCOPE, CB_ADDSTRING, 0,
-                            reinterpret_cast<LPARAM>(scope));
+                            reinterpret_cast<LPARAM>(Str(scope)));
     }
     SendDlgItemMessageW(dialog, IDC_SEARCH_SCOPE, CB_SETCURSEL, 0, 0);
 

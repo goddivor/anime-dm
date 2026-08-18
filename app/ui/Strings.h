@@ -1,0 +1,177 @@
+#pragma once
+
+// Interface languages the shell can switch between at runtime.
+enum class Language {
+    French,
+    English,
+};
+
+// Identifiers of every user-visible string, mirroring the locale files of the
+// Tauri application.
+enum StringId {
+    STR_MENU_TASKS,
+    STR_MENU_FILE,
+    STR_MENU_DOWNLOAD,
+    STR_MENU_VIEW,
+    STR_MENU_HELP,
+
+    STR_TASK_ADD,
+    STR_TASK_MANUAL,
+    STR_TASK_BATCH,
+    STR_TASK_EXPORT,
+    STR_TASK_IMPORT,
+    STR_EXPORT_ADM,
+    STR_EXPORT_TXT,
+    STR_EXPORT_JSON,
+    STR_EXPORT_SHEET,
+    STR_IMPORT_ADM,
+    STR_IMPORT_TXT,
+    STR_IMPORT_JSON,
+    STR_IMPORT_SHEET,
+    STR_TASK_QUIT,
+
+    STR_FILE_START,
+    STR_FILE_STOP,
+    STR_FILE_REDOWNLOAD,
+    STR_FILE_REMOVE,
+
+    STR_DL_STOP_ALL,
+    STR_DL_REMOVE_COMPLETED,
+    STR_DL_DELETE_ALL,
+    STR_DL_SEARCH,
+    STR_DL_SCHEDULE,
+    STR_DL_START_QUEUE,
+    STR_DL_STOP_QUEUE,
+    STR_QUEUE_MAIN,
+    STR_QUEUE_SCHEDULER,
+    STR_LIMITER,
+    STR_LIMITER_ENABLE,
+    STR_LIMITER_DISABLE,
+    STR_LIMITER_SETTINGS,
+    STR_BOOSTER,
+
+    STR_VIEW_ADDONS,
+    STR_VIEW_CATEGORIES,
+    STR_VIEW_SORT,
+    STR_SORT_DATE_ADDED,
+    STR_SORT_NAME,
+    STR_SORT_SIZE,
+    STR_SORT_STATUS,
+    STR_SORT_TIME_LEFT,
+    STR_SORT_SPEED,
+    STR_SORT_LAST_TRY,
+    STR_SORT_LOCATION,
+    STR_SORT_ADDRESS,
+    STR_SORT_PARENT_PAGE,
+    STR_VIEW_TOOLBAR,
+    STR_TOOLBAR_CUSTOMIZE,
+    STR_TOOLBAR_INTERFACE,
+    STR_VIEW_COLUMNS,
+    STR_VIEW_MODE,
+    STR_MODE_DARK,
+    STR_MODE_LIGHT,
+    STR_MODE_SYSTEM,
+    STR_VIEW_FONT,
+    STR_FONT_SELECT,
+    STR_FONT_RESET,
+    STR_VIEW_LANGUAGE,
+
+    STR_HELP_HELP,
+    STR_HELP_SHORTCUTS,
+    STR_HELP_UPDATE,
+    STR_HELP_ABOUT,
+    STR_HELP_AUTHORS,
+    STR_HELP_LICENSE,
+    STR_HELP_CREDITS,
+
+    STR_TB_ADD,
+    STR_TB_RESUME,
+    STR_TB_STOP,
+    STR_TB_STOP_ALL,
+    STR_TB_REMOVE,
+    STR_TB_REMOVE_ALL,
+    STR_TB_OPTIONS,
+    STR_TB_SCHEDULE,
+    STR_TB_ADDONS,
+    STR_TB_SEARCH,
+
+    STR_COL_FILENAME,
+    STR_COL_SIZE,
+    STR_COL_STATUS,
+    STR_COL_TIME_LEFT,
+    STR_COL_SPEED,
+    STR_COL_LAST_TRY,
+    STR_COL_ADDED,
+
+    STR_EXT_NAME,
+    STR_EXT_LANG,
+    STR_EXT_VERSION,
+    STR_EXT_STATUS,
+
+    STR_SIDEBAR_TITLE,
+    STR_CAT_ALL,
+    STR_CAT_QUEUE,
+
+    STR_STATUS_READY,
+    STR_STATUS_SOON,
+
+    STR_CTX_OPEN,
+    STR_CTX_OPEN_FOLDER,
+
+    STR_DLG_ADD_TITLE,
+    STR_DLG_ADD_SOURCE,
+    STR_DLG_ADD_URL,
+    STR_DLG_ADD_FETCH,
+    STR_DLG_ADD_EPISODES,
+    STR_DLG_ADD_DEST,
+    STR_DLG_ADD_START,
+    STR_DLG_SETTINGS_TITLE,
+    STR_DLG_SET_LANG,
+    STR_DLG_SET_THEME,
+    STR_DLG_SET_FOLDER_ICONS,
+    STR_DLG_SET_TEMPLATE,
+    STR_DLG_SET_DLDIR,
+    STR_DLG_SET_DEFAULT_TEMPLATE,
+    STR_DLG_SEARCH_TITLE,
+    STR_DLG_SEARCH_QUERY,
+    STR_DLG_SEARCH_SCOPE,
+    STR_DLG_SEARCH_RUN,
+    STR_SCOPE_ALL,
+    STR_SCOPE_FILENAME,
+    STR_SCOPE_ANIME,
+    STR_SCOPE_ADDRESS,
+    STR_DLG_SEARCH_ANIME_COL,
+    STR_DLG_ABOUT_TITLE,
+    STR_DLG_ABOUT_TAGLINE,
+    STR_DLG_SHORTCUTS_TITLE,
+    STR_SC_ADD,
+    STR_SC_REMOVE,
+    STR_SC_SEARCH,
+    STR_SC_BATCH,
+    STR_SC_HELP,
+    STR_SC_CLOSE,
+    STR_KEY_DELETE,
+    STR_KEY_BATCH,
+    STR_KEY_ESCAPE,
+    STR_DLG_BROWSE,
+    STR_DLG_OK,
+    STR_DLG_CANCEL,
+    STR_DLG_CLOSE,
+
+    STR_COUNT,
+};
+
+// Switches the active language for every later lookup.
+void SetLanguage(Language language);
+
+// Returns the currently active language.
+Language ActiveLanguage();
+
+// Returns the string for the active language.
+const wchar_t* Str(StringId id);
+
+// Applies a translated caption to a dialog control.
+void SetDialogText(void* dialog, int controlId, StringId id);
+
+// Applies a translated caption to a dialog window.
+void SetDialogTitle(void* dialog, StringId id);
