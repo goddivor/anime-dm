@@ -111,6 +111,9 @@ void EnsureHeaderClass(HINSTANCE instance) {
 
     WNDCLASSEXW wc = {};
     wc.cbSize = sizeof(wc);
+    // The close cross is laid out from the right edge, so the whole bar has to
+    // repaint when the splitter changes its width.
+    wc.style = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc = HeaderProc;
     wc.hInstance = instance;
     wc.lpszClassName = kHeaderClass;
