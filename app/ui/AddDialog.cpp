@@ -1,7 +1,9 @@
 #include "ui/AddDialog.h"
 
 #include <commctrl.h>
+#include <objbase.h>
 #include <shlobj.h>
+#include <shobjidl.h>
 
 #include <memory>
 #include <string>

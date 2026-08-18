@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <commctrl.h>
+#include <objbase.h>
 
 #include "ui/IconFactory.h"
 #include "ui/MainWindow.h"
