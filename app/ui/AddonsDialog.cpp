@@ -42,8 +42,8 @@ struct Catalogue {
 
 // What the window keeps for the whole of its life.
 struct Screen {
-    Http http;
-    AddonStore store{http};
+    const AddonStore* store = nullptr;
+    Http* http = nullptr;
     std::vector<StoreEntry> entries;
     HIMAGELIST icons = nullptr;
     bool busy = false;
@@ -180,10 +180,10 @@ void StartFetch(HWND dialog, Screen& screen) {
     std::thread([dialog, &screen] {
         std::string error;
         auto* catalogue = new Catalogue();
-        catalogue->entries = screen.store.Fetch(&error);
+        catalogue->entries = screen.store->Fetch(&error);
         catalogue->icons.reserve(catalogue->entries.size());
         for (const StoreEntry& entry : catalogue->entries) {
-            catalogue->icons.push_back(screen.store.IconBytes(entry));
+            catalogue->icons.push_back(screen.store->IconBytes(entry));
         }
         if (!PostMessageW(dialog, kFetched, 0, reinterpret_cast<LPARAM>(catalogue))) {
             delete catalogue;
@@ -205,7 +205,7 @@ void StartInstall(HWND dialog, Screen& screen) {
     StoreEntry entry = screen.entries[static_cast<size_t>(selected)];
     std::thread([dialog, &screen, entry] {
         std::string error;
-        bool ok = screen.store.Install(entry, &error).has_value();
+        bool ok = screen.store->Install(entry, &error).has_value();
         if (!PostMessageW(dialog, kInstalled, ok ? 1 : 0, 0)) {
             return;
         }
@@ -302,7 +302,7 @@ INT_PTR CALLBACK AddonsDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM l
             int selected =
                 ListView_GetNextItem(GetDlgItem(dialog, IDC_ADDONS_LIST), -1, LVNI_SELECTED);
             if (selected >= 0 && static_cast<size_t>(selected) < screen->entries.size()) {
-                if (screen->store.Remove(screen->entries[static_cast<size_t>(selected)].id)) {
+                if (screen->store->Remove(screen->entries[static_cast<size_t>(selected)].id)) {
                     StartFetch(dialog, *screen);
                 } else {
                     SetStatus(dialog, STR_ADDONS_REMOVE_FAILED);
@@ -316,7 +316,7 @@ INT_PTR CALLBACK AddonsDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM l
             if (selected >= 0 && static_cast<size_t>(selected) < screen->entries.size()) {
                 HINSTANCE instance =
                     reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(dialog, GWLP_HINSTANCE));
-                ShowAddonConfigDialog(dialog, instance, screen->store, screen->http,
+                ShowAddonConfigDialog(dialog, instance, *screen->store, *screen->http,
                                       screen->entries[static_cast<size_t>(selected)].id);
             }
             return TRUE;
@@ -349,8 +349,10 @@ INT_PTR CALLBACK AddonsDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM l
 }  // namespace
 
 // Runs the addon store modally against its owner window.
-INT_PTR ShowAddonsDialog(HWND owner, HINSTANCE instance) {
+INT_PTR ShowAddonsDialog(HWND owner, HINSTANCE instance, const AddonStore& store, Http& http) {
     Screen screen;
+    screen.store = &store;
+    screen.http = &http;
     return DialogBoxParamW(instance, MAKEINTRESOURCEW(IDD_ADDONS), owner, AddonsDialogProc,
                            reinterpret_cast<LPARAM>(&screen));
 }

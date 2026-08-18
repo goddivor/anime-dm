@@ -10,6 +10,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int cmdShow) {
     icc.dwSize = sizeof(icc);
     icc.dwICC = ICC_STANDARD_CLASSES | ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES | ICC_TREEVIEW_CLASSES;
     InitCommonControlsEx(&icc);
+    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 
     GdiPlusRuntime gdiPlus;
 
@@ -27,5 +28,6 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int cmdShow) {
             DispatchMessageW(&msg);
         }
     }
+    CoUninitialize();
     return static_cast<int>(msg.wParam);
 }

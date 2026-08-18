@@ -126,6 +126,10 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Configuration", L"Settings"},
     {L"Cette extension ne déclare aucun réglage.",
      L"This extension declares no setting."},
+    {L"Aucune source installée", L"No source installed"},
+    {L"Le chargement a échoué.", L"The loading failed."},
+    {L"Titre", L"Title"},
+    {L"En attente", L"Pending"},
 
     {L"Catégories", L"Categories"},
     {L"Tous les animés", L"All anime"},

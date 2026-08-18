@@ -5,6 +5,7 @@
 #include <windowsx.h>
 
 #include "ui/AddDialog.h"
+#include "core/Text.h"
 #include "ui/AddonsDialog.h"
 #include "ui/Commands.h"
 #include "ui/ContextMenu.h"
@@ -350,6 +351,28 @@ void MainWindow::OnLeftButtonUp() {
     }
 }
 
+// Asks the user for an anime, then queues the episodes it picked.
+void MainWindow::OnAddDownload() {
+    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+
+    AddRequest request;
+    if (ShowAddDialog(hwnd_, instance, store_, http_, &request) != IDOK) {
+        return;
+    }
+
+    std::wstring title = Widen(request.animeTitle);
+    for (const AddRequestEpisode& episode : request.episodes) {
+        wchar_t number[32] = {};
+        if (episode.number == static_cast<double>(static_cast<long>(episode.number))) {
+            wsprintfW(number, L"%03ld", static_cast<long>(episode.number));
+        } else {
+            swprintf(number, ARRAYSIZE(number), L"%.1f", episode.number);
+        }
+        std::wstring name = title + L" - Ep " + number + L".mp4";
+        downloads_.AddRow(name, Str(STR_STATUS_PENDING));
+    }
+}
+
 // Reports an entry the shell does not implement yet in the status bar.
 void MainWindow::ShowSoon(int commandId) {
     wchar_t label[128] = {};
@@ -375,7 +398,7 @@ void MainWindow::OnCommand(int commandId) {
 
     switch (commandId) {
     case ID_TASK_ADD:
-        ShowAddDialog(hwnd_, instance);
+        OnAddDownload();
         break;
     case ID_DOWNLOAD_SEARCH:
         ShowSearchDialog(hwnd_, instance);
@@ -393,7 +416,7 @@ void MainWindow::OnCommand(int commandId) {
         ShowAboutDialog(hwnd_, instance);
         break;
     case ID_VIEW_ADDONS:
-        ShowAddonsDialog(hwnd_, instance);
+        ShowAddonsDialog(hwnd_, instance, store_, http_);
         break;
     case ID_VIEW_CATEGORIES:
         sidebarVisible_ = !sidebarVisible_;

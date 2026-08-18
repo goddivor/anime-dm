@@ -5,6 +5,8 @@
 #include "ui/DownloadsView.h"
 #include "ui/MenuBar.h"
 #include "ui/Sidebar.h"
+#include "core/AddonStore.h"
+#include "core/Http.h"
 #include "ui/Theme.h"
 #include "ui/Toolbar.h"
 
@@ -22,6 +24,7 @@ private:
     void OnCreate();
     void OnCommand(int commandId);
     void ShowSoon(int commandId);
+    void OnAddDownload();
     void ApplyTheme();
     void Retranslate();
     LRESULT OnToolbarCustomDraw(NMTBCUSTOMDRAW* draw);
@@ -38,6 +41,8 @@ private:
     HWND hwnd_ = nullptr;
     HFONT uiFont_ = nullptr;
     HACCEL accel_ = nullptr;
+    Http http_;
+    AddonStore store_{http_};
     MenuBar menuBar_;
     Toolbar toolbar_;
     Sidebar sidebar_;
