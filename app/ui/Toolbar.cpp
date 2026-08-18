@@ -1,6 +1,7 @@
 #include "ui/Toolbar.h"
 
 #include <commctrl.h>
+#include <uxtheme.h>
 
 #include "ui/Commands.h"
 #include "ui/IconFactory.h"
@@ -93,6 +94,14 @@ void Toolbar::Retranslate() {
 
 // Redraws the glyphs in the colour the active palette uses for text.
 void Toolbar::ApplyTheme(const Theme& theme) {
+    // A themed toolbar paints its own background over the custom draw pass, so
+    // visual styles have to step aside for the dark palette to show through.
+    if (theme.IsDark()) {
+        SetWindowTheme(hwnd_, L"", L"");
+    } else {
+        SetWindowTheme(hwnd_, nullptr, nullptr);
+    }
+
     HIMAGELIST previous = imageList_;
     imageList_ = CreateToolbarImageList(theme.Colors().text);
     SendMessageW(hwnd_, TB_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(imageList_));

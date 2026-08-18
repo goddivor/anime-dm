@@ -113,12 +113,29 @@ void Theme::ApplyToFrame(HWND window) const {
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
 }
 
-// Pushes the palette onto a report-mode list view.
+// Pushes the palette onto a report-mode list view and its column header.
 void Theme::ApplyToList(HWND list) const {
     SetWindowTheme(list, colors_.dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
+
+    HWND header = ListView_GetHeader(list);
+    if (header != nullptr) {
+        SetWindowTheme(header, colors_.dark ? L"DarkMode_ItemsView" : L"ItemsView", nullptr);
+    }
+
     ListView_SetBkColor(list, colors_.window);
     ListView_SetTextBkColor(list, colors_.window);
     ListView_SetTextColor(list, colors_.text);
+
+    // The grid lines are drawn with a fixed light colour that glares on a dark
+    // background, so they only stay on in the light palette.
+    DWORD style = ListView_GetExtendedListViewStyle(list);
+    if (colors_.dark) {
+        style &= ~static_cast<DWORD>(LVS_EX_GRIDLINES);
+    } else {
+        style |= LVS_EX_GRIDLINES;
+    }
+    ListView_SetExtendedListViewStyle(list, style);
+
     InvalidateRect(list, nullptr, TRUE);
 }
 
