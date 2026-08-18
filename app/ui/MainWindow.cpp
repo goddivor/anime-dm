@@ -194,13 +194,13 @@ void MainWindow::OnCreate() {
 // Pushes the active palette onto the frame and every child control.
 void MainWindow::ApplyTheme() {
     ActiveTheme().ApplyToFrame(hwnd_);
-    menuBar_.ApplyTheme(theme_, hwnd_);
+    menuBar_.ApplyTheme(ActiveTheme(), hwnd_);
     menuBar_.SetCategoriesChecked(sidebarVisible_);
     menuBar_.SetTheme(themeCommand_);
     menuBar_.SetLanguage(languageCommand_);
     ActiveTheme().ApplyToList(downloads_.Handle());
-    sidebar_.ApplyTheme(theme_);
-    toolbar_.ApplyTheme(theme_);
+    sidebar_.ApplyTheme(ActiveTheme());
+    toolbar_.ApplyTheme(ActiveTheme());
     InvalidateRect(hwnd_, nullptr, TRUE);
     DrawMenuBar(hwnd_);
 }
