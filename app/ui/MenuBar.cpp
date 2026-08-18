@@ -2,6 +2,7 @@
 
 #include "ui/Commands.h"
 #include "ui/Strings.h"
+#include "ui/Theme.h"
 
 namespace {
 
@@ -175,16 +176,118 @@ HMENU BuildHelpMenu() {
 
 }  // namespace
 
+// Releases the resources owned by the bar.
+MenuBar::~MenuBar() {
+    if (background_ != nullptr) {
+        DeleteObject(background_);
+    }
+    if (font_ != nullptr) {
+        DeleteObject(font_);
+    }
+}
+
+// Returns the system menu font, created on first use.
+HFONT MenuBar::MenuFont() const {
+    if (font_ == nullptr) {
+        NONCLIENTMETRICSW metrics = {};
+        metrics.cbSize = sizeof(metrics);
+        if (SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(metrics), &metrics, 0)) {
+            font_ = CreateFontIndirectW(&metrics.lfMenuFont);
+        }
+    }
+    return font_;
+}
+
 // Assembles the top-level menu bar and installs it on the window.
+// The dark palette needs owner-drawn top-level items: the system paints the
+// menu bar strip with the light colours whatever the application mode is.
 void MenuBar::AttachTo(HWND window) {
+    struct TopLevel {
+        HMENU popup;
+        StringId title;
+    };
+
+    const TopLevel entries[] = {
+        {BuildTasksMenu(), STR_MENU_TASKS},   {BuildFileMenu(), STR_MENU_FILE},
+        {BuildDownloadMenu(), STR_MENU_DOWNLOAD}, {BuildViewMenu(), STR_MENU_VIEW},
+        {BuildHelpMenu(), STR_MENU_HELP},
+    };
+
     bar_ = CreateMenu();
-    AppendMenuW(bar_, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildTasksMenu()), Str(STR_MENU_TASKS));
-    AppendMenuW(bar_, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildFileMenu()), Str(STR_MENU_FILE));
-    AppendMenuW(bar_, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildDownloadMenu()),
-                Str(STR_MENU_DOWNLOAD));
-    AppendMenuW(bar_, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildViewMenu()), Str(STR_MENU_VIEW));
-    AppendMenuW(bar_, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildHelpMenu()), Str(STR_MENU_HELP));
+    for (const TopLevel& entry : entries) {
+        if (dark_) {
+            AppendMenuW(bar_, MF_POPUP | MF_OWNERDRAW, reinterpret_cast<UINT_PTR>(entry.popup),
+                        reinterpret_cast<const wchar_t*>(static_cast<UINT_PTR>(entry.title)));
+        } else {
+            AppendMenuW(bar_, MF_POPUP, reinterpret_cast<UINT_PTR>(entry.popup), Str(entry.title));
+        }
+    }
+
+    if (dark_ && background_ != nullptr) {
+        MENUINFO info = {};
+        info.cbSize = sizeof(info);
+        info.fMask = MIM_BACKGROUND;
+        info.hbrBack = background_;
+        SetMenuInfo(bar_, &info);
+    }
+
     SetMenu(window, bar_);
+}
+
+// Stores the palette and rebuilds the bar so the item style matches it.
+void MenuBar::ApplyTheme(const Theme& theme, HWND window) {
+    const ThemeColors& colors = theme.Colors();
+    dark_ = colors.dark;
+    surface_ = colors.surface;
+    text_ = colors.text;
+    highlight_ = colors.line;
+
+    if (background_ != nullptr) {
+        DeleteObject(background_);
+    }
+    background_ = CreateSolidBrush(colors.surface);
+
+    Rebuild(window);
+}
+
+// Measures an owner-drawn top-level item.
+bool MenuBar::MeasureItem(MEASUREITEMSTRUCT* measure, HWND window) const {
+    if (measure->CtlType != ODT_MENU) {
+        return false;
+    }
+
+    const wchar_t* label = Str(static_cast<StringId>(measure->itemData));
+    HDC dc = GetDC(window);
+    HFONT previous = static_cast<HFONT>(SelectObject(dc, MenuFont()));
+    SIZE size = {};
+    GetTextExtentPoint32W(dc, label, lstrlenW(label), &size);
+    SelectObject(dc, previous);
+    ReleaseDC(window, dc);
+
+    measure->itemWidth = size.cx + 14;
+    measure->itemHeight = size.cy + 6;
+    return true;
+}
+
+// Paints an owner-drawn top-level item with the active palette.
+bool MenuBar::DrawItem(const DRAWITEMSTRUCT* draw) const {
+    if (draw->CtlType != ODT_MENU) {
+        return false;
+    }
+
+    bool active = (draw->itemState & (ODS_SELECTED | ODS_HOTLIGHT)) != 0;
+    HBRUSH brush = CreateSolidBrush(active ? highlight_ : surface_);
+    RECT rect = draw->rcItem;
+    FillRect(draw->hDC, &rect, brush);
+    DeleteObject(brush);
+
+    SetBkMode(draw->hDC, TRANSPARENT);
+    SetTextColor(draw->hDC, text_);
+    HFONT previous = static_cast<HFONT>(SelectObject(draw->hDC, MenuFont()));
+    DrawTextW(draw->hDC, Str(static_cast<StringId>(draw->itemData)), -1, &rect,
+              DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    SelectObject(draw->hDC, previous);
+    return true;
 }
 
 // Rebuilds the whole bar in the active language.

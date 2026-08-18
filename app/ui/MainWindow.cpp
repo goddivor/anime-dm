@@ -99,6 +99,16 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         FillRect(reinterpret_cast<HDC>(wParam), &client, brush);
         return 1;
     }
+    case WM_MEASUREITEM:
+        if (menuBar_.MeasureItem(reinterpret_cast<MEASUREITEMSTRUCT*>(lParam), hwnd_)) {
+            return TRUE;
+        }
+        break;
+    case WM_DRAWITEM:
+        if (menuBar_.DrawItem(reinterpret_cast<const DRAWITEMSTRUCT*>(lParam))) {
+            return TRUE;
+        }
+        break;
     case WM_NOTIFY: {
         auto* notify = reinterpret_cast<NMHDR*>(lParam);
         if (notify->code == NM_CUSTOMDRAW && notify->hwndFrom == toolbar_.Handle()) {
@@ -184,6 +194,10 @@ void MainWindow::OnCreate() {
 // Pushes the active palette onto the frame and every child control.
 void MainWindow::ApplyTheme() {
     theme_.ApplyToFrame(hwnd_);
+    menuBar_.ApplyTheme(theme_, hwnd_);
+    menuBar_.SetCategoriesChecked(sidebarVisible_);
+    menuBar_.SetTheme(themeCommand_);
+    menuBar_.SetLanguage(languageCommand_);
     theme_.ApplyToList(downloads_.Handle());
     theme_.ApplyToList(extensions_.Handle());
     sidebar_.ApplyTheme(theme_);
