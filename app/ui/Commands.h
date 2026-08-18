@@ -19,5 +19,5 @@ enum CommandId : int {
     ID_HELP_ABOUT,
     ID_CTX_OPEN,
     ID_CTX_OPEN_FOLDER,
-    ID_SEARCH_BOX,
+    ID_TASK_SEARCH,
 };

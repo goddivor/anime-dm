@@ -24,4 +24,9 @@
 #define IDC_SET_DLDIR 225
 #define IDC_SET_BROWSE 226
 
+#define IDD_SEARCH 230
+#define IDC_SEARCH_QUERY 231
+#define IDC_SEARCH_SCOPE 232
+#define IDC_SEARCH_RESULTS 233
+
 #endif

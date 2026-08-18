@@ -9,15 +9,11 @@ public:
     ~Toolbar();
 
     bool Create(HWND parent, HINSTANCE instance);
-    void Layout(int clientWidth);
+    void Resize();
     int Height() const;
     HWND Handle() const { return hwnd_; }
-    HWND SearchHandle() const { return search_; }
 
 private:
-    void LayoutSearchBox(int clientWidth, int barHeight);
-
     HWND hwnd_ = nullptr;
-    HWND search_ = nullptr;
     HIMAGELIST imageList_ = nullptr;
 };

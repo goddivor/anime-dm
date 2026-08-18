@@ -123,6 +123,10 @@ void DrawToolbarGlyph(Graphics& g, int icon) {
     case ICON_ADDONS:
         DrawPuzzle(g, pen);
         break;
+    case ICON_SEARCH:
+        g.DrawEllipse(&pen, 3.0f, 3.0f, 16.0f, 16.0f);
+        g.DrawLine(&pen, 21.0f, 21.0f, 16.65f, 16.65f);
+        break;
     default:
         break;
     }

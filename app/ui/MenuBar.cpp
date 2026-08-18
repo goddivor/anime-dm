@@ -9,6 +9,8 @@ HMENU BuildTasksMenu() {
     HMENU menu = CreatePopupMenu();
     AppendMenuW(menu, MF_STRING, ID_TASK_ADD, L"Ajouter une URL\tCtrl+N");
     AppendMenuW(menu, MF_STRING, ID_TASK_SCHEDULE, L"Planifier");
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, MF_STRING, ID_TASK_SEARCH, L"Rechercher\tCtrl+F");
     return menu;
 }
 

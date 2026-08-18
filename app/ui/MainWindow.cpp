@@ -7,6 +7,7 @@
 #include "ui/Commands.h"
 #include "ui/ContextMenu.h"
 #include "ui/HelpDialogs.h"
+#include "ui/SearchDialog.h"
 #include "ui/SettingsDialog.h"
 
 namespace {
@@ -136,6 +137,7 @@ void MainWindow::OnCreate() {
     ACCEL accels[] = {
         {FVIRTKEY | FCONTROL, 'N', ID_TASK_ADD},
         {FVIRTKEY, VK_DELETE, ID_FILE_REMOVE},
+        {FVIRTKEY | FCONTROL, 'F', ID_TASK_SEARCH},
     };
     accel_ = CreateAcceleratorTableW(accels, ARRAYSIZE(accels));
 
@@ -164,11 +166,11 @@ bool MainWindow::SidebarShown() const {
 
 // Lays out the toolbar, status bar and the active content view.
 void MainWindow::Relayout() {
+    toolbar_.Resize();
+    SendMessageW(statusBar_, WM_SIZE, 0, 0);
+
     RECT client = {};
     GetClientRect(hwnd_, &client);
-
-    toolbar_.Layout(client.right);
-    SendMessageW(statusBar_, WM_SIZE, 0, 0);
 
     int top = toolbar_.Height();
 
@@ -281,6 +283,11 @@ void MainWindow::OnCommand(int commandId) {
         ShowSettingsDialog(hwnd_, instance);
         break;
     }
+    case ID_TASK_SEARCH: {
+        HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+        ShowSearchDialog(hwnd_, instance);
+        break;
+    }
     case ID_VIEW_DOWNLOADS:
         ShowView(View::Downloads);
         break;
@@ -329,7 +336,6 @@ void MainWindow::ApplyUiFont() {
 
     uiFont_ = CreateFontIndirectW(&metrics.lfMessageFont);
     SendMessageW(toolbar_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
-    SendMessageW(toolbar_.SearchHandle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(sidebar_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(sidebar_.HeaderHandle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(downloads_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);

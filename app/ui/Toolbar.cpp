@@ -7,11 +7,6 @@
 
 namespace {
 constexpr int kIconSize = 24;
-constexpr int kSearchWidth = 280;
-constexpr int kSearchMinWidth = 120;
-constexpr int kSearchHeight = 26;
-constexpr int kSearchMargin = 12;
-constexpr int kSearchGap = 16;
 
 struct ButtonSpec {
     int command;
@@ -32,6 +27,7 @@ constexpr ButtonSpec kButtons[] = {
     {ID_VIEW_SETTINGS, ICON_OPTIONS, L"Options"},
     {ID_TASK_SCHEDULE, ICON_SCHEDULE, L"Planifier"},
     {ID_VIEW_ADDONS, ICON_ADDONS, L"Addons"},
+    {ID_TASK_SEARCH, ICON_SEARCH, L"Rechercher"},
 };
 }  // namespace
 
@@ -75,43 +71,12 @@ bool Toolbar::Create(HWND parent, HINSTANCE instance) {
 
     SendMessageW(hwnd_, TB_ADDBUTTONS, ARRAYSIZE(buttons), reinterpret_cast<LPARAM>(buttons));
     SendMessageW(hwnd_, TB_AUTOSIZE, 0, 0);
-
-    search_ = CreateWindowExW(
-        WS_EX_CLIENTEDGE, WC_EDITW, L"",
-        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
-        0, 0, 0, 0, parent, reinterpret_cast<HMENU>(ID_SEARCH_BOX), instance, nullptr);
-    SendMessageW(search_, EM_SETCUEBANNER, TRUE, reinterpret_cast<LPARAM>(L"rechercher..."));
     return true;
 }
 
-// Fits the search box in the space the buttons leave, hiding it when too tight.
-void Toolbar::LayoutSearchBox(int clientWidth, int barHeight) {
-    if (search_ == nullptr) {
-        return;
-    }
-
-    SIZE buttons = {};
-    SendMessageW(hwnd_, TB_GETMAXSIZE, 0, reinterpret_cast<LPARAM>(&buttons));
-
-    int available = clientWidth - buttons.cx - kSearchGap - kSearchMargin;
-    if (available < kSearchMinWidth) {
-        ShowWindow(search_, SW_HIDE);
-        return;
-    }
-
-    int width = available < kSearchWidth ? available : kSearchWidth;
-    int top = (barHeight - kSearchHeight) / 2;
-    if (top < 0) {
-        top = 0;
-    }
-    MoveWindow(search_, clientWidth - width - kSearchMargin, top, width, kSearchHeight, TRUE);
-    ShowWindow(search_, SW_SHOW);
-}
-
-// Re-runs auto-sizing, then places the search box in the leftover width.
-void Toolbar::Layout(int clientWidth) {
+// Re-runs auto-sizing so the toolbar tracks the parent width.
+void Toolbar::Resize() {
     SendMessageW(hwnd_, TB_AUTOSIZE, 0, 0);
-    LayoutSearchBox(clientWidth, Height());
 }
 
 // Returns the toolbar height in pixels for layout calculations.

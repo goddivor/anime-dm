@@ -14,6 +14,7 @@ enum ToolbarIcon {
     ICON_OPTIONS,
     ICON_SCHEDULE,
     ICON_ADDONS,
+    ICON_SEARCH,
     ICON_COUNT,
 };
 
