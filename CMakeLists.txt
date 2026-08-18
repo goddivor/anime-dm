@@ -53,3 +53,22 @@ if(MINGW)
     target_compile_options(anime-dm PRIVATE -municode)
     target_link_options(anime-dm PRIVATE -municode)
 endif()
+
+# Console tool that exercises the addon ABI without the application.
+add_executable(addon-smoke
+    tools/addon_smoke.cpp
+    app/core/Addon.cpp
+    app/core/Http.cpp
+    app/core/Text.cpp
+)
+
+target_include_directories(addon-smoke PRIVATE app)
+
+target_compile_definitions(addon-smoke PRIVATE
+    UNICODE
+    _UNICODE
+    WIN32_LEAN_AND_MEAN
+    NOMINMAX
+)
+
+target_link_libraries(addon-smoke PRIVATE winhttp)
