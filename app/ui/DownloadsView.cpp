@@ -52,6 +52,16 @@ void DownloadsView::AddColumns() {
     }
 }
 
+// Appends a queued download.
+void DownloadsView::AddRow(const std::wstring& fileName, const std::wstring& status) {
+    LVITEMW item = {};
+    item.mask = LVIF_TEXT;
+    item.iItem = ListView_GetItemCount(hwnd_);
+    item.pszText = const_cast<wchar_t*>(fileName.c_str());
+    int row = ListView_InsertItem(hwnd_, &item);
+    ListView_SetItemText(hwnd_, row, 2, const_cast<wchar_t*>(status.c_str()));
+}
+
 // Refreshes the column captions after a language change.
 void DownloadsView::Retranslate() {
     LVCOLUMNW col = {};

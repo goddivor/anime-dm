@@ -108,10 +108,13 @@ void Theme::Refresh() {
 
     if (dark) {
         colors_ = {RGB(0x1E, 0x1F, 0x22), RGB(0x26, 0x28, 0x2C), RGB(0xE6, 0xE6, 0xE6),
-                   RGB(0x3A, 0x3D, 0x41), true};
+                   RGB(0x3A, 0x3D, 0x41), RGB(0x3B, 0x82, 0xF6), RGB(0xFF, 0xFF, 0xFF),
+                   RGB(0x32, 0x35, 0x3A), true};
     } else {
-        colors_ = {GetSysColor(COLOR_WINDOW), GetSysColor(COLOR_BTNFACE),
-                   GetSysColor(COLOR_WINDOWTEXT), GetSysColor(COLOR_BTNSHADOW), false};
+        colors_ = {GetSysColor(COLOR_WINDOW),     GetSysColor(COLOR_BTNFACE),
+                   GetSysColor(COLOR_WINDOWTEXT), GetSysColor(COLOR_BTNSHADOW),
+                   RGB(0x1D, 0x6F, 0xD6),         RGB(0xFF, 0xFF, 0xFF),
+                   RGB(0xE4, 0xEC, 0xF7),         false};
     }
 
     if (window_ != nullptr) {
