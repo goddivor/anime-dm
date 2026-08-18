@@ -115,7 +115,7 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Tous les animés", L"All anime"},
     {L"File d'attente", L"Queue"},
 
-    {L"Prêt", L"Ready"},
+    {L"Information", L"Notice"},
     {L"« %s » : à venir", L"“%s”: coming soon"},
 
     {L"Ouvrir", L"Open"},

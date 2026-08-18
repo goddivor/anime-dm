@@ -41,7 +41,6 @@ private:
     void ApplyUiFont();
 
     HWND hwnd_ = nullptr;
-    HWND statusBar_ = nullptr;
     HFONT uiFont_ = nullptr;
     HACCEL accel_ = nullptr;
     MenuBar menuBar_;

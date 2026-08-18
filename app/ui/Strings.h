@@ -112,7 +112,7 @@ enum StringId {
     STR_CAT_ALL,
     STR_CAT_QUEUE,
 
-    STR_STATUS_READY,
+    STR_NOTICE_TITLE,
     STR_STATUS_SOON,
 
     STR_CTX_OPEN,

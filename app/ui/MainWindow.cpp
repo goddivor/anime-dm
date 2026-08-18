@@ -8,6 +8,7 @@
 #include "ui/Commands.h"
 #include "ui/ContextMenu.h"
 #include "ui/HelpDialogs.h"
+#include "ui/NoticeDialog.h"
 #include "ui/SearchDialog.h"
 #include "ui/SettingsDialog.h"
 #include "ui/Strings.h"
@@ -175,11 +176,6 @@ void MainWindow::OnCreate() {
     toolbar_.Create(hwnd_, instance);
     sidebar_.Create(hwnd_, instance);
 
-    statusBar_ = CreateWindowExW(
-        0, STATUSCLASSNAMEW, nullptr,
-        WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP,
-        0, 0, 0, 0, hwnd_, nullptr, instance, nullptr);
-
     downloads_.Create(hwnd_, instance);
     extensions_.Create(hwnd_, instance);
     ApplyUiFont();
@@ -193,7 +189,6 @@ void MainWindow::OnCreate() {
     };
     accel_ = CreateAcceleratorTableW(accels, ARRAYSIZE(accels));
 
-    SendMessageW(statusBar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(Str(STR_STATUS_READY)));
     ApplyTheme();
 }
 
@@ -208,7 +203,6 @@ void MainWindow::ApplyTheme() {
     theme_.ApplyToList(extensions_.Handle());
     sidebar_.ApplyTheme(theme_);
     toolbar_.ApplyTheme(theme_);
-    SetWindowTheme(statusBar_, theme_.IsDark() ? L"DarkMode_Explorer" : L"Explorer", nullptr);
     InvalidateRect(hwnd_, nullptr, TRUE);
     DrawMenuBar(hwnd_);
 }
@@ -223,7 +217,6 @@ void MainWindow::Retranslate() {
     sidebar_.Retranslate();
     downloads_.Retranslate();
     extensions_.Retranslate();
-    SendMessageW(statusBar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(Str(STR_STATUS_READY)));
     Relayout();
 }
 
@@ -302,18 +295,12 @@ bool MainWindow::SidebarShown() const {
 // Lays out the toolbar, status bar and the active content view.
 void MainWindow::Relayout() {
     toolbar_.Resize();
-    SendMessageW(statusBar_, WM_SIZE, 0, 0);
 
     RECT client = {};
     GetClientRect(hwnd_, &client);
 
     int top = toolbar_.Height();
-
-    RECT statusRect = {};
-    GetWindowRect(statusBar_, &statusRect);
-    int statusHeight = statusRect.bottom - statusRect.top;
-
-    int contentHeight = client.bottom - top - statusHeight;
+    int contentHeight = client.bottom - top;
 
     if (currentView_ == View::Extensions) {
         extensions_.SetBounds(0, top, client.right, contentHeight);
@@ -336,15 +323,11 @@ RECT MainWindow::SplitterRect() const {
     RECT client = {};
     GetClientRect(hwnd_, &client);
 
-    RECT statusRect = {};
-    GetWindowRect(statusBar_, &statusRect);
-    int statusHeight = statusRect.bottom - statusRect.top;
-
     RECT rect = {};
     rect.left = sidebarWidth_;
     rect.right = sidebarWidth_ + kSplitterWidth;
     rect.top = toolbar_.Height();
-    rect.bottom = client.bottom - statusHeight;
+    rect.bottom = client.bottom;
     return rect;
 }
 
@@ -409,7 +392,9 @@ void MainWindow::ShowSoon(int commandId) {
 
     wchar_t message[192] = {};
     wsprintfW(message, Str(STR_STATUS_SOON), label);
-    SendMessageW(statusBar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(message));
+
+    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+    ShowNotice(hwnd_, instance, message);
 }
 
 // Dispatches menu, toolbar and context menu commands.
@@ -502,5 +487,4 @@ void MainWindow::ApplyUiFont() {
     SendMessageW(sidebar_.HeaderHandle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(downloads_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(extensions_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
-    SendMessageW(statusBar_, WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
 }
