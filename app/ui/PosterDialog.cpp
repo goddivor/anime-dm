@@ -4,6 +4,8 @@
 #include <shobjidl.h>
 
 #include <algorithm>
+#include <cwctype>
+#include <filesystem>
 #include <fstream>
 
 #include "core/Image.h"
