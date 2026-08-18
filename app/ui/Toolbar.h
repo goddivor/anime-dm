@@ -3,7 +3,7 @@
 #include <windows.h>
 #include <commctrl.h>
 
-// Owns the top toolbar control with the primary download actions.
+// Owns the top toolbar control with the primary download actions and the search box.
 class Toolbar {
 public:
     ~Toolbar();
@@ -12,8 +12,12 @@ public:
     void Resize();
     int Height() const;
     HWND Handle() const { return hwnd_; }
+    HWND SearchHandle() const { return search_; }
 
 private:
+    void LayoutSearchBox();
+
     HWND hwnd_ = nullptr;
+    HWND search_ = nullptr;
     HIMAGELIST imageList_ = nullptr;
 };

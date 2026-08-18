@@ -5,6 +5,7 @@ enum CommandId : int {
     ID_TASK_ADD = 1001,
     ID_TASK_SCHEDULE,
     ID_FILE_REMOVE,
+    ID_FILE_REMOVE_ALL,
     ID_FILE_EXIT,
     ID_DOWNLOAD_RESUME,
     ID_DOWNLOAD_STOP,
@@ -18,4 +19,5 @@ enum CommandId : int {
     ID_HELP_ABOUT,
     ID_CTX_OPEN,
     ID_CTX_OPEN_FOLDER,
+    ID_SEARCH_BOX,
 };

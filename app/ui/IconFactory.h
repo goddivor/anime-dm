@@ -5,15 +5,14 @@
 
 // Toolbar glyph indices; the order matches the image list built below.
 enum ToolbarIcon {
-    ICON_ADD,
+    ICON_ADD_URL,
     ICON_RESUME,
     ICON_STOP,
-    ICON_RESUME_ALL,
     ICON_STOP_ALL,
     ICON_REMOVE,
-    ICON_SETTINGS,
+    ICON_REMOVE_ALL,
+    ICON_OPTIONS,
     ICON_SCHEDULE,
-    ICON_DOWNLOADS,
     ICON_ADDONS,
     ICON_COUNT,
 };
@@ -21,11 +20,10 @@ enum ToolbarIcon {
 // Category tree glyph indices; the order matches the image list built below.
 enum CategoryIcon {
     CAT_FOLDER,
-    CAT_FOLDER_OPEN,
-    CAT_VIDEO,
-    CAT_PENDING,
-    CAT_DONE,
+    CAT_ANIME,
+    CAT_EPISODE,
     CAT_QUEUE,
+    CAT_TIMER,
     CAT_COUNT,
 };
 
@@ -42,7 +40,7 @@ private:
     ULONG_PTR token_ = 0;
 };
 
-// Builds a 32x32 alpha-blended image list with the toolbar glyphs (no assets).
+// Builds a 24x24 alpha-blended image list with the toolbar glyphs (no assets).
 // The caller owns the returned list and must ImageList_Destroy it.
 HIMAGELIST CreateToolbarImageList();
 

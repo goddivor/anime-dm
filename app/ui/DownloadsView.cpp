@@ -9,12 +9,13 @@ struct Column {
 };
 
 constexpr Column kColumns[] = {
-    {L"Nom du fichier", 360},
-    {L"Taille", 100},
-    {L"Progression", 120},
-    {L"Statut", 110},
-    {L"Vitesse", 100},
+    {L"Nom du fichier", 320},
+    {L"Taille", 90},
+    {L"Statut", 120},
     {L"Temps restant", 110},
+    {L"Débit de téléchargement", 150},
+    {L"Date du dernier essai", 150},
+    {L"Date d'ajout", 150},
 };
 }  // namespace
 

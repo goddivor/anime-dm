@@ -136,21 +136,14 @@ bool Sidebar::Create(HWND parent, HINSTANCE instance) {
     return true;
 }
 
-// Inserts the fixed category roots; the download nodes fill in at runtime.
+// Inserts the fixed category roots; the anime groups fill in at runtime.
 void Sidebar::Populate() {
-    HTREEITEM all = Insert(TVI_ROOT, L"Tous les téléchargements", CAT_FOLDER_OPEN, CAT_FOLDER_OPEN);
-    Insert(all, L"Animés", CAT_VIDEO, CAT_VIDEO);
-    Insert(all, L"Films", CAT_VIDEO, CAT_VIDEO);
-    Insert(all, L"Autres", CAT_FOLDER, CAT_FOLDER);
+    HTREEITEM all = Insert(TVI_ROOT, L"Tous les animés", CAT_FOLDER, CAT_FOLDER);
 
-    Insert(TVI_ROOT, L"Incomplets", CAT_PENDING, CAT_PENDING);
-    Insert(TVI_ROOT, L"Terminés", CAT_DONE, CAT_DONE);
-
-    HTREEITEM queues = Insert(TVI_ROOT, L"Files d'attente", CAT_QUEUE, CAT_QUEUE);
+    HTREEITEM queues = Insert(TVI_ROOT, L"File d'attente", CAT_QUEUE, CAT_QUEUE);
     Insert(queues, L"File principale", CAT_QUEUE, CAT_QUEUE);
-    Insert(queues, L"Planificateur", CAT_PENDING, CAT_PENDING);
+    Insert(queues, L"File du planificateur", CAT_TIMER, CAT_TIMER);
 
-    SendMessageW(tree_, TVM_EXPAND, TVE_EXPAND, reinterpret_cast<LPARAM>(all));
     SendMessageW(tree_, TVM_EXPAND, TVE_EXPAND, reinterpret_cast<LPARAM>(queues));
     SendMessageW(tree_, TVM_SELECTITEM, TVGN_CARET, reinterpret_cast<LPARAM>(all));
 }

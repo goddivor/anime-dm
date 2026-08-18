@@ -4,11 +4,19 @@
 
 namespace {
 
+// Builds the "Tâches" drop-down.
+HMENU BuildTasksMenu() {
+    HMENU menu = CreatePopupMenu();
+    AppendMenuW(menu, MF_STRING, ID_TASK_ADD, L"Ajouter une URL\tCtrl+N");
+    AppendMenuW(menu, MF_STRING, ID_TASK_SCHEDULE, L"Planifier");
+    return menu;
+}
+
 // Builds the "Fichier" drop-down.
 HMENU BuildFileMenu() {
     HMENU menu = CreatePopupMenu();
-    AppendMenuW(menu, MF_STRING, ID_TASK_ADD, L"Ajouter un téléchargement\tCtrl+N");
     AppendMenuW(menu, MF_STRING, ID_FILE_REMOVE, L"Supprimer\tSuppr");
+    AppendMenuW(menu, MF_STRING, ID_FILE_REMOVE_ALL, L"Tout supprimer");
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, ID_FILE_EXIT, L"Quitter");
     return menu;
@@ -22,8 +30,6 @@ HMENU BuildDownloadMenu() {
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, ID_DOWNLOAD_RESUME_ALL, L"Tout reprendre");
     AppendMenuW(menu, MF_STRING, ID_DOWNLOAD_STOP_ALL, L"Tout arrêter");
-    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(menu, MF_STRING, ID_TASK_SCHEDULE, L"Planification");
     return menu;
 }
 
@@ -52,6 +58,7 @@ HMENU BuildHelpMenu() {
 // Assembles the top-level menu bar and installs it on the window.
 void MenuBar::AttachTo(HWND window) {
     HMENU bar = CreateMenu();
+    AppendMenuW(bar, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildTasksMenu()), L"Tâches");
     AppendMenuW(bar, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildFileMenu()), L"Fichier");
     AppendMenuW(bar, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildDownloadMenu()), L"Téléchargement");
     AppendMenuW(bar, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildViewMenu()), L"Affichage");
