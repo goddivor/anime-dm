@@ -1,43 +1,148 @@
 # anime-dm — instructions projet
 
-**Anime Download Manager** : gestionnaire de téléchargement type IDM pour sites d'animés. Stack : **Tauri 2** (backend Rust) + **React 19 + Vite + TS** (frontend). **Modèle d'addons façon Aniyomi** : toute la logique d'une source (scraping + extraction des lecteurs) vit dans un **module WASM séparé** ; l'app ne contient AUCUN code spécifique à une source. Voir `README.md` / `CONTRIBUTING.md`.
+**Anime Download Manager** : gestionnaire de téléchargement type IDM pour sites d'animés.
+Cette branche est le **port Win32 en C++ qui remplace l'application Tauri**. Les sources
+(sites) vivent dans des **DLL natives** chargées à travers une ABI C ; l'application ne
+contient aucune logique de source.
 
-> Historique : v1 GUI egui → migration Tauri → extraction de la logique source dans des addons WASM (Extism). Voir-anime n'est plus dans ce repo.
+## Deux dépôts, côte à côte sous `rust-project/`
 
-## Deux repos (côte à côte sous `rust-project/`)
-- **`anime-dm`** (ce repo) : l'app (downloader ffmpeg + runtime d'addons + UI + Addon Store). **Zéro logique de source.**
-- **`anime-dm-addons`** (`github.com/goddivor/anime-dm-addons`) : les sources en WASM. `addons/<lang>/<nom>/` (1 crate = 1 `.wasm` : `lib.rs` scraping+extractors, `addon.json` métadonnées store, `icon.png`). `scripts/build-repo.sh` assemble `repo/` (index.min.json + wasm + icônes) → publié sur la **branche `repo`**. Index live : `https://raw.githubusercontent.com/goddivor/anime-dm-addons/repo/index.min.json`. Le contrat partagé `addon-api` vit dans **ce** repo (`src-tauri/addon-api`) et est référencé par chemin depuis les addons.
+- **`anime-dm`** (ce dépôt) : l'application Win32. Zéro logique de source.
+- **`anime-dm-addons`** (`github.com/goddivor/anime-dm-addons`) : les trois sources en Rust,
+  compilées en DLL. `addons/<lang>/<nom>/` (1 crate = 1 DLL). La branche `repo-win32` sert
+  l'index publié ; `scripts/build-repo.sh` l'assemble.
 
-## Lancer / vérifier
-- `npm run tauri dev` · `npm run dev` (front seul).
-- Vérifs : `npm run build` (**0 erreur**) · `cd src-tauri && cargo build` (**0 warning**).
-- Test addon générique (piloté par env, aucune source en dur) : `ADDON_WASM=<path.wasm> [ADDON_ANIME_URL=<url>] cargo test --lib addon_contract_smoke -- --ignored --nocapture`.
-- **Prérequis** : ffmpeg dans le PATH ; Node ; libs webview Linux (`libwebkit2gtk-4.1-dev`, `libsoup-3.0-dev`, …). (Chrome/headless n'est PLUS requis — les addons décodent les lecteurs en pur HTTP, façon Aniyomi.)
+## Branches
+
+- **`feature/win32-cpp`** : la branche de travail. Tout se passe ici.
+- **`dev`** et **`master`** : l'ancienne application **Tauri 2 + React 19** (v0.2.1), gardée
+  comme référence fonctionnelle. Ne plus y développer, mais **s'y référer** pour savoir ce
+  qu'une fonctionnalité fait avant de la porter (`git show dev:src/components/…`).
+- Pour toute tâche : sous-branche `feature/* | fix/* | refactor/* | chore/* | docs/*` depuis
+  `feature/win32-cpp`, commits locaux, puis **s'arrêter et demander** avant `git push` ou
+  `gh pr create`. Validation par l'utilisateur, puis PR ciblant `feature/win32-cpp` et merge.
+
+## Compiler, lancer, vérifier
+
+Prérequis : **MinGW-w64** (`C:\mingw64`), CMake, et Rust avec la cible
+`x86_64-pc-windows-gnu` pour les addons. Pas de Visual Studio sur la machine.
+
+```
+cmake -S . -B build
+cmake --build build --target anime-dm     # doit finir sans erreur NI warning
+cmake --build build --target addon-smoke  # sonde de l'ABI des addons
+build\addon-smoke.exe <addon.dll> [url]   # métadonnées, réglages, puis la chaîne de lecture
+```
 
 ## Architecture
-- **`src-tauri/addon-api/`** : contrat partagé (crate). Modèles serde camelCase : `Metadata`, `Anime`, `Episode`, `AnimesPage`, `Hoster`, `Video{url,quality,headers,subtitles}`, `Preference{key,title,default,kind,options}`. Noms des exports plugin (`exports::*`) et host-fns.
-- **`src-tauri/src/`** = backend :
-  - `addons.rs` : `Addon` (loader Extism, `load_with_config` injecte la config via `Manifest::with_config_key`, `call_json`, `preferences`) + **registre disque** (`<app_data>/addons/<id>/` = `addon.wasm`+`meta.json`+`icon.png`+`config.json`) : `installed`, `install`, `remove`, `open`, `read/write_config`.
-  - `db.rs` : **persistance SQLite** (`rusqlite` bundled, `<app_data>/anime-dm.db`) — tables `downloads` + `anime_groups`. Ouverte dans `.setup`, state managé `Db(Mutex<Connection>)`. Commands `state_load` (au démarrage), `download_save`, `downloads_delete`, `downloads_clear`, `group_save`. Au chargement, les statuts non-terminaux (en cours) sont normalisés en `stopped`. La progression % n'est PAS persistée (éphémère). NB : rusqlite pinné en **0.32** (les versions récentes tirent un `libsqlite3-sys` qui utilise une feature instable `cfg_select`).
-  - `lib.rs` : commands **store** (`get_settings`/`set_repo_url`/`store_fetch`/`store_install`), **addons** (`addons_installed`/`addon_remove`/`addon_preferences`/`addon_get/set_config`), **source** (`load_anime(addonId,url)`, `start_download(addonId,…)`, `fetch_image(url,referer?)`). Résolution vidéo via `spawn_blocking` (les appels WASM sont bloquants). Events `download://progress|finished` inchangés.
-  - `foldericon.rs` : **icônes de dossier** (style RCFI). Chaque animé → sous-dossier `<dest>/<Titre>/`. Compose l'icône depuis l'affiche via **ImageMagick** (`magick`/`convert`) avec des **recettes en données** (`TEMPLATES` single-pass + `MULTI_TEMPLATES` multi-passes via `{TMP}`, placeholders `{INPUT}`/`{ASSETS}`), puis la **pose** selon l'OS (portage de `seticon`) : Linux `gio metadata::custom-icon` + `.directory` ; Windows `desktop.ini`+`attrib` (.ico) ; macOS `osascript` NSWorkspace. Calques+polices embarqués (`resources/folder-templates/`, repli source en dev). Commands `list_folder_templates`/`apply_folder_icon`. Opt-in (`Settings.folder_icons`/`folder_template`) + override de modèle dans le dialogue d'ajout. 13/15 gabarits portés (Win11 Folderify et Kometa exclus : args conditionnels / dépendants de metadata `.nfo`).
-  - `worker/` : seulement `downloader` (ffmpeg, prend `url`+`headers: BTreeMap`) + `net` (UA + client). Plus de scraper/extractors/headless/model.
-- **`src/`** = frontend : `App.tsx` (vue `downloads`|`addons`, addons installés, flux routé par `addonId`), `api.ts`, `components/AddonsScreen` (URL dépôt + store + installés + **config par addon**), `AddDialog` (sélecteur de source), `Sidebar`/`DownloadsTable`/`Toolbar`/`MenuBar`/`Poster`.
-- **Flux** : Addon Store → installe un `.wasm` ; `AddDialog` choisit une source → `load_anime(addonId,url)` (= `anime_details`+`episode_list` du plugin) → `start_download(addonId,…)` (= `hoster_list`+`video_list` du plugin → `Video{url,headers}` → ffmpeg). La config utilisateur (ex. URL du site) est réinjectée à chaque chargement de plugin.
-- **Config par addon** (= « personnalisable depuis l'app ») : l'addon **déclare** ses réglages via l'export `preferences()` ; l'app les stocke (`config.json`) et les réinjecte (config Extism) ; l'addon les lit avec `config::get("base_url")`. Calque exact du `setupPreferenceScreen` d'Aniyomi.
+
+- **`app/core/`** : ce qui ne touche pas à l'écran.
+  - `Http` : le client WinHTTP **unique**. Les addons n'ouvrent jamais de socket eux-mêmes.
+  - `Addon` : charge une DLL, vérifie sa version d'ABI, lui remet la table de services et la
+    configuration, déballe l'enveloppe `{"ok":…}` / `{"error":…}`.
+  - `AddonStore` : registre disque, index du magasin, installation.
+  - `Digest` (SHA-256 par BCrypt), `Image` (décodage par GDI+), `Paths` (`%APPDATA%`), `Text`
+    (conversions UTF-8 / UTF-16).
+  - `adm_addon.h` : copie de l'en-tête ABI ; **doit rester en phase** avec celui du dépôt des
+    addons. `third_party/json.hpp` : nlohmann, versionné faute de gestionnaire de paquets.
+- **`app/ui/`** : `MainWindow`, `MenuBar`, `Toolbar`, `Sidebar`, `DownloadsView`, les dialogues
+  (`AddDialog`, `AddonsDialog`, `AddonConfigDialog`, `PosterDialog`, `SearchDialog`,
+  `SettingsDialog`, `NoticeDialog`, `HelpDialogs`), plus `Theme`, `Strings`, `Paint`,
+  `IconFactory`, `AddSelection`.
+- **`tools/addon_smoke.cpp`** : éprouve l'ABI sans lancer l'application.
+
+## Le modèle d'addons
+
+Une source est une **bibliothèque native**, pas un module WASM. Le bac à sable a été
+abandonné parce que le magasin ne sert que les addons de l'auteur ; deux garde-fous rendent
+cette promesse structurelle :
+
+1. **L'adresse de l'index est figée dans le binaire** (`AddonStore.cpp`), pas une liste que
+   l'utilisateur modifie.
+2. **Chaque bibliothèque porte un SHA-256** dans l'index, vérifié avant même l'écriture sur
+   le disque.
+
+L'ABI (`adm-abi` côté Rust, `adm_addon.h` côté C++) tient en peu de chose : `adm_abi_version`,
+`adm_init` (table de services de l'hôte), `adm_set_config`, `adm_free`, puis les neuf points
+d'entrée de source (`adm_metadata`, `adm_preferences`, `adm_anime_details`, `adm_episode_list`,
+`adm_hoster_list`, `adm_video_list`, `adm_popular`, `adm_latest`, `adm_search`). JSON à
+l'aller comme au retour. **Ce qu'une bibliothèque alloue, elle seule le libère** : les deux
+côtés ne partagent pas d'allocateur.
+
+Registre sur disque, un dossier par source :
+`%APPDATA%\anime-dm\addons\<id>\{addon.dll, meta.json, icon.png, config.json}`.
+
+Les réglages qu'une source déclare (`adm_preferences`) engendrent le formulaire de
+configuration ; l'application les stocke dans `config.json` et les réinjecte au chargement.
 
 ## Règles de travail (IMPORTANT)
-- **Git (PR-only)** : `master`+`dev` protégés (ruleset GitHub). Repo public `github.com/goddivor/anime-dm`, défaut=`dev`. Pour toute tâche : brancher `feature/* | fix/* | refactor/* | chore/* | docs/*` **depuis `dev`**, commiter en local, puis **S'ARRÊTER et DEMANDER avant `git push`/`gh pr create`**. PR ciblent `dev` ; `dev`→`master` pour release. La migration Tauri est sur `feature/tauri-migration`. Cf. mémoire `anime-dm-git-workflow`.
-- **Commits** : conventional commits **en anglais**, impératif ; staging sélectif (jamais `git add .`) ; **aucune** signature `Co-Authored-By`/`Generated with` ; pas de push auto.
-- **Pas d'emoji dans le code** : icônes = vraies icônes vectorielles (**lucide-react** côté front). Idem messages CLI : ASCII.
-- **Commentaires** : code auto-documenté ; commentaire **uniquement sur une fonction**, court/précis/clair. Pas de `//` inline.
-- **i18n** : TOUT texte UI passe par `t("cle")` (`translator(lang)`) + `src/locales/fr.json`/`en.json` (clés hiérarchiques `menu.*`, `dialog.*`, `table.*`, `toolbar.*`, `tooltip.*`, `sidebar.*`, `status.*`, `queue.*`…). **Garder fr/en synchrones**. Exceptions FR légitimes : `"Français"`, noms de lecteurs.
-- **Captures d'écran = l'utilisateur**, jamais moi. Je vérifie seulement la compilation.
-- **Aucun placeholder / donnée de démo** (liste vide par défaut).
 
-## Faits / pièges à retenir
-- **Installation = Addon Store UNIQUEMENT** : on colle l'URL d'un `index.min.json` dans les réglages, l'app liste/installe. Pas d'autre voie. (Import de fichier `.wasm` local = TODO éventuel.)
-- **Aniyomi = PAS de headless** : les lecteurs JS-obfusqués (VOE…) se décodent en pur HTTP dans l'addon (ex. VOE : rot13→base64→shift→reverse→base64→JSON). C'est la réponse à « comment extraire n'importe quel lecteur ». Inspiration : `../../android-project/aniyomi-extension/voiranime/` + extractors `../../StudioProjects/yuzono/aniyomi-extensions/lib/`.
-- **Détails source voiranime** (désormais dans l'addon `anime-dm-addons`, PAS dans l'app) : `voir-anime.to` ; poster `.summary_image img` ; lecteurs `thisChapterSources` ; myTV=vidmoly, Stape=streamtape, FHD1=mail.ru (cookie `video_key`), VOE décodé. Hotlink poster : 403 si pas de `Referer` = origine du site → `fetch_image(url, referer)` côté app passe l'origine de la page.
-- **Pièges Extism** : `Plugin` non-Send → appels WASM dans `spawn_blocking` ; HTTP du plugin gated par `allowed_hosts` du `Manifest` (actuellement `*`) ; `with_config_key` = la config réinjectée.
-- **TODO** : import d'un `.wasm` local ; « lecteur préféré » par addon ; files d'attente = visuel seulement ; choix dossier de sortie (pour l'instant `downloadDir()`) ; signature/vérification des addons du store.
+- **Commits** : conventional commits **en anglais**, impératif ; staging sélectif (jamais
+  `git add .`) ; **aucune** signature `Co-Authored-By` ou « Generated with » ; pas de push
+  automatique. Toujours passer par le skill `/commit`.
+- **Pas d'emoji dans le code**, ni dans les messages. Les icônes sont des tracés vectoriels
+  dessinés par `IconFactory` à partir de la géométrie **lucide** (licence ISC), la même que
+  l'application React.
+- **Commentaires** : code auto-documenté ; un commentaire **uniquement sur une fonction**,
+  court et précis. Pas de `//` en fin de ligne.
+- **Traduction** : tout texte visible passe par `Str(STR_…)`. La table vit dans
+  `Strings.h` / `Strings.cpp` ; **le nombre d'identifiants et le nombre d'entrées doivent
+  toujours concorder** (le vérifier après chaque ajout). Français et anglais restent synchrones.
+- **Couleurs** : toujours `ActiveTheme().Colors()`, jamais de valeur en dur. La palette porte
+  `window`, `surface`, `text`, `line`, `accent`, `accentText`, `hover`.
+- **Réseau** : jamais sur le fil d'interface. Fil séparé, résultat renvoyé par `PostMessage`,
+  boutons grisés pendant l'opération.
+- **Captures d'écran** : les prendre soi-même via le MCP (voir plus bas), ou laisser
+  l'utilisateur les fournir. Ne jamais affirmer un rendu sans l'avoir vu.
+
+## Piloter la machine Windows (MCP `perso`)
+
+Le MCP passe par SSH et tourne en **session 0** (service, sans bureau) ; la session graphique
+de l'utilisateur est la **session 2**. Conséquences :
+
+- **`open_app`** lance un programme dans la session 2 (c'est le seul chemin pour qu'une
+  fenêtre s'affiche). **`close_app`** le ferme. **`screenshot`** fonctionne.
+- `run_powershell` sert à compiler, lire des fichiers, inspecter ; ses fenêtres n'apparaissent
+  jamais à l'écran.
+- **Le Planificateur de tâches de cette machine est bloqué** : il accepte les commandes et
+  n'exécute rien. Ne pas bâtir dessus.
+- **Pousser depuis Windows** n'est possible que par `open_app` : le gestionnaire
+  d'identifiants refuse de s'ouvrir en session 0.
+- Fermer l'application avant de recompiler, sinon l'éditeur de liens bute sur le fichier
+  verrouillé (« Permission denied »).
+
+## Pièges de la chaîne, durement acquis
+
+- **MinGW n'a pas la surcharge `wstring` des flux de fichiers** (extension MSVC) : passer par
+  `std::filesystem::path`.
+- **`BCryptHash` n'est pas déclaré** par les en-têtes MinGW : utiliser
+  `BCryptCreateHash` / `BCryptHashData` / `BCryptFinishHash`.
+- **`WIN32_LEAN_AND_MEAN` exclut les en-têtes COM** : inclure `objbase.h` et lier `ole32`.
+- **GCC exige `-municode`** pour accepter `wWinMain` ; MSVC le détecte seul.
+- **Un contrôle `STATIC` répond `HTTRANSPARENT`** : la souris le traverse. Pour recevoir les
+  clics, intercepter `WM_NCHITTEST` dans le sous-classement et renvoyer `HTCLIENT`.
+- **`AlphaBlend` vit dans `msimg32`**, à lier explicitement.
+- **La barre de menus n'est jamais assombrie** par `SetPreferredAppMode`, quel que soit le
+  réglage : ses entrées de premier niveau sont en dessin propriétaire.
+- **L'en-tête d'une `ListView` garde la couleur de texte du mode clair** malgré
+  `DarkMode_ItemsView` : un sous-classement force la couleur au dessin personnalisé.
+- **`LVS_EX_GRIDLINES` ne se dessine qu'en une couleur claire figée** : les séparateurs de
+  colonnes sont tracés à la main au passage post-dessin.
+- **`SetPreferredAppMode` et `FlushMenuThemes` sont non documentés** (ordinaux 135 et 136 de
+  `uxtheme.dll`). C'est ce qu'emploient tous les logiciels Win32 à thème sombre ; le code se
+  dégrade proprement s'ils disparaissent.
+- **Les en-têtes GDI+ utilisent `min` et `max`** que `NOMINMAX` supprime : déclarer
+  `using std::min; using std::max;` avant de les inclure.
+
+## Ce qui manque encore
+
+- **Aucun moteur de téléchargement** : ni ffmpeg, ni progression, ni pause. Les épisodes
+  choisis s'ajoutent à la liste et s'arrêtent là. `adm_hoster_list` et `adm_video_list`
+  répondent pourtant déjà correctement.
+- Les **icônes de dossier** de l'application Tauri ne sont pas portées (ImageMagick, gabarits,
+  pose selon le système).
+- Ni le **thème** ni la **langue** ne sont persistés : il n'existe pas encore de fichier de
+  réglages côté application.
+- Les entrées de menu ne sont **pas grisées** selon l'état (l'application Tauri le fait), faute
+  de modèle de données.
+- Le panneau Catégories n'a ni **compteurs**, ni **affiches**, ni **épisodes** : même raison.
