@@ -60,6 +60,29 @@ bool SystemPrefersDark() {
     return status == ERROR_SUCCESS && type == REG_DWORD && value == 0;
 }
 
+// A themed header keeps its dark background but draws its captions with the
+// light-mode text colour, so the colour is forced through custom draw.
+LRESULT CALLBACK ListSubclass(HWND window, UINT msg, WPARAM wParam, LPARAM lParam,
+                              UINT_PTR id, DWORD_PTR data) {
+    if (msg == WM_NOTIFY) {
+        auto* notify = reinterpret_cast<NMHDR*>(lParam);
+        if (notify->code == NM_CUSTOMDRAW) {
+            auto* draw = reinterpret_cast<NMCUSTOMDRAW*>(lParam);
+            if (draw->dwDrawStage == CDDS_PREPAINT) {
+                return CDRF_NOTIFYITEMDRAW;
+            }
+            if (draw->dwDrawStage == CDDS_ITEMPREPAINT) {
+                SetTextColor(draw->hdc, static_cast<COLORREF>(data));
+                return CDRF_NEWFONT;
+            }
+        }
+    }
+    if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(window, ListSubclass, id);
+    }
+    return DefSubclassProc(window, msg, wParam, lParam);
+}
+
 }  // namespace
 
 // Releases the cached background brushes.
@@ -121,6 +144,8 @@ void Theme::ApplyToList(HWND list) const {
     if (header != nullptr) {
         SetWindowTheme(header, colors_.dark ? L"DarkMode_ItemsView" : L"ItemsView", nullptr);
     }
+
+    SetWindowSubclass(list, ListSubclass, 1, static_cast<DWORD_PTR>(colors_.text));
 
     ListView_SetBkColor(list, colors_.window);
     ListView_SetTextBkColor(list, colors_.window);
