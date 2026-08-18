@@ -40,3 +40,9 @@ if(MSVC)
 endif()
 
 target_link_libraries(anime-dm PRIVATE comctl32)
+
+# MinGW needs -municode to accept wWinMain as the entry point; MSVC detects it on its own.
+if(MINGW)
+    target_compile_options(anime-dm PRIVATE -municode)
+    target_link_options(anime-dm PRIVATE -municode)
+endif()

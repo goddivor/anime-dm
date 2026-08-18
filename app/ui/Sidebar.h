@@ -1,6 +1,7 @@
 #pragma once
 
 #include <windows.h>
+#include <commctrl.h>
 
 // Owns the left-hand TreeView listing download categories and animes.
 class Sidebar {
