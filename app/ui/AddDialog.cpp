@@ -19,6 +19,7 @@
 #include "core/Image.h"
 #include "core/Text.h"
 #include "ui/AddSelection.h"
+#include "ui/Paint.h"
 #include "ui/Resource.h"
 #include "ui/Strings.h"
 #include "ui/Theme.h"
@@ -30,8 +31,8 @@ constexpr UINT kHosters = WM_APP + 2;
 
 constexpr int kSourceIcon = 32;
 constexpr int kSourceCell = 44;
-constexpr int kCellWidth = 40;
-constexpr int kCellHeight = 26;
+constexpr int kCellWidth = 42;
+constexpr int kCellHeight = 28;
 constexpr int kCellGap = 6;
 constexpr wchar_t kAuto[] = L"Auto";
 
@@ -81,6 +82,7 @@ struct Screen {
     bool busy = false;
     int scroll = 0;
     int columns = 1;
+    int hover = -1;
 };
 
 std::wstring ReadText(HWND dialog, int control) {
@@ -156,7 +158,14 @@ int RoundNumber(double number) {
 
 namespace {
 
-// Draws one source of the strip, the chosen one framed.
+constexpr float kRadius = 5.0f;
+
+HFONT FontOf(HWND control) {
+    return reinterpret_cast<HFONT>(SendMessageW(control, WM_GETFONT, 0, 0));
+}
+
+// Draws one source of the strip: its icon on a tile, filled when it is the one
+// the download will go through.
 void DrawSource(const DRAWITEMSTRUCT& draw, const Screen& screen) {
     int index = static_cast<int>(draw.CtlID) - IDC_ADD_SOURCE_FIRST;
     if (index < 0 || static_cast<size_t>(index) >= screen.sources.size()) {
@@ -165,20 +174,10 @@ void DrawSource(const DRAWITEMSTRUCT& draw, const Screen& screen) {
 
     const ThemeColors& colors = ActiveTheme().Colors();
     bool chosen = index == screen.source;
+    bool focused = (draw.itemState & ODS_FOCUS) != 0;
 
-    HBRUSH background = CreateSolidBrush(chosen ? GetSysColor(COLOR_HIGHLIGHT) : colors.surface);
-    RECT bounds = draw.rcItem;
-    FillRect(draw.hDC, &bounds, background);
-    DeleteObject(background);
-
-    HPEN pen = CreatePen(PS_SOLID, 1, chosen ? GetSysColor(COLOR_HIGHLIGHT) : colors.line);
-    HPEN oldPen = static_cast<HPEN>(SelectObject(draw.hDC, pen));
-    HBRUSH hollow = static_cast<HBRUSH>(GetStockObject(NULL_BRUSH));
-    HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(draw.hDC, hollow));
-    Rectangle(draw.hDC, bounds.left, bounds.top, bounds.right, bounds.bottom);
-    SelectObject(draw.hDC, oldBrush);
-    SelectObject(draw.hDC, oldPen);
-    DeleteObject(pen);
+    paint::RoundedRect(draw.hDC, draw.rcItem, kRadius, chosen ? colors.accent : colors.surface,
+                       chosen || focused ? colors.accent : colors.line, chosen ? 1.0f : 1.0f);
 
     HBITMAP icon = static_cast<size_t>(index) < screen.sourceIcons.size()
                        ? screen.sourceIcons[static_cast<size_t>(index)]
@@ -190,38 +189,68 @@ void DrawSource(const DRAWITEMSTRUCT& draw, const Screen& screen) {
     HDC memory = CreateCompatibleDC(draw.hDC);
     HBITMAP old = static_cast<HBITMAP>(SelectObject(memory, icon));
     BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
-    int x = bounds.left + (bounds.right - bounds.left - kSourceIcon) / 2;
-    int y = bounds.top + (bounds.bottom - bounds.top - kSourceIcon) / 2;
+    int x = draw.rcItem.left + (draw.rcItem.right - draw.rcItem.left - kSourceIcon) / 2;
+    int y = draw.rcItem.top + (draw.rcItem.bottom - draw.rcItem.top - kSourceIcon) / 2;
     AlphaBlend(draw.hDC, x, y, kSourceIcon, kSourceIcon, memory, 0, 0, kSourceIcon, kSourceIcon,
                blend);
     SelectObject(memory, old);
     DeleteDC(memory);
 }
 
-// Draws the poster, or leaves the slot empty until one arrives.
+// Draws the chip that opens the player menu.
+void DrawPlayer(const DRAWITEMSTRUCT& draw, const Screen& screen) {
+    const ThemeColors& colors = ActiveTheme().Colors();
+    bool pressed = (draw.itemState & ODS_SELECTED) != 0;
+
+    paint::RoundedRect(draw.hDC, draw.rcItem, kRadius, pressed ? colors.hover : colors.surface,
+                       colors.line);
+
+    HFONT old = static_cast<HFONT>(SelectObject(draw.hDC, FontOf(draw.hwndItem)));
+    RECT text = draw.rcItem;
+    text.left += 10;
+    text.right -= 20;
+    std::wstring label = std::wstring(Str(STR_ADD_PLAYER_LABEL)) + L" " + screen.player;
+    paint::Label(draw.hDC, text, label, colors.text, DT_LEFT | DT_VCENTER | DT_END_ELLIPSIS);
+
+    RECT arrow = draw.rcItem;
+    arrow.left = arrow.right - 18;
+    paint::Label(draw.hDC, arrow, L"\u25BE", colors.text, DT_CENTER | DT_VCENTER);
+    SelectObject(draw.hDC, old);
+}
+
+// Draws one half of the mode switch, the active one filled.
+void DrawSegment(const DRAWITEMSTRUCT& draw, bool active, StringId label) {
+    const ThemeColors& colors = ActiveTheme().Colors();
+    paint::RoundedRect(draw.hDC, draw.rcItem, kRadius, active ? colors.accent : colors.surface,
+                       active ? colors.accent : colors.line);
+
+    HFONT old = static_cast<HFONT>(SelectObject(draw.hDC, FontOf(draw.hwndItem)));
+    paint::Label(draw.hDC, draw.rcItem, Str(label), active ? colors.accentText : colors.text,
+                 DT_CENTER | DT_VCENTER);
+    SelectObject(draw.hDC, old);
+}
+
+// Draws the poster, or an empty slot until one arrives.
 void DrawPoster(const DRAWITEMSTRUCT& draw, const Screen& screen) {
     const ThemeColors& colors = ActiveTheme().Colors();
-    RECT bounds = draw.rcItem;
-    HBRUSH background = CreateSolidBrush(colors.surface);
-    FillRect(draw.hDC, &bounds, background);
-    DeleteObject(background);
-
     if (screen.poster == nullptr) {
+        paint::RoundedRect(draw.hDC, draw.rcItem, kRadius, colors.surface, colors.line);
         return;
     }
 
     HDC memory = CreateCompatibleDC(draw.hDC);
     HBITMAP old = static_cast<HBITMAP>(SelectObject(memory, screen.poster));
-    int width = bounds.right - bounds.left;
-    int height = bounds.bottom - bounds.top;
+    int width = draw.rcItem.right - draw.rcItem.left;
+    int height = draw.rcItem.bottom - draw.rcItem.top;
     SetStretchBltMode(draw.hDC, HALFTONE);
-    StretchBlt(draw.hDC, bounds.left, bounds.top, width, height, memory, 0, 0, width, height,
-               SRCCOPY);
+    StretchBlt(draw.hDC, draw.rcItem.left, draw.rcItem.top, width, height, memory, 0, 0, width,
+               height, SRCCOPY);
     SelectObject(memory, old);
     DeleteDC(memory);
 }
 
-// Draws the episode grid: one tile per episode, the picked ones filled.
+// Draws the episode grid: one tile per episode, the picked ones filled, the ones
+// carrying their own player outlined.
 void DrawGrid(const DRAWITEMSTRUCT& draw, Screen& screen) {
     const ThemeColors& colors = ActiveTheme().Colors();
     RECT bounds = draw.rcItem;
@@ -233,9 +262,7 @@ void DrawGrid(const DRAWITEMSTRUCT& draw, Screen& screen) {
     int width = bounds.right - bounds.left;
     screen.columns = std::max(1, (width + kCellGap) / (kCellWidth + kCellGap));
 
-    HFONT font = reinterpret_cast<HFONT>(SendMessageW(draw.hwndItem, WM_GETFONT, 0, 0));
-    HFONT oldFont = static_cast<HFONT>(SelectObject(draw.hDC, font));
-    SetBkMode(draw.hDC, TRANSPARENT);
+    HFONT old = static_cast<HFONT>(SelectObject(draw.hDC, FontOf(draw.hwndItem)));
 
     for (size_t index = 0; index < screen.episodes.size(); ++index) {
         int row = static_cast<int>(index) / screen.columns - screen.scroll;
@@ -254,27 +281,19 @@ void DrawGrid(const DRAWITEMSTRUCT& draw, Screen& screen) {
         }
 
         bool chosen = screen.picked.count(static_cast<int>(index)) > 0;
-        HBRUSH fill = CreateSolidBrush(chosen ? GetSysColor(COLOR_HIGHLIGHT) : colors.surface);
-        FillRect(draw.hDC, &cell, fill);
-        DeleteObject(fill);
-
+        bool hovered = screen.hover == static_cast<int>(index);
         bool tuned = screen.playerByEpisode.count(static_cast<int>(index)) > 0;
-        HPEN pen = CreatePen(PS_SOLID, tuned ? 2 : 1, tuned ? colors.text : colors.line);
-        HPEN oldPen = static_cast<HPEN>(SelectObject(draw.hDC, pen));
-        HBRUSH hollow = static_cast<HBRUSH>(GetStockObject(NULL_BRUSH));
-        HBRUSH oldBrush = static_cast<HBRUSH>(SelectObject(draw.hDC, hollow));
-        Rectangle(draw.hDC, cell.left, cell.top, cell.right, cell.bottom);
-        SelectObject(draw.hDC, oldBrush);
-        SelectObject(draw.hDC, oldPen);
-        DeleteObject(pen);
 
-        SetTextColor(draw.hDC, chosen ? GetSysColor(COLOR_HIGHLIGHTTEXT) : colors.text);
+        COLORREF fill = chosen ? colors.accent : (hovered ? colors.hover : colors.surface);
+        COLORREF border = tuned ? colors.text : (chosen ? colors.accent : colors.line);
+        paint::RoundedRect(draw.hDC, cell, kRadius, fill, border, tuned ? 2.0f : 1.0f);
+
         std::wstring label = std::to_wstring(RoundNumber(screen.episodes[index].number));
-        DrawTextW(draw.hDC, label.c_str(), -1, &cell,
-                  DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        paint::Label(draw.hDC, cell, label, chosen ? colors.accentText : colors.text,
+                     DT_CENTER | DT_VCENTER);
     }
 
-    SelectObject(draw.hDC, oldFont);
+    SelectObject(draw.hDC, old);
 }
 
 // Which episode a point of the grid falls on, or -1.
@@ -353,10 +372,11 @@ void Refresh(HWND dialog, Screen& screen) {
                                                         .size());
     SetDlgItemTextW(dialog, IDOK, Format(STR_ADD_DOWNLOAD_COUNT, chosen).c_str());
 
-    std::wstring label = std::wstring(Str(STR_ADD_PLAYER_LABEL)) + L" " + screen.player;
-    SetDlgItemTextW(dialog, IDC_ADD_PLAYER, label.c_str());
     ShowWindow(GetDlgItem(dialog, IDC_ADD_PLAYER),
                screen.playerOptions.empty() ? SW_HIDE : SW_SHOW);
+    for (int control : {IDC_ADD_PLAYER, IDC_ADD_MODE_TEXT, IDC_ADD_MODE_LIST}) {
+        InvalidateRect(GetDlgItem(dialog, control), nullptr, TRUE);
+    }
 
     EnableWindow(GetDlgItem(dialog, IDC_ADD_FETCH), idle && !screen.sources.empty());
     EnableWindow(GetDlgItem(dialog, IDC_ADD_BROWSE), idle);
@@ -564,8 +584,6 @@ void Retranslate(HWND dialog) {
     SetDialogText(dialog, IDC_ADD_LBL_URL, STR_DLG_ADD_URL);
     SetDialogText(dialog, IDC_ADD_FETCH, STR_DLG_ADD_FETCH);
     SetDialogText(dialog, IDC_ADD_LBL_EPISODES, STR_DLG_ADD_EPISODES);
-    SetDialogText(dialog, IDC_ADD_MODE_TEXT, STR_ADD_MODE_TEXT);
-    SetDialogText(dialog, IDC_ADD_MODE_LIST, STR_ADD_MODE_LIST);
     SetDialogText(dialog, IDC_ADD_ALL, STR_ADD_SELECT_ALL);
     SetDialogText(dialog, IDC_ADD_NONE, STR_ADD_SELECT_NONE);
     SetDialogText(dialog, IDC_ADD_HINT, STR_ADD_PLAYER_HINT);
@@ -642,6 +660,33 @@ LRESULT CALLBACK GridProc(HWND grid, UINT msg, WPARAM wParam, LPARAM lParam, UIN
     HWND dialog = GetParent(grid);
 
     switch (msg) {
+    // A static answers HTTRANSPARENT by default, so the mouse would go straight
+    // through the grid and never reach the clicks below.
+    case WM_NCHITTEST:
+        return HTCLIENT;
+
+    case WM_MOUSEMOVE: {
+        POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        int index = HitTest(grid, *screen, point);
+        if (index != screen->hover) {
+            screen->hover = index;
+            InvalidateRect(grid, nullptr, TRUE);
+        }
+        TRACKMOUSEEVENT track = {};
+        track.cbSize = sizeof(track);
+        track.dwFlags = TME_LEAVE;
+        track.hwndTrack = grid;
+        TrackMouseEvent(&track);
+        return 0;
+    }
+
+    case WM_MOUSELEAVE:
+        if (screen->hover != -1) {
+            screen->hover = -1;
+            InvalidateRect(grid, nullptr, TRUE);
+        }
+        return 0;
+
     case WM_LBUTTONDOWN: {
         POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
         int index = HitTest(grid, *screen, point);
@@ -721,6 +766,18 @@ INT_PTR CALLBACK AddDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lPar
         }
         if (draw->CtlID == IDC_ADD_GRID) {
             DrawGrid(*draw, *screen);
+            return TRUE;
+        }
+        if (draw->CtlID == IDC_ADD_PLAYER) {
+            DrawPlayer(*draw, *screen);
+            return TRUE;
+        }
+        if (draw->CtlID == IDC_ADD_MODE_TEXT) {
+            DrawSegment(*draw, !screen->listMode, STR_ADD_MODE_TEXT);
+            return TRUE;
+        }
+        if (draw->CtlID == IDC_ADD_MODE_LIST) {
+            DrawSegment(*draw, screen->listMode, STR_ADD_MODE_LIST);
             return TRUE;
         }
         return FALSE;
