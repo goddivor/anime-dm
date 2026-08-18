@@ -2,12 +2,14 @@
 
 #include <commctrl.h>
 
+#include <memory>
 #include <string>
 #include <thread>
 #include <vector>
 
 #include "core/AddonStore.h"
 #include "core/Http.h"
+#include "core/Image.h"
 #include "core/Text.h"
 #include "ui/AddonConfigDialog.h"
 #include "ui/Resource.h"
@@ -18,6 +20,7 @@ namespace {
 
 constexpr UINT kFetched = WM_APP + 1;
 constexpr UINT kInstalled = WM_APP + 2;
+constexpr int kIconSize = 20;
 
 struct Column {
     StringId title;
@@ -31,13 +34,48 @@ constexpr Column kColumns[] = {
     {STR_EXT_STATUS, 160},
 };
 
+// What a fetch brings back: the index, and the icon of each entry.
+struct Catalogue {
+    std::vector<StoreEntry> entries;
+    std::vector<std::vector<uint8_t>> icons;
+};
+
 // What the window keeps for the whole of its life.
 struct Screen {
     Http http;
     AddonStore store{http};
     std::vector<StoreEntry> entries;
+    HIMAGELIST icons = nullptr;
     bool busy = false;
 };
+
+// Turns the downloaded icons into the image list the rows draw from.
+void AdoptIcons(HWND dialog, Screen& screen, const std::vector<std::vector<uint8_t>>& icons) {
+    HIMAGELIST previous = screen.icons;
+    screen.icons = ImageList_Create(kIconSize, kIconSize, ILC_COLOR32, 
+                                    static_cast<int>(icons.size()), 0);
+    if (screen.icons == nullptr) {
+        return;
+    }
+
+    for (const std::vector<uint8_t>& bytes : icons) {
+        HBITMAP bitmap = image::DecodeSquare(bytes, kIconSize);
+        if (bitmap != nullptr) {
+            ImageList_Add(screen.icons, bitmap, nullptr);
+            DeleteObject(bitmap);
+        } else {
+            // Keeps the indices in step with the rows when a source has none.
+            HBITMAP blank = image::Transparent(kIconSize);
+            ImageList_Add(screen.icons, blank, nullptr);
+            DeleteObject(blank);
+        }
+    }
+
+    ListView_SetImageList(GetDlgItem(dialog, IDC_ADDONS_LIST), screen.icons, LVSIL_SMALL);
+    if (previous != nullptr) {
+        ImageList_Destroy(previous);
+    }
+}
 
 // Compares two dot-separated version numbers.
 bool IsNewer(const std::string& candidate, const std::string& reference) {
@@ -106,8 +144,9 @@ void FillList(HWND dialog, const Screen& screen) {
     for (const StoreEntry& entry : screen.entries) {
         std::wstring name = Widen(entry.name);
         LVITEMW item = {};
-        item.mask = LVIF_TEXT;
+        item.mask = LVIF_TEXT | LVIF_IMAGE;
         item.iItem = row;
+        item.iImage = row;
         item.pszText = name.data();
         ListView_InsertItem(list, &item);
 
@@ -140,9 +179,14 @@ void StartFetch(HWND dialog, Screen& screen) {
 
     std::thread([dialog, &screen] {
         std::string error;
-        auto* entries = new std::vector<StoreEntry>(screen.store.Fetch(&error));
-        if (!PostMessageW(dialog, kFetched, 0, reinterpret_cast<LPARAM>(entries))) {
-            delete entries;
+        auto* catalogue = new Catalogue();
+        catalogue->entries = screen.store.Fetch(&error);
+        catalogue->icons.reserve(catalogue->entries.size());
+        for (const StoreEntry& entry : catalogue->entries) {
+            catalogue->icons.push_back(screen.store.IconBytes(entry));
+        }
+        if (!PostMessageW(dialog, kFetched, 0, reinterpret_cast<LPARAM>(catalogue))) {
+            delete catalogue;
         }
     }).detach();
 }
@@ -212,10 +256,10 @@ INT_PTR CALLBACK AddonsDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM l
         return TRUE;
 
     case kFetched: {
-        std::unique_ptr<std::vector<StoreEntry>> entries(
-            reinterpret_cast<std::vector<StoreEntry>*>(lParam));
+        std::unique_ptr<Catalogue> catalogue(reinterpret_cast<Catalogue*>(lParam));
         screen->busy = false;
-        screen->entries = std::move(*entries);
+        screen->entries = std::move(catalogue->entries);
+        AdoptIcons(dialog, *screen, catalogue->icons);
         FillList(dialog, *screen);
         SetStatus(dialog, screen->entries.empty() ? STR_ADDONS_FETCH_FAILED : STR_ADDONS_EMPTY);
         if (!screen->entries.empty()) {
@@ -283,6 +327,13 @@ INT_PTR CALLBACK AddonsDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM l
         default:
             return FALSE;
         }
+
+    case WM_DESTROY:
+        if (screen != nullptr && screen->icons != nullptr) {
+            ImageList_Destroy(screen->icons);
+            screen->icons = nullptr;
+        }
+        return FALSE;
 
     case WM_CLOSE:
         if (screen == nullptr || !screen->busy) {

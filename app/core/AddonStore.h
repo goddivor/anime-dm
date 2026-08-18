@@ -54,6 +54,10 @@ public:
     // --- store ---
     // Reads the index and marks what is already installed.
     std::vector<StoreEntry> Fetch(std::string* error) const;
+    // Reads the icon of an entry: from disk when installed, from the store
+    // otherwise. Empty when it has none.
+    std::vector<uint8_t> IconBytes(const StoreEntry& entry) const;
+
     // Downloads a library, checks its digest, then writes it with its metadata.
     std::optional<InstalledAddon> Install(const StoreEntry& entry, std::string* error) const;
 

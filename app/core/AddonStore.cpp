@@ -240,6 +240,23 @@ std::vector<StoreEntry> AddonStore::Fetch(std::string* error) const {
     return out;
 }
 
+// Reads the icon of an entry: from disk when installed, from the store otherwise.
+std::vector<uint8_t> AddonStore::IconBytes(const StoreEntry& entry) const {
+    if (entry.installed) {
+        std::wstring path = IconPath(entry.id);
+        std::ifstream file(std::filesystem::path(path), std::ios::binary);
+        if (file) {
+            return std::vector<uint8_t>(std::istreambuf_iterator<char>(file),
+                                        std::istreambuf_iterator<char>());
+        }
+    }
+    if (entry.icon.empty()) {
+        return std::vector<uint8_t>();
+    }
+    std::optional<std::vector<uint8_t>> bytes = http_.GetBytes(Resolve(kIndexUrl, entry.icon));
+    return bytes ? *bytes : std::vector<uint8_t>();
+}
+
 // Downloads a library, checks its digest, then writes it with its metadata.
 std::optional<InstalledAddon> AddonStore::Install(const StoreEntry& entry,
                                                   std::string* error) const {
