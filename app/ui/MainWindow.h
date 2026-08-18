@@ -23,6 +23,7 @@ private:
     LRESULT HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam);
     void OnCreate();
     void OnCommand(int commandId);
+    void ShowSoon(int commandId);
     void OnContextMenu(HWND target, int x, int y);
     void ShowView(View view);
     bool SidebarShown() const;

@@ -122,6 +122,9 @@ void MainWindow::OnCreate() {
     HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
 
     menuBar_.AttachTo(hwnd_);
+    menuBar_.SetCategoriesChecked(sidebarVisible_);
+    menuBar_.SetTheme(ID_MODE_SYSTEM);
+    menuBar_.SetLanguage(ID_LANG_FR);
     toolbar_.Create(hwnd_, instance);
     sidebar_.Create(hwnd_, instance);
 
@@ -136,8 +139,10 @@ void MainWindow::OnCreate() {
 
     ACCEL accels[] = {
         {FVIRTKEY | FCONTROL, 'N', ID_TASK_ADD},
+        {FVIRTKEY | FCONTROL, 'F', ID_DOWNLOAD_SEARCH},
+        {FVIRTKEY | FCONTROL | FSHIFT, 'V', ID_TASK_BATCH},
         {FVIRTKEY, VK_DELETE, ID_FILE_REMOVE},
-        {FVIRTKEY | FCONTROL, 'F', ID_TASK_SEARCH},
+        {FVIRTKEY, VK_F1, ID_HELP_HELP},
     };
     accel_ = CreateAcceleratorTableW(accels, ARRAYSIZE(accels));
 
@@ -260,49 +265,71 @@ void MainWindow::OnLeftButtonUp() {
     }
 }
 
-// Dispatches menu and toolbar commands.
+// Reports an entry the shell does not implement yet in the status bar.
+void MainWindow::ShowSoon(int commandId) {
+    wchar_t label[128] = {};
+    if (GetMenuStringW(GetMenu(hwnd_), commandId, label, ARRAYSIZE(label), MF_BYCOMMAND) <= 0) {
+        return;
+    }
+
+    wchar_t* shortcut = wcschr(label, L'\t');
+    if (shortcut != nullptr) {
+        *shortcut = L'\0';
+    }
+
+    wchar_t message[192] = {};
+    wsprintfW(message, L"\u00ab %s \u00bb : \u00e0 venir", label);
+    SendMessageW(statusBar_, SB_SETTEXTW, 0, reinterpret_cast<LPARAM>(message));
+}
+
+// Dispatches menu, toolbar and context menu commands.
 void MainWindow::OnCommand(int commandId) {
+    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+
     switch (commandId) {
-    case ID_TASK_ADD: {
-        HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+    case ID_TASK_ADD:
         ShowAddDialog(hwnd_, instance);
         break;
-    }
-    case ID_HELP_ABOUT: {
-        HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
-        ShowAboutDialog(hwnd_, instance);
-        break;
-    }
-    case ID_HELP_SHORTCUTS: {
-        HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
-        ShowShortcutsDialog(hwnd_, instance);
-        break;
-    }
-    case ID_VIEW_SETTINGS: {
-        HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
-        ShowSettingsDialog(hwnd_, instance);
-        break;
-    }
-    case ID_TASK_SEARCH: {
-        HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+    case ID_DOWNLOAD_SEARCH:
         ShowSearchDialog(hwnd_, instance);
         break;
-    }
-    case ID_VIEW_DOWNLOADS:
-        ShowView(View::Downloads);
+    case ID_VIEW_SETTINGS:
+        ShowSettingsDialog(hwnd_, instance);
+        break;
+    case ID_HELP_SHORTCUTS:
+        ShowShortcutsDialog(hwnd_, instance);
+        break;
+    case ID_HELP_ABOUT:
+    case ID_HELP_AUTHORS:
+    case ID_HELP_LICENSE:
+    case ID_HELP_CREDITS:
+        ShowAboutDialog(hwnd_, instance);
         break;
     case ID_VIEW_ADDONS:
-        ShowView(View::Extensions);
+        ShowView(currentView_ == View::Extensions ? View::Downloads : View::Extensions);
         break;
     case ID_VIEW_CATEGORIES:
         sidebarVisible_ = !sidebarVisible_;
+        menuBar_.SetCategoriesChecked(sidebarVisible_);
         sidebar_.SetVisible(SidebarShown());
         Relayout();
         break;
-    case ID_FILE_EXIT:
+    case ID_MODE_DARK:
+    case ID_MODE_LIGHT:
+    case ID_MODE_SYSTEM:
+        menuBar_.SetTheme(commandId);
+        ShowSoon(commandId);
+        break;
+    case ID_LANG_EN:
+    case ID_LANG_FR:
+        menuBar_.SetLanguage(commandId);
+        ShowSoon(commandId);
+        break;
+    case ID_TASK_QUIT:
         DestroyWindow(hwnd_);
         break;
     default:
+        ShowSoon(commandId);
         break;
     }
 }

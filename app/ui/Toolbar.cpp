@@ -17,17 +17,17 @@ struct ButtonSpec {
 // A zero command marks a separator between two groups of actions.
 constexpr ButtonSpec kButtons[] = {
     {ID_TASK_ADD, ICON_ADD_URL, L"Ajouter une URL"},
-    {ID_DOWNLOAD_RESUME, ICON_RESUME, L"Reprendre"},
-    {ID_DOWNLOAD_STOP, ICON_STOP, L"Arrêter"},
+    {ID_FILE_START, ICON_RESUME, L"Reprendre"},
+    {ID_FILE_STOP, ICON_STOP, L"Arrêter"},
     {ID_DOWNLOAD_STOP_ALL, ICON_STOP_ALL, L"Tout arrêter"},
     {0, 0, nullptr},
     {ID_FILE_REMOVE, ICON_REMOVE, L"Supprimer"},
-    {ID_FILE_REMOVE_ALL, ICON_REMOVE_ALL, L"Tout supprimer"},
+    {ID_DOWNLOAD_DELETE_ALL, ICON_REMOVE_ALL, L"Tout supprimer"},
     {0, 0, nullptr},
     {ID_VIEW_SETTINGS, ICON_OPTIONS, L"Options"},
-    {ID_TASK_SCHEDULE, ICON_SCHEDULE, L"Planifier"},
+    {ID_DOWNLOAD_SCHEDULE, ICON_SCHEDULE, L"Planifier"},
     {ID_VIEW_ADDONS, ICON_ADDONS, L"Addons"},
-    {ID_TASK_SEARCH, ICON_SEARCH, L"Rechercher"},
+    {ID_DOWNLOAD_SEARCH, ICON_SEARCH, L"Rechercher"},
 };
 }  // namespace
 

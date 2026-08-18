@@ -49,8 +49,12 @@ BEGIN
     LTEXT           "Supprimer la sélection", IDC_STATIC, 96, 36, 148, 10
     LTEXT           "Ctrl + F", IDC_STATIC, 16, 54, 70, 10
     LTEXT           "Rechercher", IDC_STATIC, 96, 54, 148, 10
-    LTEXT           "Échap", IDC_STATIC, 16, 72, 70, 10
-    LTEXT           "Fermer la boîte de dialogue", IDC_STATIC, 96, 72, 148, 10
+    LTEXT           "Ctrl + Maj + V", IDC_STATIC, 16, 72, 70, 10
+    LTEXT           "Téléchargement par lot", IDC_STATIC, 96, 72, 148, 10
+    LTEXT           "F1", IDC_STATIC, 16, 90, 70, 10
+    LTEXT           "Aide", IDC_STATIC, 96, 90, 148, 10
+    LTEXT           "Échap", IDC_STATIC, 16, 108, 70, 10
+    LTEXT           "Fermer la boîte de dialogue", IDC_STATIC, 96, 108, 148, 10
     DEFPUSHBUTTON   "OK", IDOK, 102, 134, 56, 16, WS_TABSTOP
 END
 

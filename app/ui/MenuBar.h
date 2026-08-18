@@ -2,8 +2,14 @@
 
 #include <windows.h>
 
-// Builds the application menu bar and attaches it to a window.
+// Builds the application menu bar and keeps its checkable items in sync.
 class MenuBar {
 public:
     void AttachTo(HWND window);
+    void SetCategoriesChecked(bool checked);
+    void SetTheme(int commandId);
+    void SetLanguage(int commandId);
+
+private:
+    HMENU bar_ = nullptr;
 };
