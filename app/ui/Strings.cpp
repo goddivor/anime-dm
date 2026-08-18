@@ -143,6 +143,9 @@ constexpr Translation kTable[STR_COUNT] = {
      L"Right-click an episode to change its player."},
     {L"Chargement des lecteurs…", L"Loading the players…"},
     {L"Aucun lecteur", L"No player"},
+    {L"Affiche", L"Cover"},
+    {L"Enregistrer l'image", L"Save the image"},
+    {L"Image enregistrée.", L"Image saved."},
 
     {L"Catégories", L"Categories"},
     {L"Tous les animés", L"All anime"},

@@ -2,9 +2,9 @@
 
 #include <commctrl.h>
 #include <objbase.h>
-#include <windowsx.h>
 #include <shlobj.h>
 #include <shobjidl.h>
+#include <windowsx.h>
 
 #include <algorithm>
 #include <memory>
@@ -20,6 +20,7 @@
 #include "core/Text.h"
 #include "ui/AddSelection.h"
 #include "ui/Paint.h"
+#include "ui/PosterDialog.h"
 #include "ui/Resource.h"
 #include "ui/Strings.h"
 #include "ui/Theme.h"
@@ -28,13 +29,21 @@ namespace {
 
 constexpr UINT kLoaded = WM_APP + 1;
 constexpr UINT kHosters = WM_APP + 2;
-
-constexpr int kSourceIcon = 32;
-constexpr int kSourceCell = 44;
-constexpr int kCellWidth = 42;
-constexpr int kCellHeight = 28;
-constexpr int kCellGap = 6;
+constexpr float kRadius = 5.0f;
+constexpr int kGap = 14;
 constexpr wchar_t kAuto[] = L"Auto";
+
+// The controls that only make sense once an anime has answered.
+constexpr int kRevealed[] = {
+    IDC_ADD_POSTER, IDC_ADD_TITLE,     IDC_ADD_COUNT,     IDC_ADD_SEP1,
+    IDC_ADD_LBL_EPISODES, IDC_ADD_PLAYER, IDC_ADD_MODE_TEXT, IDC_ADD_MODE_LIST,
+    IDC_ADD_SELECTION, IDC_ADD_EPISODES, IDC_ADD_HINT,      IDC_ADD_COUNTER,
+};
+
+// The controls that sit under it and slide up while it is hidden.
+constexpr int kBottom[] = {
+    IDC_ADD_SEP2, IDC_ADD_LBL_DEST, IDC_ADD_DEST, IDC_ADD_BROWSE, IDOK, IDCANCEL,
+};
 
 // One episode as the source described it.
 struct Episode {
@@ -43,7 +52,7 @@ struct Episode {
     std::string url;
 };
 
-// What a load brought back from the source.
+// What a load brought back.
 struct Listing {
     bool ok = false;
     std::string title;
@@ -65,8 +74,6 @@ struct Screen {
     AddRequest* request = nullptr;
 
     std::vector<InstalledAddon> sources;
-    std::vector<HBITMAP> sourceIcons;
-    int source = 0;
 
     std::vector<std::string> playerOptions;
     std::wstring player = kAuto;
@@ -76,13 +83,15 @@ struct Screen {
     std::set<int> picked;
     std::string title;
     std::string url;
+
+    std::vector<uint8_t> posterBytes;
+    std::string posterUrl;
     HBITMAP poster = nullptr;
 
-    bool listMode = false;
+    bool listMode = true;
     bool busy = false;
-    int scroll = 0;
-    int columns = 1;
-    int hover = -1;
+    bool expanded = false;
+    int offset = 0;
 };
 
 std::wstring ReadText(HWND dialog, int control) {
@@ -94,6 +103,33 @@ std::wstring ReadText(HWND dialog, int control) {
     std::wstring text(static_cast<size_t>(length), L'\0');
     GetWindowTextW(field, text.data(), length + 1);
     return text;
+}
+
+RECT ClientRectOf(HWND dialog, int control) {
+    RECT bounds = {};
+    GetWindowRect(GetDlgItem(dialog, control), &bounds);
+    MapWindowPoints(nullptr, dialog, reinterpret_cast<POINT*>(&bounds), 2);
+    return bounds;
+}
+
+int RoundNumber(double number) {
+    return static_cast<int>(number + (number < 0 ? -0.5 : 0.5));
+}
+
+std::wstring Format(StringId id, int value) {
+    wchar_t text[128] = {};
+    wsprintfW(text, Str(id), value);
+    return text;
+}
+
+// The origin of a page, which image hosts ask for as a referer.
+std::string OriginOf(const std::string& url) {
+    size_t scheme = url.find("://");
+    if (scheme == std::string::npos) {
+        return std::string();
+    }
+    size_t slash = url.find('/', scheme + 3);
+    return slash == std::string::npos ? url : url.substr(0, slash);
 }
 
 std::wstring DefaultDestination() {
@@ -132,109 +168,54 @@ std::wstring PickFolder(HWND owner) {
     return chosen;
 }
 
-// The origin of a page, which image hosts ask for as a referer.
-std::string OriginOf(const std::string& url) {
-    size_t scheme = url.find("://");
-    if (scheme == std::string::npos) {
-        return std::string();
-    }
-    size_t slash = url.find('/', scheme + 3);
-    return slash == std::string::npos ? url : url.substr(0, slash);
-}
-
-std::wstring Format(StringId id, int value) {
-    wchar_t text[128] = {};
-    wsprintfW(text, Str(id), value);
-    return text;
-}
-
-int RoundNumber(double number) {
-    return static_cast<int>(number + (number < 0 ? -0.5 : 0.5));
-}
-
 }  // namespace
 
 // --- painting ---------------------------------------------------------------
 
 namespace {
 
-constexpr float kRadius = 5.0f;
-
 HFONT FontOf(HWND control) {
     return reinterpret_cast<HFONT>(SendMessageW(control, WM_GETFONT, 0, 0));
 }
 
-// Draws one source of the strip: its icon on a tile, filled when it is the one
-// the download will go through.
-void DrawSource(const DRAWITEMSTRUCT& draw, const Screen& screen) {
-    int index = static_cast<int>(draw.CtlID) - IDC_ADD_SOURCE_FIRST;
-    if (index < 0 || static_cast<size_t>(index) >= screen.sources.size()) {
-        return;
-    }
-
-    const ThemeColors& colors = ActiveTheme().Colors();
-    bool chosen = index == screen.source;
-    bool focused = (draw.itemState & ODS_FOCUS) != 0;
-
-    paint::RoundedRect(draw.hDC, draw.rcItem, kRadius, chosen ? colors.accent : colors.surface,
-                       chosen || focused ? colors.accent : colors.line, chosen ? 1.0f : 1.0f);
-
-    HBITMAP icon = static_cast<size_t>(index) < screen.sourceIcons.size()
-                       ? screen.sourceIcons[static_cast<size_t>(index)]
-                       : nullptr;
-    if (icon == nullptr) {
-        return;
-    }
-
-    HDC memory = CreateCompatibleDC(draw.hDC);
-    HBITMAP old = static_cast<HBITMAP>(SelectObject(memory, icon));
-    BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
-    int x = draw.rcItem.left + (draw.rcItem.right - draw.rcItem.left - kSourceIcon) / 2;
-    int y = draw.rcItem.top + (draw.rcItem.bottom - draw.rcItem.top - kSourceIcon) / 2;
-    AlphaBlend(draw.hDC, x, y, kSourceIcon, kSourceIcon, memory, 0, 0, kSourceIcon, kSourceIcon,
-               blend);
-    SelectObject(memory, old);
-    DeleteDC(memory);
-}
-
 // Draws the chip that opens the player menu.
 void DrawPlayer(const DRAWITEMSTRUCT& draw, const Screen& screen) {
-    const ThemeColors& colors = ActiveTheme().Colors();
+    const ThemeColors& colours = ActiveTheme().Colors();
     bool pressed = (draw.itemState & ODS_SELECTED) != 0;
 
-    paint::RoundedRect(draw.hDC, draw.rcItem, kRadius, pressed ? colors.hover : colors.surface,
-                       colors.line);
+    paint::RoundedRect(draw.hDC, draw.rcItem, kRadius, pressed ? colours.hover : colours.surface,
+                       colours.line);
 
     HFONT old = static_cast<HFONT>(SelectObject(draw.hDC, FontOf(draw.hwndItem)));
     RECT text = draw.rcItem;
     text.left += 10;
     text.right -= 20;
     std::wstring label = std::wstring(Str(STR_ADD_PLAYER_LABEL)) + L" " + screen.player;
-    paint::Label(draw.hDC, text, label, colors.text, DT_LEFT | DT_VCENTER | DT_END_ELLIPSIS);
+    paint::Label(draw.hDC, text, label, colours.text, DT_LEFT | DT_VCENTER | DT_END_ELLIPSIS);
 
     RECT arrow = draw.rcItem;
     arrow.left = arrow.right - 18;
-    paint::Label(draw.hDC, arrow, L"\u25BE", colors.text, DT_CENTER | DT_VCENTER);
+    paint::Label(draw.hDC, arrow, L"▾", colours.text, DT_CENTER | DT_VCENTER);
     SelectObject(draw.hDC, old);
 }
 
 // Draws one half of the mode switch, the active one filled.
 void DrawSegment(const DRAWITEMSTRUCT& draw, bool active, StringId label) {
-    const ThemeColors& colors = ActiveTheme().Colors();
-    paint::RoundedRect(draw.hDC, draw.rcItem, kRadius, active ? colors.accent : colors.surface,
-                       active ? colors.accent : colors.line);
+    const ThemeColors& colours = ActiveTheme().Colors();
+    paint::RoundedRect(draw.hDC, draw.rcItem, kRadius, active ? colours.accent : colours.surface,
+                       active ? colours.accent : colours.line);
 
     HFONT old = static_cast<HFONT>(SelectObject(draw.hDC, FontOf(draw.hwndItem)));
-    paint::Label(draw.hDC, draw.rcItem, Str(label), active ? colors.accentText : colors.text,
+    paint::Label(draw.hDC, draw.rcItem, Str(label), active ? colours.accentText : colours.text,
                  DT_CENTER | DT_VCENTER);
     SelectObject(draw.hDC, old);
 }
 
-// Draws the poster, or an empty slot until one arrives.
+// Draws the cover, which a click opens at full size.
 void DrawPoster(const DRAWITEMSTRUCT& draw, const Screen& screen) {
-    const ThemeColors& colors = ActiveTheme().Colors();
+    const ThemeColors& colours = ActiveTheme().Colors();
     if (screen.poster == nullptr) {
-        paint::RoundedRect(draw.hDC, draw.rcItem, kRadius, colors.surface, colors.line);
+        paint::RoundedRect(draw.hDC, draw.rcItem, kRadius, colours.surface, colours.line);
         return;
     }
 
@@ -249,80 +230,90 @@ void DrawPoster(const DRAWITEMSTRUCT& draw, const Screen& screen) {
     DeleteDC(memory);
 }
 
-// Draws the episode grid: one tile per episode, the picked ones filled, the ones
-// carrying their own player outlined.
-void DrawGrid(const DRAWITEMSTRUCT& draw, Screen& screen) {
-    const ThemeColors& colors = ActiveTheme().Colors();
-    RECT bounds = draw.rcItem;
-
-    HBRUSH background = CreateSolidBrush(colors.window);
-    FillRect(draw.hDC, &bounds, background);
-    DeleteObject(background);
-
-    int width = bounds.right - bounds.left;
-    screen.columns = std::max(1, (width + kCellGap) / (kCellWidth + kCellGap));
-
-    HFONT old = static_cast<HFONT>(SelectObject(draw.hDC, FontOf(draw.hwndItem)));
-
-    for (size_t index = 0; index < screen.episodes.size(); ++index) {
-        int row = static_cast<int>(index) / screen.columns - screen.scroll;
-        int column = static_cast<int>(index) % screen.columns;
-        if (row < 0) {
-            continue;
-        }
-
-        RECT cell = {};
-        cell.left = bounds.left + column * (kCellWidth + kCellGap);
-        cell.top = bounds.top + row * (kCellHeight + kCellGap);
-        cell.right = cell.left + kCellWidth;
-        cell.bottom = cell.top + kCellHeight;
-        if (cell.top >= bounds.bottom) {
-            break;
-        }
-
-        bool chosen = screen.picked.count(static_cast<int>(index)) > 0;
-        bool hovered = screen.hover == static_cast<int>(index);
-        bool tuned = screen.playerByEpisode.count(static_cast<int>(index)) > 0;
-
-        COLORREF fill = chosen ? colors.accent : (hovered ? colors.hover : colors.surface);
-        COLORREF border = tuned ? colors.text : (chosen ? colors.accent : colors.line);
-        paint::RoundedRect(draw.hDC, cell, kRadius, fill, border, tuned ? 2.0f : 1.0f);
-
-        std::wstring label = std::to_wstring(RoundNumber(screen.episodes[index].number));
-        paint::Label(draw.hDC, cell, label, chosen ? colors.accentText : colors.text,
-                     DT_CENTER | DT_VCENTER);
-    }
-
-    SelectObject(draw.hDC, old);
-}
-
-// Which episode a point of the grid falls on, or -1.
-int HitTest(HWND grid, const Screen& screen, POINT point) {
-    RECT bounds = {};
-    GetClientRect(grid, &bounds);
-    int column = point.x / (kCellWidth + kCellGap);
-    int row = point.y / (kCellHeight + kCellGap) + screen.scroll;
-    if (column < 0 || column >= screen.columns || row < 0) {
-        return -1;
-    }
-    if (point.x % (kCellWidth + kCellGap) > kCellWidth) {
-        return -1;
-    }
-    int index = row * screen.columns + column;
-    return static_cast<size_t>(index) < screen.episodes.size() ? index : -1;
-}
-
 }  // namespace
 
-// --- state ------------------------------------------------------------------
+// --- episodes ---------------------------------------------------------------
 
 namespace {
 
-// Keeps the typed selection and the picked tiles saying the same thing.
-void SyncFromText(HWND dialog, Screen& screen) {
-    std::vector<int> numbers =
-        selection::Parse(ReadText(dialog, IDC_ADD_SELECTION),
-                         static_cast<int>(screen.episodes.size()));
+// One column, no header: only the episode matters here.
+void InitEpisodeList(HWND dialog) {
+    HWND list = GetDlgItem(dialog, IDC_ADD_EPISODES);
+    ListView_SetExtendedListViewStyle(
+        list, LVS_EX_CHECKBOXES | LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
+
+    RECT bounds = {};
+    GetClientRect(list, &bounds);
+
+    LVCOLUMNW column = {};
+    column.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
+    column.iSubItem = 0;
+    column.cx = bounds.right - 4;
+    column.pszText = const_cast<wchar_t*>(Str(STR_DLG_ADD_EPISODES));
+    ListView_InsertColumn(list, 0, &column);
+}
+
+// The label of a row: the episode, and its own player when it has one.
+std::wstring RowLabel(const Screen& screen, size_t index) {
+    wchar_t text[128] = {};
+    auto tuned = screen.playerByEpisode.find(static_cast<int>(index));
+    if (tuned != screen.playerByEpisode.end()) {
+        wsprintfW(text, L"Ep %03d   ·   %s", RoundNumber(screen.episodes[index].number),
+                  Widen(tuned->second).c_str());
+    } else {
+        wsprintfW(text, L"Ep %03d", RoundNumber(screen.episodes[index].number));
+    }
+    return text;
+}
+
+// Shows the episodes the source answered.
+void FillEpisodeList(HWND dialog, const Screen& screen) {
+    HWND list = GetDlgItem(dialog, IDC_ADD_EPISODES);
+    ListView_DeleteAllItems(list);
+
+    for (size_t index = 0; index < screen.episodes.size(); ++index) {
+        std::wstring label = RowLabel(screen, index);
+        LVITEMW item = {};
+        item.mask = LVIF_TEXT;
+        item.iItem = static_cast<int>(index);
+        item.pszText = label.data();
+        ListView_InsertItem(list, &item);
+    }
+}
+
+// Rewrites the labels after a per-episode player changed.
+void RefreshLabels(HWND dialog, const Screen& screen) {
+    HWND list = GetDlgItem(dialog, IDC_ADD_EPISODES);
+    for (size_t index = 0; index < screen.episodes.size(); ++index) {
+        std::wstring label = RowLabel(screen, index);
+        ListView_SetItemText(list, static_cast<int>(index), 0, label.data());
+    }
+}
+
+// Reads the ticked rows back into the picked set.
+void ReadChecks(HWND dialog, Screen& screen) {
+    HWND list = GetDlgItem(dialog, IDC_ADD_EPISODES);
+    screen.picked.clear();
+    for (size_t index = 0; index < screen.episodes.size(); ++index) {
+        if (ListView_GetCheckState(list, static_cast<int>(index))) {
+            screen.picked.insert(static_cast<int>(index));
+        }
+    }
+}
+
+// Ticks the rows the picked set names.
+void ApplyChecks(HWND dialog, const Screen& screen) {
+    HWND list = GetDlgItem(dialog, IDC_ADD_EPISODES);
+    for (size_t index = 0; index < screen.episodes.size(); ++index) {
+        ListView_SetCheckState(list, static_cast<int>(index),
+                               screen.picked.count(static_cast<int>(index)) > 0);
+    }
+}
+
+// Reads the typed ranges into the picked set.
+void ReadTyped(HWND dialog, Screen& screen) {
+    std::vector<int> numbers = selection::Parse(ReadText(dialog, IDC_ADD_SELECTION),
+                                                static_cast<int>(screen.episodes.size()));
     std::set<int> wanted(numbers.begin(), numbers.end());
 
     screen.picked.clear();
@@ -333,7 +324,8 @@ void SyncFromText(HWND dialog, Screen& screen) {
     }
 }
 
-void SyncFromPicked(HWND dialog, const Screen& screen) {
+// Writes the picked set back as ranges.
+void WriteTyped(HWND dialog, const Screen& screen) {
     std::vector<int> numbers;
     for (int index : screen.picked) {
         numbers.push_back(RoundNumber(screen.episodes[static_cast<size_t>(index)].number));
@@ -341,21 +333,52 @@ void SyncFromPicked(HWND dialog, const Screen& screen) {
     SetDlgItemTextW(dialog, IDC_ADD_SELECTION, selection::Collapse(numbers).c_str());
 }
 
-// Matches every control to the state: mode, counters, availability.
+}  // namespace
+
+// --- layout -----------------------------------------------------------------
+
+namespace {
+
+// The dialog opens on the link alone; everything the anime brings only appears
+// once a source has answered, and the window grows to make room for it.
+void SetExpanded(HWND dialog, Screen& screen, bool expanded) {
+    if (screen.expanded == expanded) {
+        return;
+    }
+    screen.expanded = expanded;
+
+    int shift = expanded ? screen.offset : -screen.offset;
+    for (int control : kBottom) {
+        RECT bounds = ClientRectOf(dialog, control);
+        SetWindowPos(GetDlgItem(dialog, control), nullptr, bounds.left, bounds.top + shift, 0, 0,
+                     SWP_NOSIZE | SWP_NOZORDER);
+    }
+    for (int control : kRevealed) {
+        ShowWindow(GetDlgItem(dialog, control), expanded ? SW_SHOW : SW_HIDE);
+    }
+
+    RECT frame = {};
+    GetWindowRect(dialog, &frame);
+    SetWindowPos(dialog, nullptr, 0, 0, frame.right - frame.left,
+                 frame.bottom - frame.top + shift, SWP_NOMOVE | SWP_NOZORDER);
+    InvalidateRect(dialog, nullptr, TRUE);
+}
+
+// Matches every control to the state.
 void Refresh(HWND dialog, Screen& screen) {
     bool loaded = !screen.episodes.empty();
     bool idle = !screen.busy;
 
-    ShowWindow(GetDlgItem(dialog, IDC_ADD_SELECTION), !screen.listMode && loaded ? SW_SHOW : SW_HIDE);
-    ShowWindow(GetDlgItem(dialog, IDC_ADD_GRID), screen.listMode && loaded ? SW_SHOW : SW_HIDE);
-    for (int control : {IDC_ADD_ALL, IDC_ADD_NONE, IDC_ADD_HINT}) {
-        ShowWindow(GetDlgItem(dialog, control), screen.listMode && loaded ? SW_SHOW : SW_HIDE);
-    }
-    for (int control : {IDC_ADD_MODE_TEXT, IDC_ADD_MODE_LIST, IDC_ADD_COUNTER}) {
-        ShowWindow(GetDlgItem(dialog, control), loaded ? SW_SHOW : SW_HIDE);
-    }
+    SetExpanded(dialog, screen, loaded);
 
     if (loaded) {
+        ShowWindow(GetDlgItem(dialog, IDC_ADD_SELECTION),
+                   screen.listMode ? SW_HIDE : SW_SHOW);
+        ShowWindow(GetDlgItem(dialog, IDC_ADD_EPISODES), screen.listMode ? SW_SHOW : SW_HIDE);
+        ShowWindow(GetDlgItem(dialog, IDC_ADD_HINT), screen.listMode ? SW_SHOW : SW_HIDE);
+        ShowWindow(GetDlgItem(dialog, IDC_ADD_PLAYER),
+                   screen.playerOptions.empty() ? SW_HIDE : SW_SHOW);
+
         SetDlgItemTextW(dialog, IDC_ADD_COUNT,
                         Format(STR_ADD_EPISODE_COUNT, static_cast<int>(screen.episodes.size()))
                             .c_str());
@@ -363,39 +386,53 @@ void Refresh(HWND dialog, Screen& screen) {
         wsprintfW(counter, L"%d / %d", static_cast<int>(screen.picked.size()),
                   static_cast<int>(screen.episodes.size()));
         SetDlgItemTextW(dialog, IDC_ADD_COUNTER, counter);
+
+        for (int control : {IDC_ADD_PLAYER, IDC_ADD_MODE_TEXT, IDC_ADD_MODE_LIST}) {
+            InvalidateRect(GetDlgItem(dialog, control), nullptr, TRUE);
+        }
+        InvalidateRect(GetDlgItem(dialog, IDC_ADD_POSTER), nullptr, TRUE);
     }
 
-    int chosen = screen.listMode ? static_cast<int>(screen.picked.size())
-                                 : static_cast<int>(selection::Parse(
-                                       ReadText(dialog, IDC_ADD_SELECTION),
-                                       static_cast<int>(screen.episodes.size()))
-                                                        .size());
+    int chosen = static_cast<int>(screen.picked.size());
     SetDlgItemTextW(dialog, IDOK, Format(STR_ADD_DOWNLOAD_COUNT, chosen).c_str());
-
-    ShowWindow(GetDlgItem(dialog, IDC_ADD_PLAYER),
-               screen.playerOptions.empty() ? SW_HIDE : SW_SHOW);
-    for (int control : {IDC_ADD_PLAYER, IDC_ADD_MODE_TEXT, IDC_ADD_MODE_LIST}) {
-        InvalidateRect(GetDlgItem(dialog, control), nullptr, TRUE);
-    }
 
     EnableWindow(GetDlgItem(dialog, IDC_ADD_FETCH), idle && !screen.sources.empty());
     EnableWindow(GetDlgItem(dialog, IDC_ADD_BROWSE), idle);
     EnableWindow(GetDlgItem(dialog, IDOK), idle && chosen > 0);
     EnableWindow(GetDlgItem(dialog, IDCANCEL), idle);
+}
 
-    InvalidateRect(GetDlgItem(dialog, IDC_ADD_GRID), nullptr, TRUE);
-    InvalidateRect(GetDlgItem(dialog, IDC_ADD_POSTER), nullptr, TRUE);
+// Fills the source list with what is installed.
+void FillSources(HWND dialog, const Screen& screen) {
+    HWND combo = GetDlgItem(dialog, IDC_ADD_SOURCE);
+    for (const InstalledAddon& source : screen.sources) {
+        std::wstring label = Widen(source.name) + L"  (" + Widen(source.lang) + L")";
+        SendMessageW(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label.c_str()));
+    }
+    if (!screen.sources.empty()) {
+        SendMessageW(combo, CB_SETCURSEL, 0, 0);
+    } else {
+        SendMessageW(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(Str(STR_ADD_NO_SOURCE)));
+        SendMessageW(combo, CB_SETCURSEL, 0, 0);
+    }
+}
+
+int ChosenSource(HWND dialog, const Screen& screen) {
+    int index = static_cast<int>(SendDlgItemMessageW(dialog, IDC_ADD_SOURCE, CB_GETCURSEL, 0, 0));
+    return index >= 0 && static_cast<size_t>(index) < screen.sources.size() ? index : -1;
 }
 
 // Reads the players the chosen source declares, to fill the global menu.
-void LoadPlayerOptions(Screen& screen) {
+void LoadPlayerOptions(HWND dialog, Screen& screen) {
     screen.playerOptions.clear();
     screen.player = kAuto;
-    if (screen.sources.empty()) {
+
+    int index = ChosenSource(dialog, screen);
+    if (index < 0) {
         return;
     }
 
-    const std::string& id = screen.sources[static_cast<size_t>(screen.source)].id;
+    const std::string& id = screen.sources[static_cast<size_t>(index)].id;
     std::unique_ptr<Addon> addon =
         Addon::Load(screen.store->LibraryPath(id), *screen.http, screen.store->ReadConfig(id));
     if (!addon) {
@@ -409,52 +446,17 @@ void LoadPlayerOptions(Screen& screen) {
     }
 }
 
-// Builds one owner-drawn button per installed source.
-void BuildSourceStrip(HWND dialog, Screen& screen) {
-    HWND area = GetDlgItem(dialog, IDC_ADD_SOURCES);
-    RECT bounds = {};
-    GetWindowRect(area, &bounds);
-    MapWindowPoints(nullptr, dialog, reinterpret_cast<POINT*>(&bounds), 2);
-    ShowWindow(area, SW_HIDE);
-
-    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(dialog, GWLP_HINSTANCE));
-    int x = bounds.left;
-    int id = IDC_ADD_SOURCE_FIRST;
-
-    for (const InstalledAddon& source : screen.sources) {
-        HWND button = CreateWindowExW(0, WC_BUTTONW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP |
-                                                              BS_OWNERDRAW,
-                                      x, bounds.top, kSourceCell, kSourceCell, dialog,
-                                      reinterpret_cast<HMENU>(static_cast<UINT_PTR>(id)), instance,
-                                      nullptr);
-        std::wstring tip = Widen(source.name);
-        SendMessageW(button, WM_SETTEXT, 0, reinterpret_cast<LPARAM>(tip.c_str()));
-        x += kSourceCell + 6;
-        ++id;
-    }
-}
-
-// Decodes the icons of the installed sources once, for the strip.
-void LoadSourceIcons(Screen& screen) {
-    for (const InstalledAddon& source : screen.sources) {
-        StoreEntry entry;
-        entry.id = source.id;
-        entry.installed = true;
-        screen.sourceIcons.push_back(
-            image::DecodeSquare(screen.store->IconBytes(entry), kSourceIcon));
-    }
-}
-
 }  // namespace
 
 // --- work off the interface thread ------------------------------------------
 
 namespace {
 
-// Asks the source for the anime, its episodes and its poster.
+// Asks the source for the anime, its episodes and its cover.
 void StartLoad(HWND dialog, Screen& screen) {
     std::string url = Narrow(ReadText(dialog, IDC_ADD_URL));
-    if (url.empty() || screen.sources.empty()) {
+    int index = ChosenSource(dialog, screen);
+    if (url.empty() || index < 0) {
         return;
     }
 
@@ -462,7 +464,7 @@ void StartLoad(HWND dialog, Screen& screen) {
     screen.url = url;
     Refresh(dialog, screen);
 
-    const std::string& id = screen.sources[static_cast<size_t>(screen.source)].id;
+    const std::string& id = screen.sources[static_cast<size_t>(index)].id;
     std::wstring library = screen.store->LibraryPath(id);
     std::map<std::string, std::string> config = screen.store->ReadConfig(id);
     Http* http = screen.http;
@@ -513,8 +515,12 @@ void StartHosters(HWND dialog, Screen& screen, int index) {
     if (index < 0 || static_cast<size_t>(index) >= screen.episodes.size()) {
         return;
     }
+    int source = ChosenSource(dialog, screen);
+    if (source < 0) {
+        return;
+    }
 
-    const std::string& id = screen.sources[static_cast<size_t>(screen.source)].id;
+    const std::string& id = screen.sources[static_cast<size_t>(source)].id;
     std::wstring library = screen.store->LibraryPath(id);
     std::map<std::string, std::string> config = screen.store->ReadConfig(id);
     std::string url = screen.episodes[static_cast<size_t>(index)].url;
@@ -553,11 +559,8 @@ std::wstring PickPlayer(HWND dialog, const std::vector<std::string>& names,
         UINT id = 1;
         for (const std::string& name : names) {
             std::wstring label = Widen(name);
-            UINT flags = MF_STRING;
-            if (label == current) {
-                flags |= MF_CHECKED;
-            }
-            AppendMenuW(menu, flags, id, label.c_str());
+            AppendMenuW(menu, label == current ? (MF_STRING | MF_CHECKED) : MF_STRING, id,
+                        label.c_str());
             ++id;
         }
     }
@@ -584,8 +587,6 @@ void Retranslate(HWND dialog) {
     SetDialogText(dialog, IDC_ADD_LBL_URL, STR_DLG_ADD_URL);
     SetDialogText(dialog, IDC_ADD_FETCH, STR_DLG_ADD_FETCH);
     SetDialogText(dialog, IDC_ADD_LBL_EPISODES, STR_DLG_ADD_EPISODES);
-    SetDialogText(dialog, IDC_ADD_ALL, STR_ADD_SELECT_ALL);
-    SetDialogText(dialog, IDC_ADD_NONE, STR_ADD_SELECT_NONE);
     SetDialogText(dialog, IDC_ADD_HINT, STR_ADD_PLAYER_HINT);
     SetDialogText(dialog, IDC_ADD_LBL_DEST, STR_DLG_ADD_DEST);
     SetDialogText(dialog, IDC_ADD_BROWSE, STR_DLG_BROWSE);
@@ -594,28 +595,30 @@ void Retranslate(HWND dialog) {
 
 // Gathers what the user picked into the answer handed to the caller.
 void Confirm(HWND dialog, Screen& screen) {
-    std::set<int> chosen = screen.picked;
     if (!screen.listMode) {
-        SyncFromText(dialog, screen);
-        chosen = screen.picked;
+        ReadTyped(dialog, screen);
     }
-    if (chosen.empty()) {
+    if (screen.picked.empty()) {
+        return;
+    }
+    int source = ChosenSource(dialog, screen);
+    if (source < 0) {
         return;
     }
 
     AddRequest& request = *screen.request;
-    request.addonId = screen.sources[static_cast<size_t>(screen.source)].id;
+    request.addonId = screen.sources[static_cast<size_t>(source)].id;
     request.animeTitle = screen.title;
     request.animeUrl = screen.url;
     request.destination = ReadText(dialog, IDC_ADD_DEST);
     request.episodes.clear();
 
-    for (int index : chosen) {
-        const Episode& source = screen.episodes[static_cast<size_t>(index)];
+    for (int index : screen.picked) {
+        const Episode& source_episode = screen.episodes[static_cast<size_t>(index)];
         AddRequestEpisode episode;
-        episode.number = source.number;
-        episode.name = source.name;
-        episode.url = source.url;
+        episode.number = source_episode.number;
+        episode.name = source_episode.name;
+        episode.url = source_episode.url;
 
         auto tuned = screen.playerByEpisode.find(index);
         if (tuned != screen.playerByEpisode.end()) {
@@ -626,101 +629,6 @@ void Confirm(HWND dialog, Screen& screen) {
         request.episodes.push_back(std::move(episode));
     }
     EndDialog(dialog, IDOK);
-}
-
-// Frees the bitmaps the dialog decoded.
-void ReleaseArtwork(Screen& screen) {
-    for (HBITMAP icon : screen.sourceIcons) {
-        if (icon != nullptr) {
-            DeleteObject(icon);
-        }
-    }
-    screen.sourceIcons.clear();
-    if (screen.poster != nullptr) {
-        DeleteObject(screen.poster);
-        screen.poster = nullptr;
-    }
-}
-
-// How many rows of tiles fit, and how far the grid may scroll.
-int MaxScroll(HWND grid, const Screen& screen) {
-    RECT bounds = {};
-    GetClientRect(grid, &bounds);
-    int rows = (static_cast<int>(screen.episodes.size()) + screen.columns - 1) / screen.columns;
-    int visible = std::max(1, static_cast<int>(bounds.bottom + kCellGap) /
-                                  (kCellHeight + kCellGap));
-    return std::max(0, rows - visible);
-}
-
-// A static draws the grid but says nothing of the mouse, so it is subclassed:
-// a click toggles an episode, a right-click chooses its player.
-LRESULT CALLBACK GridProc(HWND grid, UINT msg, WPARAM wParam, LPARAM lParam, UINT_PTR id,
-                          DWORD_PTR data) {
-    auto* screen = reinterpret_cast<Screen*>(data);
-    HWND dialog = GetParent(grid);
-
-    switch (msg) {
-    // A static answers HTTRANSPARENT by default, so the mouse would go straight
-    // through the grid and never reach the clicks below.
-    case WM_NCHITTEST:
-        return HTCLIENT;
-
-    case WM_MOUSEMOVE: {
-        POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
-        int index = HitTest(grid, *screen, point);
-        if (index != screen->hover) {
-            screen->hover = index;
-            InvalidateRect(grid, nullptr, TRUE);
-        }
-        TRACKMOUSEEVENT track = {};
-        track.cbSize = sizeof(track);
-        track.dwFlags = TME_LEAVE;
-        track.hwndTrack = grid;
-        TrackMouseEvent(&track);
-        return 0;
-    }
-
-    case WM_MOUSELEAVE:
-        if (screen->hover != -1) {
-            screen->hover = -1;
-            InvalidateRect(grid, nullptr, TRUE);
-        }
-        return 0;
-
-    case WM_LBUTTONDOWN: {
-        POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
-        int index = HitTest(grid, *screen, point);
-        if (index >= 0) {
-            if (screen->picked.count(index) > 0) {
-                screen->picked.erase(index);
-            } else {
-                screen->picked.insert(index);
-            }
-            Refresh(dialog, *screen);
-        }
-        return 0;
-    }
-    case WM_RBUTTONDOWN: {
-        POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
-        int index = HitTest(grid, *screen, point);
-        if (index >= 0) {
-            StartHosters(dialog, *screen, index);
-        }
-        return 0;
-    }
-    case WM_MOUSEWHEEL: {
-        int step = GET_WHEEL_DELTA_WPARAM(wParam) > 0 ? -1 : 1;
-        screen->scroll = std::max(0, std::min(screen->scroll + step, MaxScroll(grid, *screen)));
-        InvalidateRect(grid, nullptr, TRUE);
-        return 0;
-    }
-    case WM_NCDESTROY:
-        RemoveWindowSubclass(grid, GridProc, id);
-        break;
-    default:
-        break;
-    }
-    return DefSubclassProc(grid, msg, wParam, lParam);
 }
 
 INT_PTR CALLBACK AddDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -735,19 +643,23 @@ INT_PTR CALLBACK AddDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lPar
     case WM_INITDIALOG: {
         SetWindowLongPtrW(dialog, GWLP_USERDATA, lParam);
         screen = reinterpret_cast<Screen*>(lParam);
+
         Retranslate(dialog);
-        LoadSourceIcons(*screen);
-        BuildSourceStrip(dialog, *screen);
-        LoadPlayerOptions(*screen);
+        FillSources(dialog, *screen);
+        InitEpisodeList(dialog);
         SetDlgItemTextW(dialog, IDC_ADD_DEST, DefaultDestination().c_str());
-        SetDlgItemTextW(dialog, IDC_ADD_SELECTION, L"");
-        SetWindowSubclass(GetDlgItem(dialog, IDC_ADD_GRID), GridProc, 1,
-                          reinterpret_cast<DWORD_PTR>(screen));
+        LoadPlayerOptions(dialog, *screen);
+
+        // How far the bottom of the dialog rides up while the anime block is
+        // hidden: the gap between the link row and the rule above the folder.
+        RECT link = ClientRectOf(dialog, IDC_ADD_URL);
+        RECT rule = ClientRectOf(dialog, IDC_ADD_SEP2);
+        screen->offset = rule.top - link.bottom - kGap;
+        screen->expanded = true;
+        SetExpanded(dialog, *screen, false);
+
         ActiveTheme().ApplyToDialog(dialog);
         Refresh(dialog, *screen);
-        if (screen->sources.empty()) {
-            SetDlgItemTextW(dialog, IDC_ADD_TITLE, Str(STR_ADD_NO_SOURCE));
-        }
         return TRUE;
     }
 
@@ -756,16 +668,8 @@ INT_PTR CALLBACK AddDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lPar
         if (screen == nullptr) {
             return FALSE;
         }
-        if (draw->CtlID >= IDC_ADD_SOURCE_FIRST) {
-            DrawSource(*draw, *screen);
-            return TRUE;
-        }
         if (draw->CtlID == IDC_ADD_POSTER) {
             DrawPoster(*draw, *screen);
-            return TRUE;
-        }
-        if (draw->CtlID == IDC_ADD_GRID) {
-            DrawGrid(*draw, *screen);
             return TRUE;
         }
         if (draw->CtlID == IDC_ADD_PLAYER) {
@@ -786,35 +690,40 @@ INT_PTR CALLBACK AddDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lPar
     case kLoaded: {
         std::unique_ptr<Listing> listing(reinterpret_cast<Listing*>(lParam));
         screen->busy = false;
+
+        if (screen->poster != nullptr) {
+            DeleteObject(screen->poster);
+            screen->poster = nullptr;
+        }
+
         if (listing->ok) {
             screen->title = listing->title;
-            screen->episodes.clear();
-            for (Episode& episode : listing->episodes) {
-                screen->episodes.push_back(std::move(episode));
-            }
+            screen->posterUrl = listing->posterUrl;
+            screen->posterBytes = std::move(listing->poster);
+            screen->episodes = std::move(listing->episodes);
+            screen->playerByEpisode.clear();
+
             screen->picked.clear();
             for (size_t index = 0; index < screen->episodes.size(); ++index) {
                 screen->picked.insert(static_cast<int>(index));
             }
-            screen->playerByEpisode.clear();
-            screen->scroll = 0;
 
-            if (screen->poster != nullptr) {
-                DeleteObject(screen->poster);
-                screen->poster = nullptr;
-            }
-            if (!listing->poster.empty()) {
+            if (!screen->posterBytes.empty()) {
                 RECT slot = {};
                 GetClientRect(GetDlgItem(dialog, IDC_ADD_POSTER), &slot);
-                screen->poster = image::Decode(listing->poster, slot.right, slot.bottom);
+                screen->poster = image::Decode(screen->posterBytes, slot.right, slot.bottom);
             }
 
             SetDlgItemTextW(dialog, IDC_ADD_TITLE, Widen(screen->title).c_str());
-            SyncFromPicked(dialog, *screen);
+            FillEpisodeList(dialog, *screen);
+            ApplyChecks(dialog, *screen);
+            WriteTyped(dialog, *screen);
         } else {
             screen->episodes.clear();
             screen->picked.clear();
-            SetDlgItemTextW(dialog, IDC_ADD_TITLE, Str(STR_ADD_LOAD_FAILED));
+            screen->posterBytes.clear();
+            MessageBoxW(dialog, Str(STR_ADD_LOAD_FAILED), Str(STR_DLG_ADD_TITLE),
+                        MB_OK | MB_ICONWARNING);
         }
         Refresh(dialog, *screen);
         return TRUE;
@@ -830,26 +739,28 @@ INT_PTR CALLBACK AddDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lPar
         std::wstring chosen = PickPlayer(dialog, players->names, current, where);
         if (!chosen.empty()) {
             screen->playerByEpisode[players->episode] = Narrow(chosen);
-            Refresh(dialog, *screen);
+            RefreshLabels(dialog, *screen);
         }
         return TRUE;
     }
 
-    case WM_MOUSEWHEEL: {
-        if (screen == nullptr || !screen->listMode) {
+    case WM_NOTIFY: {
+        auto* notify = reinterpret_cast<NMHDR*>(lParam);
+        if (screen == nullptr || notify->idFrom != IDC_ADD_EPISODES) {
             return FALSE;
         }
-        HWND grid = GetDlgItem(dialog, IDC_ADD_GRID);
-        POINT where = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
-        RECT bounds = {};
-        GetWindowRect(grid, &bounds);
-        if (!PtInRect(&bounds, where)) {
-            return FALSE;
+        if (notify->code == LVN_ITEMCHANGED) {
+            auto* changed = reinterpret_cast<NMLISTVIEW*>(lParam);
+            if ((changed->uChanged & LVIF_STATE) != 0 &&
+                ((changed->uOldState ^ changed->uNewState) & LVIS_STATEIMAGEMASK) != 0) {
+                ReadChecks(dialog, *screen);
+                Refresh(dialog, *screen);
+            }
+        } else if (notify->code == NM_RCLICK) {
+            auto* clicked = reinterpret_cast<NMITEMACTIVATE*>(lParam);
+            StartHosters(dialog, *screen, clicked->iItem);
         }
-        int step = GET_WHEEL_DELTA_WPARAM(wParam) > 0 ? -1 : 1;
-        screen->scroll = std::max(0, std::min(screen->scroll + step, MaxScroll(grid, *screen)));
-        InvalidateRect(grid, nullptr, TRUE);
-        return TRUE;
+        return FALSE;
     }
 
     case WM_COMMAND: {
@@ -858,18 +769,18 @@ INT_PTR CALLBACK AddDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lPar
         }
         int control = LOWORD(wParam);
 
-        if (control >= IDC_ADD_SOURCE_FIRST &&
-            control < IDC_ADD_SOURCE_FIRST + static_cast<int>(screen->sources.size())) {
-            screen->source = control - IDC_ADD_SOURCE_FIRST;
-            LoadPlayerOptions(*screen);
-            for (size_t index = 0; index < screen->sources.size(); ++index) {
-                InvalidateRect(GetDlgItem(dialog, IDC_ADD_SOURCE_FIRST + static_cast<int>(index)),
-                               nullptr, TRUE);
-            }
+        if (control == IDC_ADD_POSTER && HIWORD(wParam) == STN_CLICKED) {
+            HINSTANCE instance =
+                reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(dialog, GWLP_HINSTANCE));
+            ShowPosterPreview(dialog, instance, screen->posterBytes, screen->title,
+                              screen->posterUrl);
+            return TRUE;
+        }
+        if (control == IDC_ADD_SOURCE && HIWORD(wParam) == CBN_SELCHANGE) {
+            LoadPlayerOptions(dialog, *screen);
             Refresh(dialog, *screen);
             return TRUE;
         }
-
         if (screen->busy) {
             return TRUE;
         }
@@ -897,30 +808,23 @@ INT_PTR CALLBACK AddDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lPar
         }
         case IDC_ADD_MODE_TEXT:
             if (screen->listMode) {
-                SyncFromPicked(dialog, *screen);
+                ReadChecks(dialog, *screen);
+                WriteTyped(dialog, *screen);
                 screen->listMode = false;
                 Refresh(dialog, *screen);
             }
             return TRUE;
         case IDC_ADD_MODE_LIST:
             if (!screen->listMode) {
-                SyncFromText(dialog, *screen);
+                ReadTyped(dialog, *screen);
+                ApplyChecks(dialog, *screen);
                 screen->listMode = true;
                 Refresh(dialog, *screen);
             }
             return TRUE;
-        case IDC_ADD_ALL:
-            for (size_t index = 0; index < screen->episodes.size(); ++index) {
-                screen->picked.insert(static_cast<int>(index));
-            }
-            Refresh(dialog, *screen);
-            return TRUE;
-        case IDC_ADD_NONE:
-            screen->picked.clear();
-            Refresh(dialog, *screen);
-            return TRUE;
         case IDC_ADD_SELECTION:
-            if (HIWORD(wParam) == EN_CHANGE) {
+            if (HIWORD(wParam) == EN_CHANGE && !screen->listMode) {
+                ReadTyped(dialog, *screen);
                 Refresh(dialog, *screen);
             }
             return TRUE;
@@ -943,8 +847,9 @@ INT_PTR CALLBACK AddDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lPar
     }
 
     case WM_DESTROY:
-        if (screen != nullptr) {
-            ReleaseArtwork(*screen);
+        if (screen != nullptr && screen->poster != nullptr) {
+            DeleteObject(screen->poster);
+            screen->poster = nullptr;
         }
         return FALSE;
 

@@ -80,6 +80,29 @@ HBITMAP Decode(const std::vector<uint8_t>& bytes, int width, int height) {
     return bitmap;
 }
 
+// Decodes an encoded image inside a box, keeping its proportions.
+HBITMAP Fit(const std::vector<uint8_t>& bytes, int width, int height) {
+    if (bytes.empty() || width <= 0 || height <= 0) {
+        return nullptr;
+    }
+
+    IStream* stream = SHCreateMemStream(bytes.data(), static_cast<UINT>(bytes.size()));
+    if (stream == nullptr) {
+        return nullptr;
+    }
+    Gdiplus::Bitmap source(stream, FALSE);
+    stream->Release();
+    if (source.GetLastStatus() != Gdiplus::Ok) {
+        return nullptr;
+    }
+
+    float scale = min(static_cast<float>(width) / static_cast<float>(source.GetWidth()),
+                      static_cast<float>(height) / static_cast<float>(source.GetHeight()));
+    int fitted = max(1, static_cast<int>(static_cast<float>(source.GetWidth()) * scale));
+    int tall = max(1, static_cast<int>(static_cast<float>(source.GetHeight()) * scale));
+    return Decode(bytes, fitted, tall);
+}
+
 // Decodes an encoded image into a square, ready for an image list.
 HBITMAP DecodeSquare(const std::vector<uint8_t>& bytes, int size) {
     return Decode(bytes, size, size);
