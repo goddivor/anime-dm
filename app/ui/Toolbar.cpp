@@ -10,6 +10,8 @@
 
 namespace {
 constexpr int kIconSize = 24;
+constexpr int kPaddingX = 18;
+constexpr int kPaddingY = 10;
 
 struct ButtonSpec {
     int command;
@@ -52,6 +54,7 @@ bool Toolbar::Create(HWND parent, HINSTANCE instance) {
     SendMessageW(hwnd_, TB_BUTTONSTRUCTSIZE, sizeof(TBBUTTON), 0);
     SendMessageW(hwnd_, TB_SETEXTENDEDSTYLE, 0, TBSTYLE_EX_MIXEDBUTTONS);
     SendMessageW(hwnd_, TB_SETBITMAPSIZE, 0, MAKELPARAM(kIconSize, kIconSize));
+    SendMessageW(hwnd_, TB_SETPADDING, 0, MAKELPARAM(kPaddingX, kPaddingY));
 
     imageList_ = CreateToolbarImageList(GetSysColor(COLOR_BTNTEXT));
     SendMessageW(hwnd_, TB_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(imageList_));

@@ -22,7 +22,6 @@ enum ToolbarIcon {
 enum CategoryIcon {
     CAT_FOLDER,
     CAT_ANIME,
-    CAT_EPISODE,
     CAT_QUEUE,
     CAT_TIMER,
     CAT_COUNT,
