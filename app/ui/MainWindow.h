@@ -25,6 +25,7 @@ private:
     void OnCommand(int commandId);
     void OnContextMenu(HWND target, int x, int y);
     void ShowView(View view);
+    bool SidebarShown() const;
     void Relayout();
     RECT SplitterRect() const;
     bool OnSetCursor();
@@ -44,5 +45,6 @@ private:
     ExtensionsView extensions_;
     View currentView_ = View::Downloads;
     int sidebarWidth_ = 230;
+    bool sidebarVisible_ = true;
     bool draggingSplitter_ = false;
 };

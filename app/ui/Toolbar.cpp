@@ -6,18 +6,29 @@
 #include "ui/IconFactory.h"
 
 namespace {
+constexpr int kIconSize = 32;
+
 struct ButtonSpec {
     int command;
     int icon;
     const wchar_t* text;
 };
 
+// A zero command marks a separator between two groups of actions.
 constexpr ButtonSpec kButtons[] = {
     {ID_TASK_ADD, ICON_ADD, L"Ajouter"},
     {ID_DOWNLOAD_RESUME, ICON_RESUME, L"Reprendre"},
     {ID_DOWNLOAD_STOP, ICON_STOP, L"Arrêter"},
+    {0, 0, nullptr},
+    {ID_DOWNLOAD_RESUME_ALL, ICON_RESUME_ALL, L"Tout reprendre"},
+    {ID_DOWNLOAD_STOP_ALL, ICON_STOP_ALL, L"Tout arrêter"},
     {ID_FILE_REMOVE, ICON_REMOVE, L"Supprimer"},
-    {ID_VIEW_SETTINGS, ICON_SETTINGS, L"Paramètres"},
+    {0, 0, nullptr},
+    {ID_TASK_SCHEDULE, ICON_SCHEDULE, L"Planification"},
+    {ID_VIEW_SETTINGS, ICON_SETTINGS, L"Options"},
+    {0, 0, nullptr},
+    {ID_VIEW_DOWNLOADS, ICON_DOWNLOADS, L"Téléchargements"},
+    {ID_VIEW_ADDONS, ICON_ADDONS, L"Extensions"},
 };
 }  // namespace
 
@@ -29,11 +40,11 @@ Toolbar::~Toolbar() {
     }
 }
 
-// Creates a flat, text-labelled toolbar pinned to the top of the parent.
+// Creates a flat toolbar of large icons with their captions underneath.
 bool Toolbar::Create(HWND parent, HINSTANCE instance) {
     hwnd_ = CreateWindowExW(
         0, TOOLBARCLASSNAMEW, nullptr,
-        WS_CHILD | WS_VISIBLE | TBSTYLE_FLAT | TBSTYLE_LIST | CCS_TOP,
+        WS_CHILD | WS_VISIBLE | TBSTYLE_FLAT | TBSTYLE_TOOLTIPS | CCS_TOP | CCS_NODIVIDER,
         0, 0, 0, 0, parent, nullptr, instance, nullptr);
     if (hwnd_ == nullptr) {
         return false;
@@ -41,12 +52,17 @@ bool Toolbar::Create(HWND parent, HINSTANCE instance) {
 
     SendMessageW(hwnd_, TB_BUTTONSTRUCTSIZE, sizeof(TBBUTTON), 0);
     SendMessageW(hwnd_, TB_SETEXTENDEDSTYLE, 0, TBSTYLE_EX_MIXEDBUTTONS);
+    SendMessageW(hwnd_, TB_SETBITMAPSIZE, 0, MAKELPARAM(kIconSize, kIconSize));
 
     imageList_ = CreateToolbarImageList();
     SendMessageW(hwnd_, TB_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(imageList_));
 
     TBBUTTON buttons[ARRAYSIZE(kButtons)] = {};
     for (size_t i = 0; i < ARRAYSIZE(kButtons); ++i) {
+        if (kButtons[i].command == 0) {
+            buttons[i].fsStyle = BTNS_SEP;
+            continue;
+        }
         buttons[i].iBitmap = kButtons[i].icon;
         buttons[i].idCommand = kButtons[i].command;
         buttons[i].fsState = TBSTATE_ENABLED;

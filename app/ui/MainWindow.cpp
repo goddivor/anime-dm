@@ -150,11 +150,16 @@ void MainWindow::ShowView(View view) {
     currentView_ = view;
 
     bool downloads = view == View::Downloads;
-    ShowWindow(sidebar_.Handle(), downloads ? SW_SHOW : SW_HIDE);
+    sidebar_.SetVisible(downloads && sidebarVisible_);
     ShowWindow(downloads_.Handle(), downloads ? SW_SHOW : SW_HIDE);
     extensions_.SetVisible(!downloads);
 
     Relayout();
+}
+
+// Reports whether the categories panel is currently part of the layout.
+bool MainWindow::SidebarShown() const {
+    return currentView_ == View::Downloads && sidebarVisible_;
 }
 
 // Lays out the toolbar, status bar and the active content view.
@@ -175,6 +180,11 @@ void MainWindow::Relayout() {
 
     if (currentView_ == View::Extensions) {
         extensions_.SetBounds(0, top, client.right, contentHeight);
+        return;
+    }
+
+    if (!sidebarVisible_) {
+        downloads_.SetBounds(0, top, client.right, contentHeight);
         return;
     }
 
@@ -203,7 +213,7 @@ RECT MainWindow::SplitterRect() const {
 
 // Shows the horizontal resize cursor while hovering the splitter band.
 bool MainWindow::OnSetCursor() {
-    if (currentView_ != View::Downloads) {
+    if (!SidebarShown()) {
         return false;
     }
     POINT pt = {};
@@ -220,7 +230,7 @@ bool MainWindow::OnSetCursor() {
 
 // Starts a splitter drag when the press lands on the splitter band.
 void MainWindow::OnLeftButtonDown(int x) {
-    if (currentView_ != View::Downloads) {
+    if (!SidebarShown()) {
         return;
     }
     if (x >= sidebarWidth_ && x < sidebarWidth_ + kSplitterWidth) {
@@ -277,6 +287,11 @@ void MainWindow::OnCommand(int commandId) {
     case ID_VIEW_ADDONS:
         ShowView(View::Extensions);
         break;
+    case ID_VIEW_CATEGORIES:
+        sidebarVisible_ = !sidebarVisible_;
+        sidebar_.SetVisible(SidebarShown());
+        Relayout();
+        break;
     case ID_FILE_EXIT:
         DestroyWindow(hwnd_);
         break;
@@ -315,6 +330,7 @@ void MainWindow::ApplyUiFont() {
     uiFont_ = CreateFontIndirectW(&metrics.lfMessageFont);
     SendMessageW(toolbar_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(sidebar_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
+    SendMessageW(sidebar_.HeaderHandle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(downloads_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(extensions_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(statusBar_, WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);

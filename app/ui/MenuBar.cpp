@@ -22,6 +22,8 @@ HMENU BuildDownloadMenu() {
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, ID_DOWNLOAD_RESUME_ALL, L"Tout reprendre");
     AppendMenuW(menu, MF_STRING, ID_DOWNLOAD_STOP_ALL, L"Tout arrêter");
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, MF_STRING, ID_TASK_SCHEDULE, L"Planification");
     return menu;
 }
 
@@ -30,6 +32,8 @@ HMENU BuildViewMenu() {
     HMENU menu = CreatePopupMenu();
     AppendMenuW(menu, MF_STRING, ID_VIEW_DOWNLOADS, L"Téléchargements");
     AppendMenuW(menu, MF_STRING, ID_VIEW_ADDONS, L"Extensions");
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, MF_STRING, ID_VIEW_CATEGORIES, L"Catégories");
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, ID_VIEW_SETTINGS, L"Paramètres");
     return menu;
