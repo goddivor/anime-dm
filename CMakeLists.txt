@@ -52,7 +52,7 @@ if(MSVC)
     target_compile_options(anime-dm PRIVATE /W4 /utf-8 /permissive-)
 endif()
 
-target_link_libraries(anime-dm PRIVATE comctl32 gdiplus dwmapi uxtheme winhttp bcrypt shlwapi ole32)
+target_link_libraries(anime-dm PRIVATE comctl32 gdiplus dwmapi uxtheme winhttp bcrypt shlwapi ole32 msimg32)
 
 # MinGW needs -municode to accept wWinMain as the entry point; MSVC detects it on its own.
 if(MINGW)
