@@ -629,7 +629,8 @@ int MaxScroll(HWND grid, const Screen& screen) {
     RECT bounds = {};
     GetClientRect(grid, &bounds);
     int rows = (static_cast<int>(screen.episodes.size()) + screen.columns - 1) / screen.columns;
-    int visible = std::max(1, (bounds.bottom + kCellGap) / (kCellHeight + kCellGap));
+    int visible = std::max(1, static_cast<int>(bounds.bottom + kCellGap) /
+                                  (kCellHeight + kCellGap));
     return std::max(0, rows - visible);
 }
 
