@@ -92,7 +92,7 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         OnContextMenu(reinterpret_cast<HWND>(wParam), GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
         return 0;
     case WM_ERASEBKGND: {
-        HBRUSH brush = theme_.WindowBrush();
+        HBRUSH brush = ActiveTheme().WindowBrush();
         if (brush == nullptr) {
             break;
         }
@@ -124,9 +124,9 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         break;
     }
     case WM_SETTINGCHANGE:
-        if (theme_.Mode() == ThemeMode::System && lParam != 0 &&
+        if (ActiveTheme().Mode() == ThemeMode::System && lParam != 0 &&
             lstrcmpiW(reinterpret_cast<const wchar_t*>(lParam), L"ImmersiveColorSet") == 0) {
-            theme_.SetMode(ThemeMode::System);
+            ActiveTheme().SetMode(ThemeMode::System);
             ApplyTheme();
         }
         break;
@@ -167,7 +167,7 @@ void MainWindow::OnCreate() {
 
     themeCommand_ = ID_MODE_SYSTEM;
     languageCommand_ = ID_LANG_FR;
-    theme_.SetMode(ThemeMode::System);
+    ActiveTheme().SetMode(ThemeMode::System);
 
     menuBar_.AttachTo(hwnd_);
     menuBar_.SetCategoriesChecked(sidebarVisible_);
@@ -193,12 +193,12 @@ void MainWindow::OnCreate() {
 
 // Pushes the active palette onto the frame and every child control.
 void MainWindow::ApplyTheme() {
-    theme_.ApplyToFrame(hwnd_);
+    ActiveTheme().ApplyToFrame(hwnd_);
     menuBar_.ApplyTheme(theme_, hwnd_);
     menuBar_.SetCategoriesChecked(sidebarVisible_);
     menuBar_.SetTheme(themeCommand_);
     menuBar_.SetLanguage(languageCommand_);
-    theme_.ApplyToList(downloads_.Handle());
+    ActiveTheme().ApplyToList(downloads_.Handle());
     sidebar_.ApplyTheme(theme_);
     toolbar_.ApplyTheme(theme_);
     InvalidateRect(hwnd_, nullptr, TRUE);
@@ -237,7 +237,7 @@ LRESULT MainWindow::OnListCustomDraw(NMLVCUSTOMDRAW* draw) {
     GetClientRect(list, &client);
 
     HDC dc = draw->nmcd.hdc;
-    HPEN pen = CreatePen(PS_SOLID, 1, theme_.Colors().line);
+    HPEN pen = CreatePen(PS_SOLID, 1, ActiveTheme().Colors().line);
     HPEN previous = static_cast<HPEN>(SelectObject(dc, pen));
 
     int columns = Header_GetItemCount(header);
@@ -259,10 +259,10 @@ LRESULT MainWindow::OnListCustomDraw(NMLVCUSTOMDRAW* draw) {
 LRESULT MainWindow::OnToolbarCustomDraw(NMTBCUSTOMDRAW* draw) {
     switch (draw->nmcd.dwDrawStage) {
     case CDDS_PREPAINT:
-        FillRect(draw->nmcd.hdc, &draw->nmcd.rc, theme_.SurfaceBrush());
+        FillRect(draw->nmcd.hdc, &draw->nmcd.rc, ActiveTheme().SurfaceBrush());
         return CDRF_NOTIFYITEMDRAW;
     case CDDS_ITEMPREPAINT:
-        draw->clrText = theme_.Colors().text;
+        draw->clrText = ActiveTheme().Colors().text;
         return TBCDRF_USECDCOLORS;
     default:
         return CDRF_DODEFAULT;
@@ -405,7 +405,7 @@ void MainWindow::OnCommand(int commandId) {
     case ID_MODE_LIGHT:
     case ID_MODE_SYSTEM:
         themeCommand_ = commandId;
-        theme_.SetMode(commandId == ID_MODE_DARK    ? ThemeMode::Dark
+        ActiveTheme().SetMode(commandId == ID_MODE_DARK    ? ThemeMode::Dark
                        : commandId == ID_MODE_LIGHT ? ThemeMode::Light
                                                     : ThemeMode::System);
         menuBar_.SetTheme(commandId);

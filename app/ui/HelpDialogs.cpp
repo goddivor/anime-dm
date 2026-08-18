@@ -1,6 +1,7 @@
 #include "ui/HelpDialogs.h"
 
 #include "ui/Resource.h"
+#include "ui/Theme.h"
 #include "ui/Strings.h"
 
 namespace {
@@ -29,8 +30,14 @@ void RetranslateShortcuts(HWND dialog) {
 
 // Generic procedure for static information dialogs: closes on OK/Cancel.
 INT_PTR CALLBACK InfoDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
+    INT_PTR colour = 0;
+    if (ThemeDialogMessage(msg, wParam, &colour)) {
+        return colour;
+    }
+
     switch (msg) {
     case WM_INITDIALOG:
+        ActiveTheme().ApplyToDialog(dialog);
         if (lParam == IDD_SHORTCUTS) {
             RetranslateShortcuts(dialog);
         } else {

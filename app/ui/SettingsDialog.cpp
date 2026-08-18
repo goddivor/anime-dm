@@ -1,6 +1,7 @@
 #include "ui/SettingsDialog.h"
 
 #include "ui/Resource.h"
+#include "ui/Theme.h"
 #include "ui/Strings.h"
 
 namespace {
@@ -49,8 +50,14 @@ void InitControls(HWND dialog) {
 
 // Dialog procedure: combos and toggles are live; persistence is a stub.
 INT_PTR CALLBACK SettingsDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
+    INT_PTR colour = 0;
+    if (ThemeDialogMessage(msg, wParam, &colour)) {
+        return colour;
+    }
+
     switch (msg) {
     case WM_INITDIALOG:
+        ActiveTheme().ApplyToDialog(dialog);
         InitControls(dialog);
         return TRUE;
     case WM_COMMAND:

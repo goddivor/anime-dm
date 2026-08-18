@@ -42,7 +42,6 @@ private:
     Toolbar toolbar_;
     Sidebar sidebar_;
     DownloadsView downloads_;
-    Theme theme_;
     int themeCommand_ = 0;
     int languageCommand_ = 0;
     int sidebarWidth_ = 230;

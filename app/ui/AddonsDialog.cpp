@@ -3,6 +3,7 @@
 #include <commctrl.h>
 
 #include "ui/Resource.h"
+#include "ui/Theme.h"
 #include "ui/Strings.h"
 
 namespace {
@@ -44,8 +45,14 @@ void InitList(HWND dialog) {
 
 // Dialog procedure: the list fills in once the addon registry is wired up.
 INT_PTR CALLBACK AddonsDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
+    INT_PTR colour = 0;
+    if (ThemeDialogMessage(msg, wParam, &colour)) {
+        return colour;
+    }
+
     switch (msg) {
     case WM_INITDIALOG:
+        ActiveTheme().ApplyToDialog(dialog);
         Retranslate(dialog);
         InitList(dialog);
         return TRUE;

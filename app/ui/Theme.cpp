@@ -172,3 +172,69 @@ void Theme::ApplyToTree(HWND tree) const {
     TreeView_SetLineColor(tree, colors_.line);
     InvalidateRect(tree, nullptr, TRUE);
 }
+
+namespace {
+
+// Pushes the palette onto one child control of a dialog.
+BOOL CALLBACK ThemeChild(HWND child, LPARAM data) {
+    const Theme& theme = *reinterpret_cast<const Theme*>(data);
+    bool dark = theme.IsDark();
+
+    wchar_t name[64] = {};
+    GetClassNameW(child, name, ARRAYSIZE(name));
+
+    if (lstrcmpiW(name, WC_LISTVIEWW) == 0) {
+        theme.ApplyToList(child);
+    } else if (lstrcmpiW(name, WC_TREEVIEWW) == 0) {
+        theme.ApplyToTree(child);
+    } else if (lstrcmpiW(name, WC_EDITW) == 0 || lstrcmpiW(name, WC_COMBOBOXW) == 0) {
+        SetWindowTheme(child, dark ? L"DarkMode_CFD" : L"CFD", nullptr);
+    } else if (lstrcmpiW(name, WC_BUTTONW) == 0) {
+        SetWindowTheme(child, dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
+    }
+    return TRUE;
+}
+
+}  // namespace
+
+// Repaints a dialog and its controls with the active palette.
+void Theme::ApplyToDialog(HWND dialog) const {
+    BOOL dark = colors_.dark ? TRUE : FALSE;
+    if (FAILED(DwmSetWindowAttribute(dialog, kImmersiveDarkMode, &dark, sizeof(dark)))) {
+        DwmSetWindowAttribute(dialog, kImmersiveDarkModeLegacy, &dark, sizeof(dark));
+    }
+    EnumChildWindows(dialog, ThemeChild, reinterpret_cast<LPARAM>(this));
+}
+
+// Returns the brush a control should paint its background with, or zero to
+// leave the default handling in charge.
+INT_PTR Theme::ControlColor(HDC dc, bool input) const {
+    if (!colors_.dark) {
+        return 0;
+    }
+    SetTextColor(dc, colors_.text);
+    SetBkColor(dc, input ? colors_.window : colors_.surface);
+    return reinterpret_cast<INT_PTR>(input ? window_ : surface_);
+}
+
+// The palette every window of the application shares.
+Theme& ActiveTheme() {
+    static Theme theme;
+    return theme;
+}
+
+// Answers the colour messages common to every dialog; true when handled.
+bool ThemeDialogMessage(UINT msg, WPARAM wParam, INT_PTR* result) {
+    bool input = msg == WM_CTLCOLOREDIT || msg == WM_CTLCOLORLISTBOX;
+    bool surface = msg == WM_CTLCOLORDLG || msg == WM_CTLCOLORSTATIC || msg == WM_CTLCOLORBTN;
+    if (!input && !surface) {
+        return false;
+    }
+
+    INT_PTR brush = ActiveTheme().ControlColor(reinterpret_cast<HDC>(wParam), input);
+    if (brush == 0) {
+        return false;
+    }
+    *result = brush;
+    return true;
+}

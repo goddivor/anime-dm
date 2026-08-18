@@ -33,12 +33,21 @@ public:
     void ApplyToFrame(HWND window) const;
     void ApplyToList(HWND list) const;
     void ApplyToTree(HWND tree) const;
+    void ApplyToDialog(HWND dialog) const;
+    INT_PTR ControlColor(HDC dc, bool input) const;
 
 private:
     void Refresh();
+
 
     ThemeMode mode_ = ThemeMode::System;
     ThemeColors colors_ = {};
     HBRUSH window_ = nullptr;
     HBRUSH surface_ = nullptr;
 };
+
+// The palette every window of the application shares.
+Theme& ActiveTheme();
+
+// Answers the colour messages common to every dialog; true when handled.
+bool ThemeDialogMessage(UINT msg, WPARAM wParam, INT_PTR* result);
