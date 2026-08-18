@@ -164,11 +164,11 @@ bool MainWindow::SidebarShown() const {
 
 // Lays out the toolbar, status bar and the active content view.
 void MainWindow::Relayout() {
-    toolbar_.Resize();
-    SendMessageW(statusBar_, WM_SIZE, 0, 0);
-
     RECT client = {};
     GetClientRect(hwnd_, &client);
+
+    toolbar_.Layout(client.right);
+    SendMessageW(statusBar_, WM_SIZE, 0, 0);
 
     int top = toolbar_.Height();
 

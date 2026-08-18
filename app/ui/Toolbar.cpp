@@ -8,8 +8,10 @@
 namespace {
 constexpr int kIconSize = 24;
 constexpr int kSearchWidth = 280;
+constexpr int kSearchMinWidth = 120;
 constexpr int kSearchHeight = 26;
 constexpr int kSearchMargin = 12;
+constexpr int kSearchGap = 16;
 
 struct ButtonSpec {
     int command;
@@ -77,31 +79,39 @@ bool Toolbar::Create(HWND parent, HINSTANCE instance) {
     search_ = CreateWindowExW(
         WS_EX_CLIENTEDGE, WC_EDITW, L"",
         WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
-        0, 0, 0, 0, hwnd_, reinterpret_cast<HMENU>(ID_SEARCH_BOX), instance, nullptr);
+        0, 0, 0, 0, parent, reinterpret_cast<HMENU>(ID_SEARCH_BOX), instance, nullptr);
     SendMessageW(search_, EM_SETCUEBANNER, TRUE, reinterpret_cast<LPARAM>(L"rechercher..."));
-    LayoutSearchBox();
     return true;
 }
 
-// Pins the search box to the right edge of the toolbar, vertically centred.
-void Toolbar::LayoutSearchBox() {
+// Fits the search box in the space the buttons leave, hiding it when too tight.
+void Toolbar::LayoutSearchBox(int clientWidth, int barHeight) {
     if (search_ == nullptr) {
         return;
     }
-    RECT bar = {};
-    GetClientRect(hwnd_, &bar);
-    int top = (bar.bottom - kSearchHeight) / 2;
+
+    SIZE buttons = {};
+    SendMessageW(hwnd_, TB_GETMAXSIZE, 0, reinterpret_cast<LPARAM>(&buttons));
+
+    int available = clientWidth - buttons.cx - kSearchGap - kSearchMargin;
+    if (available < kSearchMinWidth) {
+        ShowWindow(search_, SW_HIDE);
+        return;
+    }
+
+    int width = available < kSearchWidth ? available : kSearchWidth;
+    int top = (barHeight - kSearchHeight) / 2;
     if (top < 0) {
         top = 0;
     }
-    int left = bar.right - kSearchWidth - kSearchMargin;
-    MoveWindow(search_, left, top, kSearchWidth, kSearchHeight, TRUE);
+    MoveWindow(search_, clientWidth - width - kSearchMargin, top, width, kSearchHeight, TRUE);
+    ShowWindow(search_, SW_SHOW);
 }
 
-// Re-runs auto-sizing so the toolbar and its search box track the parent width.
-void Toolbar::Resize() {
+// Re-runs auto-sizing, then places the search box in the leftover width.
+void Toolbar::Layout(int clientWidth) {
     SendMessageW(hwnd_, TB_AUTOSIZE, 0, 0);
-    LayoutSearchBox();
+    LayoutSearchBox(clientWidth, Height());
 }
 
 // Returns the toolbar height in pixels for layout calculations.
