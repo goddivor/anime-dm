@@ -2,6 +2,7 @@
 
 #include <windows.h>
 
+#include <filesystem>
 #include <fstream>
 
 #include "core/Digest.h"
@@ -37,7 +38,7 @@ bool Flag(const nlohmann::json& object, const char* key) {
 }
 
 std::optional<nlohmann::json> ReadJsonFile(const std::wstring& path) {
-    std::ifstream file(path, std::ios::binary);
+    std::ifstream file(std::filesystem::path(path), std::ios::binary);
     if (!file) {
         return std::nullopt;
     }
@@ -45,8 +46,8 @@ std::optional<nlohmann::json> ReadJsonFile(const std::wstring& path) {
     return parsed.is_discarded() ? std::nullopt : std::optional<nlohmann::json>(parsed);
 }
 
-bool WriteFile(const std::wstring& path, const void* data, size_t size) {
-    std::ofstream file(path, std::ios::binary | std::ios::trunc);
+bool WriteBytes(const std::wstring& path, const void* data, size_t size) {
+    std::ofstream file(std::filesystem::path(path), std::ios::binary | std::ios::trunc);
     if (!file) {
         return false;
     }
@@ -181,7 +182,7 @@ bool AddonStore::WriteConfig(const std::string& id,
         return false;
     }
     std::string text = nlohmann::json(config).dump(2);
-    return WriteFile(dir + L"\\config.json", text.data(), text.size());
+    return WriteBytes(dir + L"\\config.json", text.data(), text.size());
 }
 
 // Reads the index and marks what is already installed.
@@ -270,7 +271,7 @@ std::optional<InstalledAddon> AddonStore::Install(const StoreEntry& entry,
         Fail(error, "the installation folder could not be created");
         return std::nullopt;
     }
-    if (!WriteFile(dir + L"\\addon.dll", library->data(), library->size())) {
+    if (!WriteBytes(dir + L"\\addon.dll", library->data(), library->size())) {
         Fail(error, "the library could not be written");
         return std::nullopt;
     }
@@ -278,7 +279,7 @@ std::optional<InstalledAddon> AddonStore::Install(const StoreEntry& entry,
     if (!entry.icon.empty()) {
         if (std::optional<std::vector<uint8_t>> icon =
                 http_.GetBytes(Resolve(kIndexUrl, entry.icon))) {
-            WriteFile(dir + L"\\icon.png", icon->data(), icon->size());
+            WriteBytes(dir + L"\\icon.png", icon->data(), icon->size());
         }
     }
 
@@ -295,7 +296,7 @@ std::optional<InstalledAddon> AddonStore::Install(const StoreEntry& entry,
                            {"version", addon.version},
                            {"nsfw", addon.nsfw}};
     std::string text = meta.dump(2);
-    if (!WriteFile(dir + L"\\meta.json", text.data(), text.size())) {
+    if (!WriteBytes(dir + L"\\meta.json", text.data(), text.size())) {
         Fail(error, "the metadata could not be written");
         return std::nullopt;
     }
