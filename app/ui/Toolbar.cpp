@@ -17,16 +17,13 @@ struct ButtonSpec {
     StringId text;
 };
 
-// A zero command marks a separator between two groups of actions.
 constexpr ButtonSpec kButtons[] = {
     {ID_TASK_ADD, ICON_ADD_URL, STR_TB_ADD},
     {ID_FILE_START, ICON_RESUME, STR_TB_RESUME},
     {ID_FILE_STOP, ICON_STOP, STR_TB_STOP},
     {ID_DOWNLOAD_STOP_ALL, ICON_STOP_ALL, STR_TB_STOP_ALL},
-    {0, 0, STR_TB_ADD},
     {ID_FILE_REMOVE, ICON_REMOVE, STR_TB_REMOVE},
     {ID_DOWNLOAD_DELETE_ALL, ICON_REMOVE_ALL, STR_TB_REMOVE_ALL},
-    {0, 0, STR_TB_ADD},
     {ID_VIEW_SETTINGS, ICON_OPTIONS, STR_TB_OPTIONS},
     {ID_DOWNLOAD_SCHEDULE, ICON_SCHEDULE, STR_TB_SCHEDULE},
     {ID_VIEW_ADDONS, ICON_ADDONS, STR_TB_ADDONS},
