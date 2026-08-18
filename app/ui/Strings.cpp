@@ -1,0 +1,194 @@
+#include "ui/Strings.h"
+
+#include <windows.h>
+
+namespace {
+
+struct Translation {
+    const wchar_t* fr;
+    const wchar_t* en;
+};
+
+// Every user-visible string, in declaration order of the StringId enum.
+constexpr Translation kTable[STR_COUNT] = {
+    {L"Tâches", L"Tasks"},
+    {L"Fichier", L"File"},
+    {L"Téléchargement", L"Downloads"},
+    {L"Affichage", L"View"},
+    {L"Aide", L"Help"},
+
+    {L"Ajout URL\tCtrl+N", L"Add URL\tCtrl+N"},
+    {L"Téléchargement manuel", L"Manual download"},
+    {L"Téléchargement par lot depuis presse-papiers\tCtrl+Maj+V",
+     L"Batch download from clipboard\tCtrl+Shift+V"},
+    {L"Exporter", L"Export"},
+    {L"Importer", L"Import"},
+    {L"Vers un fichier d'exportation d'ADM", L"To an ADM export file"},
+    {L"Vers un fichier texte (.txt)", L"To a text file (.txt)"},
+    {L"Vers un fichier JSON (.json)", L"To a JSON file (.json)"},
+    {L"Vers un tableur (.xlsx, .csv, .ods)", L"To a spreadsheet (.xlsx, .csv, .ods)"},
+    {L"Depuis un fichier d'exportation d'ADM", L"From an ADM export file"},
+    {L"Depuis un fichier texte (.txt)", L"From a text file (.txt)"},
+    {L"Depuis un fichier JSON (.json)", L"From a JSON file (.json)"},
+    {L"Depuis un tableur (.xlsx, .csv, .ods)", L"From a spreadsheet (.xlsx, .csv, .ods)"},
+    {L"Quitter", L"Quit"},
+
+    {L"Démarrer le téléchargement", L"Start download"},
+    {L"Arrêter le téléchargement", L"Stop download"},
+    {L"Re-télécharger", L"Redownload"},
+    {L"Supprimer\tSuppr", L"Delete\tDel"},
+
+    {L"Tout arrêter", L"Stop all"},
+    {L"Supprimer les terminés", L"Remove completed"},
+    {L"Tout supprimer", L"Delete all"},
+    {L"Rechercher\tCtrl+F", L"Find\tCtrl+F"},
+    {L"Planifier", L"Schedule"},
+    {L"Démarrer file d'attente", L"Start queue"},
+    {L"Arrêter file d'attente", L"Stop queue"},
+    {L"File principale", L"Main queue"},
+    {L"File du planificateur", L"Scheduler queue"},
+    {L"Limiteur de vitesse", L"Speed limiter"},
+    {L"Activer", L"Enable"},
+    {L"Désactiver", L"Disable"},
+    {L"Paramètres", L"Settings"},
+    {L"Booster de vitesse", L"Speed booster"},
+
+    {L"Addon Store", L"Addon Store"},
+    {L"Panneau Catégories", L"Categories panel"},
+    {L"Classer les fichiers", L"Sort files"},
+    {L"Par ordre d'ajout", L"By date added"},
+    {L"Par nom de fichier", L"By file name"},
+    {L"Par taille", L"By size"},
+    {L"Par statut", L"By status"},
+    {L"Par temps restant", L"By time left"},
+    {L"Par vitesse", L"By speed"},
+    {L"Par date du dernier essai", L"By last try"},
+    {L"Par emplacement", L"By location"},
+    {L"Par adresse", L"By address"},
+    {L"Par page web parente", L"By parent page"},
+    {L"Barre d'outils", L"Toolbar"},
+    {L"Personnaliser la barre d'outils", L"Customise the toolbar"},
+    {L"Interface", L"Interface"},
+    {L"Personnaliser les colonnes", L"Customise columns"},
+    {L"Mode", L"Mode"},
+    {L"Sombre", L"Dark"},
+    {L"Claire", L"Light"},
+    {L"Système", L"System"},
+    {L"Police", L"Font"},
+    {L"Sélectionner la police", L"Select the font"},
+    {L"Rétablir la police par défaut", L"Reset the default font"},
+    {L"Langue", L"Language"},
+
+    {L"Aide\tF1", L"Help\tF1"},
+    {L"Raccourcis", L"Shortcuts"},
+    {L"Mise à jour rapide", L"Quick update"},
+    {L"À propos", L"About"},
+    {L"Auteurs", L"Authors"},
+    {L"Licence", L"Licence"},
+    {L"Crédits", L"Credits"},
+
+    {L"Ajout URL", L"Add URL"},
+    {L"Reprendre", L"Resume"},
+    {L"Arrêter", L"Stop"},
+    {L"Tout arrêter", L"Stop all"},
+    {L"Supprimer", L"Delete"},
+    {L"Tout supprimer", L"Delete all"},
+    {L"Options", L"Options"},
+    {L"Planifier", L"Schedule"},
+    {L"Addons", L"Addons"},
+    {L"Rechercher", L"Find"},
+
+    {L"Nom du fichier", L"File name"},
+    {L"Taille", L"Size"},
+    {L"Statut", L"Status"},
+    {L"Temps restant", L"Time left"},
+    {L"Débit de téléchargement", L"Download speed"},
+    {L"Date du dernier essai", L"Last try date"},
+    {L"Date d'ajout", L"Date added"},
+
+    {L"Nom", L"Name"},
+    {L"Langue", L"Language"},
+    {L"Version", L"Version"},
+    {L"Statut", L"Status"},
+
+    {L"Catégories", L"Categories"},
+    {L"Tous les animés", L"All anime"},
+    {L"File d'attente", L"Queue"},
+
+    {L"Information", L"Notice"},
+    {L"« %s » : à venir", L"“%s”: coming soon"},
+
+    {L"Ouvrir", L"Open"},
+    {L"Ouvrir le dossier", L"Open folder"},
+
+    {L"Ajouter un téléchargement", L"Add a download"},
+    {L"Source :", L"Source:"},
+    {L"URL de l'animé :", L"Anime URL:"},
+    {L"Charger", L"Load"},
+    {L"Épisodes :", L"Episodes:"},
+    {L"Destination :", L"Destination:"},
+    {L"Télécharger", L"Download"},
+    {L"Paramètres", L"Settings"},
+    {L"Langue :", L"Language:"},
+    {L"Thème :", L"Theme:"},
+    {L"Icônes de dossier personnalisées", L"Custom folder icons"},
+    {L"Modèle d'icône :", L"Icon template:"},
+    {L"Dossier par défaut :", L"Default folder:"},
+    {L"(par défaut)", L"(default)"},
+    {L"Rechercher", L"Find"},
+    {L"Rechercher :", L"Find:"},
+    {L"Dans :", L"In:"},
+    {L"Rechercher", L"Find"},
+    {L"Tout", L"Everything"},
+    {L"Nom du fichier", L"File name"},
+    {L"Animé", L"Anime"},
+    {L"Adresse", L"Address"},
+    {L"Animé", L"Anime"},
+    {L"À propos", L"About"},
+    {L"Gestionnaire de téléchargement d'animés pour Windows (C++ / Win32).",
+     L"Anime download manager for Windows (C++ / Win32)."},
+    {L"Raccourcis clavier", L"Keyboard shortcuts"},
+    {L"Ajouter un téléchargement", L"Add a download"},
+    {L"Supprimer la sélection", L"Delete the selection"},
+    {L"Rechercher", L"Find"},
+    {L"Téléchargement par lot", L"Batch download"},
+    {L"Aide", L"Help"},
+    {L"Fermer la boîte de dialogue", L"Close the dialog"},
+    {L"Suppr", L"Del"},
+    {L"Ctrl + Maj + V", L"Ctrl + Shift + V"},
+    {L"Échap", L"Esc"},
+    {L"Parcourir...", L"Browse..."},
+    {L"OK", L"OK"},
+    {L"Annuler", L"Cancel"},
+    {L"Fermer", L"Close"},
+};
+
+Language g_language = Language::French;
+
+}  // namespace
+
+// Switches the active language for every later lookup.
+void SetLanguage(Language language) {
+    g_language = language;
+}
+
+// Returns the currently active language.
+Language ActiveLanguage() {
+    return g_language;
+}
+
+// Returns the string for the active language.
+const wchar_t* Str(StringId id) {
+    const Translation& entry = kTable[id];
+    return g_language == Language::English ? entry.en : entry.fr;
+}
+
+// Applies a translated caption to a dialog control.
+void SetDialogText(void* dialog, int controlId, StringId id) {
+    SetDlgItemTextW(static_cast<HWND>(dialog), controlId, Str(id));
+}
+
+// Applies a translated caption to a dialog window.
+void SetDialogTitle(void* dialog, StringId id) {
+    SetWindowTextW(static_cast<HWND>(dialog), Str(id));
+}

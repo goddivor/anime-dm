@@ -11,15 +11,15 @@ STYLE DS_MODALFRAME | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Ajouter un téléchargement"
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    LTEXT           "Source :", IDC_STATIC, 12, 14, 52, 10
+    LTEXT           "Source :", IDC_ADD_LBL_SOURCE, 12, 14, 52, 10
     COMBOBOX        IDC_ADD_SOURCE, 68, 12, 160, 200, CBS_DROPDOWNLIST | WS_TABSTOP | WS_VSCROLL
-    LTEXT           "URL de l'animé :", IDC_STATIC, 12, 34, 52, 18
+    LTEXT           "URL de l'animé :", IDC_ADD_LBL_URL, 12, 34, 52, 18
     EDITTEXT        IDC_ADD_URL, 68, 32, 246, 14, ES_AUTOHSCROLL | WS_TABSTOP
     PUSHBUTTON      "Charger", IDC_ADD_FETCH, 320, 31, 88, 16, WS_TABSTOP
-    LTEXT           "Épisodes :", IDC_STATIC, 12, 56, 52, 10
+    LTEXT           "Épisodes :", IDC_ADD_LBL_EPISODES, 12, 56, 52, 10
     CONTROL         "", IDC_ADD_EPISODES, "SysListView32",
                     LVS_REPORT | LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP, 12, 68, 396, 148
-    LTEXT           "Destination :", IDC_STATIC, 12, 226, 52, 10
+    LTEXT           "Destination :", IDC_ADD_LBL_DEST, 12, 226, 52, 10
     EDITTEXT        IDC_ADD_DEST, 68, 224, 246, 14, ES_AUTOHSCROLL | WS_TABSTOP
     PUSHBUTTON      "Parcourir...", IDC_ADD_BROWSE, 320, 223, 88, 16, WS_TABSTOP
     DEFPUSHBUTTON   "Télécharger", IDOK, 288, 252, 60, 16, WS_TABSTOP
@@ -34,7 +34,7 @@ BEGIN
     LTEXT           "Anime Download Manager", IDC_STATIC, 16, 16, 228, 12
     LTEXT           "Version 0.1.0", IDC_STATIC, 16, 34, 228, 10
     LTEXT           "Gestionnaire de téléchargement d'animés pour Windows (C++ / Win32).",
-                    IDC_STATIC, 16, 52, 228, 24
+                    IDC_ABOUT_TAGLINE, 16, 52, 228, 24
     DEFPUSHBUTTON   "OK", IDOK, 102, 90, 56, 16, WS_TABSTOP
 END
 
@@ -44,11 +44,17 @@ CAPTION "Raccourcis clavier"
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT           "Ctrl + N", IDC_STATIC, 16, 18, 70, 10
-    LTEXT           "Ajouter un téléchargement", IDC_STATIC, 96, 18, 148, 10
-    LTEXT           "Suppr", IDC_STATIC, 16, 36, 70, 10
-    LTEXT           "Supprimer la sélection", IDC_STATIC, 96, 36, 148, 10
-    LTEXT           "Échap", IDC_STATIC, 16, 54, 70, 10
-    LTEXT           "Fermer la boîte de dialogue", IDC_STATIC, 96, 54, 148, 10
+    LTEXT           "Ajouter un téléchargement", IDC_SC_TXT_ADD, 96, 18, 148, 10
+    LTEXT           "Suppr", IDC_SC_KEY_DELETE, 16, 36, 70, 10
+    LTEXT           "Supprimer la sélection", IDC_SC_TXT_REMOVE, 96, 36, 148, 10
+    LTEXT           "Ctrl + F", IDC_STATIC, 16, 54, 70, 10
+    LTEXT           "Rechercher", IDC_SC_TXT_SEARCH, 96, 54, 148, 10
+    LTEXT           "Ctrl + Maj + V", IDC_SC_KEY_BATCH, 16, 72, 70, 10
+    LTEXT           "Téléchargement par lot", IDC_SC_TXT_BATCH, 96, 72, 148, 10
+    LTEXT           "F1", IDC_STATIC, 16, 90, 70, 10
+    LTEXT           "Aide", IDC_SC_TXT_HELP, 96, 90, 148, 10
+    LTEXT           "Échap", IDC_SC_KEY_ESCAPE, 16, 108, 70, 10
+    LTEXT           "Fermer la boîte de dialogue", IDC_SC_TXT_CLOSE, 96, 108, 148, 10
     DEFPUSHBUTTON   "OK", IDOK, 102, 134, 56, 16, WS_TABSTOP
 END
 
@@ -57,16 +63,50 @@ STYLE DS_MODALFRAME | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Paramètres"
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    LTEXT           "Langue :", IDC_STATIC, 16, 18, 84, 10
+    LTEXT           "Langue :", IDC_SET_LBL_LANG, 16, 18, 84, 10
     COMBOBOX        IDC_SET_LANG, 110, 16, 160, 120, CBS_DROPDOWNLIST | WS_TABSTOP | WS_VSCROLL
-    LTEXT           "Thème :", IDC_STATIC, 16, 40, 84, 10
+    LTEXT           "Thème :", IDC_SET_LBL_THEME, 16, 40, 84, 10
     COMBOBOX        IDC_SET_THEME, 110, 38, 160, 120, CBS_DROPDOWNLIST | WS_TABSTOP | WS_VSCROLL
     AUTOCHECKBOX    "Icônes de dossier personnalisées", IDC_SET_FOLDER_ICONS, 16, 62, 254, 12, WS_TABSTOP
-    LTEXT           "Modèle d'icône :", IDC_STATIC, 16, 82, 84, 10
+    LTEXT           "Modèle d'icône :", IDC_SET_LBL_TEMPLATE, 16, 82, 84, 10
     COMBOBOX        IDC_SET_TEMPLATE, 110, 80, 160, 120, CBS_DROPDOWNLIST | WS_TABSTOP | WS_VSCROLL
-    LTEXT           "Dossier par défaut :", IDC_STATIC, 16, 104, 84, 18
+    LTEXT           "Dossier par défaut :", IDC_SET_LBL_DLDIR, 16, 104, 84, 18
     EDITTEXT        IDC_SET_DLDIR, 110, 102, 108, 14, ES_AUTOHSCROLL | WS_TABSTOP
     PUSHBUTTON      "Parcourir...", IDC_SET_BROWSE, 222, 101, 48, 16, WS_TABSTOP
     DEFPUSHBUTTON   "OK", IDOK, 178, 174, 56, 16, WS_TABSTOP
     PUSHBUTTON      "Annuler", IDCANCEL, 238, 174, 52, 16, WS_TABSTOP
+END
+
+IDD_SEARCH DIALOGEX 0, 0, 340, 220
+STYLE DS_MODALFRAME | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Rechercher"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT           "Rechercher :", IDC_SEARCH_LBL_QUERY, 12, 16, 44, 10
+    EDITTEXT        IDC_SEARCH_QUERY, 60, 14, 200, 14, ES_AUTOHSCROLL | WS_TABSTOP
+    DEFPUSHBUTTON   "Rechercher", IDOK, 266, 13, 62, 16, WS_TABSTOP
+    LTEXT           "Dans :", IDC_SEARCH_LBL_SCOPE, 12, 38, 44, 10
+    COMBOBOX        IDC_SEARCH_SCOPE, 60, 36, 120, 120, CBS_DROPDOWNLIST | WS_TABSTOP | WS_VSCROLL
+    CONTROL         "", IDC_SEARCH_RESULTS, "SysListView32",
+                    LVS_REPORT | LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP, 12, 58, 316, 132
+    PUSHBUTTON      "Fermer", IDCANCEL, 272, 196, 56, 16, WS_TABSTOP
+END
+
+IDD_NOTICE DIALOGEX 0, 0, 230, 92
+STYLE DS_MODALFRAME | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Information"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT           "", IDC_NOTICE_TEXT, 16, 18, 198, 34
+    DEFPUSHBUTTON   "OK", IDOK, 87, 64, 56, 16, WS_TABSTOP
+END
+
+IDD_ADDONS DIALOGEX 0, 0, 380, 240
+STYLE DS_MODALFRAME | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Addon Store"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    CONTROL         "", IDC_ADDONS_LIST, "SysListView32",
+                    LVS_REPORT | LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP, 12, 12, 356, 190
+    PUSHBUTTON      "Fermer", IDCANCEL, 312, 214, 56, 16, WS_TABSTOP
 END

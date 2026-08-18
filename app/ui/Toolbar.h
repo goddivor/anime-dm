@@ -3,6 +3,8 @@
 #include <windows.h>
 #include <commctrl.h>
 
+class Theme;
+
 // Owns the top toolbar control with the primary download actions.
 class Toolbar {
 public:
@@ -10,6 +12,8 @@ public:
 
     bool Create(HWND parent, HINSTANCE instance);
     void Resize();
+    void Retranslate();
+    void ApplyTheme(const Theme& theme);
     int Height() const;
     HWND Handle() const { return hwnd_; }
 

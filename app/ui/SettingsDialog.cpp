@@ -1,6 +1,8 @@
 #include "ui/SettingsDialog.h"
 
 #include "ui/Resource.h"
+#include "ui/Theme.h"
+#include "ui/Strings.h"
 
 namespace {
 
@@ -15,18 +17,32 @@ void SyncTemplateState(HWND dialog) {
     EnableWindow(GetDlgItem(dialog, IDC_SET_TEMPLATE), enabled);
 }
 
+// Applies the active language to every caption of the dialog.
+void Retranslate(HWND dialog) {
+    SetDialogTitle(dialog, STR_DLG_SETTINGS_TITLE);
+    SetDialogText(dialog, IDC_SET_LBL_LANG, STR_DLG_SET_LANG);
+    SetDialogText(dialog, IDC_SET_LBL_THEME, STR_DLG_SET_THEME);
+    SetDialogText(dialog, IDC_SET_FOLDER_ICONS, STR_DLG_SET_FOLDER_ICONS);
+    SetDialogText(dialog, IDC_SET_LBL_TEMPLATE, STR_DLG_SET_TEMPLATE);
+    SetDialogText(dialog, IDC_SET_LBL_DLDIR, STR_DLG_SET_DLDIR);
+    SetDialogText(dialog, IDC_SET_BROWSE, STR_DLG_BROWSE);
+    SetDialogText(dialog, IDOK, STR_DLG_OK);
+    SetDialogText(dialog, IDCANCEL, STR_DLG_CANCEL);
+}
+
 // Fills the combos with their default options and initial selection.
 void InitControls(HWND dialog) {
+    Retranslate(dialog);
     AddOption(dialog, IDC_SET_LANG, L"Français");
     AddOption(dialog, IDC_SET_LANG, L"English");
     SendDlgItemMessageW(dialog, IDC_SET_LANG, CB_SETCURSEL, 0, 0);
 
-    AddOption(dialog, IDC_SET_THEME, L"Système");
-    AddOption(dialog, IDC_SET_THEME, L"Sombre");
-    AddOption(dialog, IDC_SET_THEME, L"Clair");
+    AddOption(dialog, IDC_SET_THEME, Str(STR_MODE_SYSTEM));
+    AddOption(dialog, IDC_SET_THEME, Str(STR_MODE_DARK));
+    AddOption(dialog, IDC_SET_THEME, Str(STR_MODE_LIGHT));
     SendDlgItemMessageW(dialog, IDC_SET_THEME, CB_SETCURSEL, 0, 0);
 
-    AddOption(dialog, IDC_SET_TEMPLATE, L"(par défaut)");
+    AddOption(dialog, IDC_SET_TEMPLATE, Str(STR_DLG_SET_DEFAULT_TEMPLATE));
     SendDlgItemMessageW(dialog, IDC_SET_TEMPLATE, CB_SETCURSEL, 0, 0);
 
     SyncTemplateState(dialog);
@@ -34,8 +50,14 @@ void InitControls(HWND dialog) {
 
 // Dialog procedure: combos and toggles are live; persistence is a stub.
 INT_PTR CALLBACK SettingsDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
+    INT_PTR colour = 0;
+    if (ThemeDialogMessage(msg, wParam, &colour)) {
+        return colour;
+    }
+
     switch (msg) {
     case WM_INITDIALOG:
+        ActiveTheme().ApplyToDialog(dialog);
         InitControls(dialog);
         return TRUE;
     case WM_COMMAND:

@@ -2,19 +2,22 @@
 
 #include <commctrl.h>
 
+#include "ui/Strings.h"
+
 namespace {
 struct Column {
-    const wchar_t* title;
+    StringId title;
     int width;
 };
 
 constexpr Column kColumns[] = {
-    {L"Nom du fichier", 360},
-    {L"Taille", 100},
-    {L"Progression", 120},
-    {L"Statut", 110},
-    {L"Vitesse", 100},
-    {L"Temps restant", 110},
+    {STR_COL_FILENAME, 320},
+    {STR_COL_SIZE, 90},
+    {STR_COL_STATUS, 120},
+    {STR_COL_TIME_LEFT, 110},
+    {STR_COL_SPEED, 150},
+    {STR_COL_LAST_TRY, 150},
+    {STR_COL_ADDED, 150},
 };
 }  // namespace
 
@@ -43,8 +46,20 @@ void DownloadsView::AddColumns() {
     for (const Column& column : kColumns) {
         col.iSubItem = index;
         col.cx = column.width;
-        col.pszText = const_cast<wchar_t*>(column.title);
+        col.pszText = const_cast<wchar_t*>(Str(column.title));
         ListView_InsertColumn(hwnd_, index, &col);
+        ++index;
+    }
+}
+
+// Refreshes the column captions after a language change.
+void DownloadsView::Retranslate() {
+    LVCOLUMNW col = {};
+    col.mask = LVCF_TEXT;
+    int index = 0;
+    for (const Column& column : kColumns) {
+        col.pszText = const_cast<wchar_t*>(Str(column.title));
+        ListView_SetColumn(hwnd_, index, &col);
         ++index;
     }
 }
