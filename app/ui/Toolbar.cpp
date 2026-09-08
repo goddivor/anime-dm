@@ -39,6 +39,10 @@ Toolbar::~Toolbar() {
         ImageList_Destroy(imageList_);
         imageList_ = nullptr;
     }
+    if (disabledList_ != nullptr) {
+        ImageList_Destroy(disabledList_);
+        disabledList_ = nullptr;
+    }
 }
 
 // Creates a flat toolbar of captioned icons pinned to the top of the parent.
@@ -108,7 +112,19 @@ void Toolbar::ApplyTheme(const Theme& theme) {
     if (previous != nullptr) {
         ImageList_Destroy(previous);
     }
+
+    HIMAGELIST previousDisabled = disabledList_;
+    disabledList_ = CreateToolbarImageList(theme.Colors().muted);
+    SendMessageW(hwnd_, TB_SETDISABLEDIMAGELIST, 0, reinterpret_cast<LPARAM>(disabledList_));
+    if (previousDisabled != nullptr) {
+        ImageList_Destroy(previousDisabled);
+    }
     InvalidateRect(hwnd_, nullptr, TRUE);
+}
+
+// Greys a button out, or lights it up again.
+void Toolbar::Enable(int command, bool enabled) {
+    SendMessageW(hwnd_, TB_ENABLEBUTTON, command, MAKELPARAM(enabled ? TRUE : FALSE, 0));
 }
 
 // Re-runs auto-sizing so the toolbar tracks the parent width.

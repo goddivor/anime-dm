@@ -32,6 +32,9 @@ cmake -S . -B build
 cmake --build build --target anime-dm     # doit finir sans erreur NI warning
 cmake --build build --target addon-smoke  # sonde de l'ABI des addons
 build\addon-smoke.exe <addon.dll> [url]   # métadonnées, réglages, puis la chaîne de lecture
+cmake --build build --target download-smoke
+build\download-smoke.exe <id> <url épisode> <sortie> [lecteur]   # toute la chaîne, jusqu'au fichier
+build\download-smoke.exe --url <url vidéo> <sortie> [referer]    # le transfert seul
 ```
 
 ## Architecture
@@ -41,15 +44,47 @@ build\addon-smoke.exe <addon.dll> [url]   # métadonnées, réglages, puis la ch
   - `Addon` : charge une DLL, vérifie sa version d'ABI, lui remet la table de services et la
     configuration, déballe l'enveloppe `{"ok":…}` / `{"error":…}`.
   - `AddonStore` : registre disque, index du magasin, installation.
+  - `Downloader` : l'ordonnanceur des téléchargements (trois à la fois, huit connexions
+    chacun) ; il résout l'épisode par la source, puis délègue à `Transfer` et remonte des
+    `DownloadEvent` à la fenêtre par `PostMessage`.
+  - `Transfer` : les deux façons de rapatrier une vidéo, décrites plus bas. `Playlist`
+    analyse le sous-ensemble HLS utile ; `Cipher` déchiffre l'AES-128 des segments.
+  - `Queue` : la file entre deux sessions (`downloads.json`).
   - `Digest` (SHA-256 par BCrypt), `Image` (décodage par GDI+), `Paths` (`%APPDATA%`), `Text`
     (conversions UTF-8 / UTF-16).
   - `adm_addon.h` : copie de l'en-tête ABI ; **doit rester en phase** avec celui du dépôt des
     addons. `third_party/json.hpp` : nlohmann, versionné faute de gestionnaire de paquets.
 - **`app/ui/`** : `MainWindow`, `MenuBar`, `Toolbar`, `Sidebar`, `DownloadsView`, les dialogues
   (`AddDialog`, `AddonsDialog`, `AddonConfigDialog`, `PosterDialog`, `SearchDialog`,
-  `SettingsDialog`, `NoticeDialog`, `HelpDialogs`), plus `Theme`, `Strings`, `Paint`,
-  `IconFactory`, `AddSelection`.
+  `SettingsDialog`, `NoticeDialog`, `ConfirmDialog`, `HelpDialogs`), plus `Theme`, `Strings`,
+  `Paint`, `Format`, `IconFactory`, `AddSelection`.
 - **`tools/addon_smoke.cpp`** : éprouve l'ABI sans lancer l'application.
+- **`tools/download_smoke.cpp`** : éprouve le moteur de téléchargement, avec ou sans source.
+
+## Le moteur de téléchargement
+
+Pas de ffmpeg : le moteur fait ce qu'IDM fait, en requêtes HTTP.
+
+1. **Sondage** : une requête `Range: bytes=0-0` donne la taille et dit si l'hôte honore les
+   plages.
+2. **Segmentation dynamique** : le fichier part en un seul segment ; chaque connexion qui se
+   libère **coupe en deux le plus gros segment restant** (jamais sous 1 Mo). Chaque segment
+   écrit son propre fichier `<n>.part` dans `%APPDATA%\anime-dm\parts\<id>\`.
+3. **Positions sauvegardées** toutes les trois secondes dans `state.json` : un arrêt, une
+   fermeture ou une coupure reprennent là où ils en étaient. La vidéo est **re-résolue** à
+   chaque reprise (les URL des hébergeurs expirent) ; la reprise n'est acceptée que si la
+   taille n'a pas changé.
+4. **Assemblage** : les parts sont concaténées dans l'ordre vers le fichier final, puis le
+   dossier des parts est supprimé.
+
+Une **liste HLS** (`.m3u8`) suit le même chemin : ses segments sont les parts, huit
+connexions les tirent en parallèle, l'AES-128 est défait au passage, et le fichier final
+porte `.ts` (ou `.mp4` s'il s'agit de MP4 fragmenté). Quand un hébergeur offre à la fois un
+fichier direct et une liste, **le fichier direct passe en premier** : ce sont les plages
+d'octets qui accélèrent.
+
+Le moteur ne touche jamais à l'interface : tout remonte en `DownloadEvent` posté à la
+fenêtre. **Arrêter** garde les parts ; **Supprimer** les jette.
 
 ## Le modèle d'addons
 
@@ -110,6 +145,9 @@ de l'utilisateur est la **session 2**. Conséquences :
   d'identifiants refuse de s'ouvrir en session 0.
 - Fermer l'application avant de recompiler, sinon l'éditeur de liens bute sur le fichier
   verrouillé (« Permission denied »).
+- **Tout processus lancé par `run_powershell` meurt avec le script** : un test long
+  (`download-smoke`) doit partir par `open_app` (`powershell.exe -WindowStyle Hidden -Command …
+  *> journal`) et se lire ensuite dans son journal.
 
 ## Pièges de la chaîne, durement acquis
 
@@ -136,13 +174,14 @@ de l'utilisateur est la **session 2**. Conséquences :
 
 ## Ce qui manque encore
 
-- **Aucun moteur de téléchargement** : ni ffmpeg, ni progression, ni pause. Les épisodes
-  choisis s'ajoutent à la liste et s'arrêtent là. `adm_hoster_list` et `adm_video_list`
-  répondent pourtant déjà correctement.
+- Le **nombre de connexions** et de téléchargements simultanés sont des constantes de
+  `Downloader` ; ils attendent le fichier de réglages pour devenir des options.
+- Aucune **limitation de débit**, aucun **planificateur** : les entrées de menu existent,
+  pas le comportement.
 - Les **icônes de dossier** de l'application Tauri ne sont pas portées (ImageMagick, gabarits,
   pose selon le système).
 - Ni le **thème** ni la **langue** ne sont persistés : il n'existe pas encore de fichier de
   réglages côté application.
-- Les entrées de menu ne sont **pas grisées** selon l'état (l'application Tauri le fait), faute
-  de modèle de données.
+- Seules les actions de téléchargement (reprendre, arrêter, supprimer…) sont grisées selon
+  l'état ; le reste du menu ne l'est pas encore.
 - Le panneau Catégories n'a ni **compteurs**, ni **affiches**, ni **épisodes** : même raison.

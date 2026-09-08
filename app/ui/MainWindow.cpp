@@ -1,13 +1,20 @@
 #include "ui/MainWindow.h"
 
 #include <commctrl.h>
+#include <shellapi.h>
 #include <uxtheme.h>
 #include <windowsx.h>
 
-#include "ui/AddDialog.h"
+#include <algorithm>
+#include <ctime>
+
+#include "core/Paths.h"
+#include "core/Queue.h"
 #include "core/Text.h"
+#include "ui/AddDialog.h"
 #include "ui/AddonsDialog.h"
 #include "ui/Commands.h"
+#include "ui/ConfirmDialog.h"
 #include "ui/ContextMenu.h"
 #include "ui/HelpDialogs.h"
 #include "ui/NoticeDialog.h"
@@ -20,6 +27,27 @@ constexpr wchar_t kWindowClass[] = L"AnimeDmMainWindow";
 constexpr int kSplitterWidth = 5;
 constexpr int kMinSidebarWidth = 140;
 constexpr int kMinListWidth = 240;
+constexpr UINT kDownloadEvent = WM_APP + 20;
+constexpr int kStatusColumn = 2;
+
+// Whether the episode is a film rather than a numbered episode.
+bool IsMovie(const std::string& name) {
+    std::string lower = name;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return lower.find("film") != std::string::npos || lower.find("movie") != std::string::npos;
+}
+
+// The number of an episode as it appears in the file name: 001, 012, 12.5.
+std::wstring EpisodeLabel(double number) {
+    wchar_t text[32] = {};
+    if (number == static_cast<double>(static_cast<long>(number))) {
+        swprintf(text, ARRAYSIZE(text), L"%03ld", static_cast<long>(number));
+    } else {
+        swprintf(text, ARRAYSIZE(text), L"%.1f", number);
+    }
+    return text;
+}
 
 // Clamps a candidate sidebar width to keep both panes usable.
 int ClampSidebarWidth(int candidate, int clientWidth) {
@@ -89,6 +117,9 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_COMMAND:
         OnCommand(LOWORD(wParam));
         return 0;
+    case kDownloadEvent:
+        OnDownloadEvent(std::unique_ptr<DownloadEvent>(reinterpret_cast<DownloadEvent*>(lParam)));
+        return 0;
     case WM_CONTEXTMENU:
         OnContextMenu(reinterpret_cast<HWND>(wParam), GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
         return 0;
@@ -122,6 +153,13 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
                 return OnListCustomDraw(reinterpret_cast<NMLVCUSTOMDRAW*>(lParam));
             }
         }
+        if (notify->hwndFrom == downloads_.Handle()) {
+            if (notify->code == LVN_ITEMCHANGED) {
+                UpdateActions();
+            } else if (notify->code == NM_DBLCLK) {
+                OpenSelected(false);
+            }
+        }
         break;
     }
     case WM_SETTINGCHANGE:
@@ -146,15 +184,7 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         OnLeftButtonUp();
         return 0;
     case WM_DESTROY:
-        if (accel_ != nullptr) {
-            DestroyAcceleratorTable(accel_);
-            accel_ = nullptr;
-        }
-        if (uiFont_ != nullptr) {
-            DeleteObject(uiFont_);
-            uiFont_ = nullptr;
-        }
-        PostQuitMessage(0);
+        OnDestroy();
         return 0;
     default:
         break;
@@ -180,6 +210,13 @@ void MainWindow::OnCreate() {
     downloads_.Create(hwnd_, instance);
     ApplyUiFont();
 
+    items_ = queue::Load();
+    for (const DownloadItem& item : items_) {
+        nextId_ = std::max(nextId_, item.id + 1);
+        downloads_.Upsert(item);
+    }
+    downloader_.Attach(hwnd_, kDownloadEvent);
+
     ACCEL accels[] = {
         {FVIRTKEY | FCONTROL, 'N', ID_TASK_ADD},
         {FVIRTKEY | FCONTROL, 'F', ID_DOWNLOAD_SEARCH},
@@ -190,6 +227,30 @@ void MainWindow::OnCreate() {
     accel_ = CreateAcceleratorTableW(accels, ARRAYSIZE(accels));
 
     ApplyTheme();
+    UpdateActions();
+}
+
+// Stops the transfers, keeps their parts, and records the queue as it stands.
+void MainWindow::OnDestroy() {
+    downloader_.Attach(nullptr, 0);
+    downloader_.PauseAll();
+    for (DownloadItem& item : items_) {
+        if (IsActive(item.status)) {
+            item.status = DownloadStatus::Stopped;
+            item.speed = 0.0;
+        }
+    }
+    Persist();
+
+    if (accel_ != nullptr) {
+        DestroyAcceleratorTable(accel_);
+        accel_ = nullptr;
+    }
+    if (uiFont_ != nullptr) {
+        DeleteObject(uiFont_);
+        uiFont_ = nullptr;
+    }
+    PostQuitMessage(0);
 }
 
 // Pushes the active palette onto the frame and every child control.
@@ -215,16 +276,26 @@ void MainWindow::Retranslate() {
     toolbar_.Retranslate();
     sidebar_.Retranslate();
     downloads_.Retranslate();
+    for (const DownloadItem& item : items_) {
+        downloads_.Upsert(item);
+    }
     Relayout();
+    UpdateActions();
 }
 
 // Draws the column separators of a list, which the built-in grid lines only
 // render in a fixed light colour that glares on a dark background.
 LRESULT MainWindow::OnListCustomDraw(NMLVCUSTOMDRAW* draw) {
-    if (draw->nmcd.dwDrawStage == CDDS_PREPAINT) {
-        return CDRF_NOTIFYPOSTPAINT;
-    }
-    if (draw->nmcd.dwDrawStage != CDDS_POSTPAINT) {
+    switch (draw->nmcd.dwDrawStage) {
+    case CDDS_PREPAINT:
+        return CDRF_NOTIFYITEMDRAW | CDRF_NOTIFYPOSTPAINT;
+    case CDDS_ITEMPREPAINT:
+        return CDRF_NOTIFYSUBITEMDRAW;
+    case CDDS_ITEMPREPAINT | CDDS_SUBITEM:
+        return DrawProgressCell(draw) ? CDRF_SKIPDEFAULT : CDRF_DODEFAULT;
+    case CDDS_POSTPAINT:
+        break;
+    default:
         return CDRF_DODEFAULT;
     }
 
@@ -256,15 +327,71 @@ LRESULT MainWindow::OnListCustomDraw(NMLVCUSTOMDRAW* draw) {
     return CDRF_DODEFAULT;
 }
 
+// Paints the status cell of a running download as a bar with its percentage.
+// False when the cell is not a running download, which the list draws itself.
+bool MainWindow::DrawProgressCell(NMLVCUSTOMDRAW* draw) {
+    if (draw->iSubItem != kStatusColumn) {
+        return false;
+    }
+    const DownloadItem* item = Find(static_cast<uint64_t>(draw->nmcd.lItemlParam));
+    if (item == nullptr || item->status != DownloadStatus::Downloading || item->fraction < 0.0) {
+        return false;
+    }
+
+    HWND list = draw->nmcd.hdr.hwndFrom;
+    int row = static_cast<int>(draw->nmcd.dwItemSpec);
+    RECT cell = {};
+    ListView_GetSubItemRect(list, row, kStatusColumn, LVIR_BOUNDS, &cell);
+
+    const ThemeColors& colors = ActiveTheme().Colors();
+    bool selected = ListView_GetItemState(list, row, LVIS_SELECTED) == LVIS_SELECTED;
+    HDC dc = draw->nmcd.hdc;
+
+    RECT track = cell;
+    track.left += 6;
+    track.right -= 6;
+    track.top += 4;
+    track.bottom -= 4;
+    int width = std::max<int>(0, static_cast<int>(track.right - track.left));
+    int filled = static_cast<int>(width * std::min(1.0, item->fraction));
+
+    HBRUSH trackBrush = CreateSolidBrush(selected ? colors.accent : colors.surface);
+    FillRect(dc, &track, trackBrush);
+    DeleteObject(trackBrush);
+
+    RECT bar = track;
+    bar.right = bar.left + filled;
+    HBRUSH barBrush = CreateSolidBrush(selected ? colors.accentText : colors.accent);
+    FillRect(dc, &bar, barBrush);
+    DeleteObject(barBrush);
+
+    HPEN pen = CreatePen(PS_SOLID, 1, selected ? colors.accentText : colors.line);
+    HPEN previousPen = static_cast<HPEN>(SelectObject(dc, pen));
+    HBRUSH previousBrush = static_cast<HBRUSH>(SelectObject(dc, GetStockObject(NULL_BRUSH)));
+    Rectangle(dc, track.left, track.top, track.right, track.bottom);
+    SelectObject(dc, previousBrush);
+    SelectObject(dc, previousPen);
+    DeleteObject(pen);
+
+    std::wstring text = StatusText(*item);
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, selected ? colors.accentText : colors.text);
+    DrawTextW(dc, text.c_str(), -1, &track, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    return true;
+}
+
 // Paints the toolbar background and captions with the active palette.
 LRESULT MainWindow::OnToolbarCustomDraw(NMTBCUSTOMDRAW* draw) {
     switch (draw->nmcd.dwDrawStage) {
     case CDDS_PREPAINT:
         FillRect(draw->nmcd.hdc, &draw->nmcd.rc, ActiveTheme().SurfaceBrush());
         return CDRF_NOTIFYITEMDRAW;
-    case CDDS_ITEMPREPAINT:
-        draw->clrText = ActiveTheme().Colors().text;
-        return TBCDRF_USECDCOLORS;
+    case CDDS_ITEMPREPAINT: {
+        const ThemeColors& colors = ActiveTheme().Colors();
+        bool disabled = (draw->nmcd.uItemState & CDIS_DISABLED) != 0;
+        draw->clrText = disabled ? colors.muted : colors.text;
+        return TBCDRF_USECDCOLORS | TBCDRF_NOETCHEDEFFECT;
+    }
     default:
         return CDRF_DODEFAULT;
     }
@@ -360,17 +487,307 @@ void MainWindow::OnAddDownload() {
         return;
     }
 
-    std::wstring title = Widen(request.animeTitle);
+    std::wstring title = SafeFileName(Widen(request.animeTitle));
+    std::wstring base = request.destination.empty() ? paths::UserDownloadsDir()
+                                                    : request.destination;
+    std::wstring folder = base + L"\\" + title;
+
     for (const AddRequestEpisode& episode : request.episodes) {
-        wchar_t number[32] = {};
-        if (episode.number == static_cast<double>(static_cast<long>(episode.number))) {
-            wsprintfW(number, L"%03ld", static_cast<long>(episode.number));
-        } else {
-            swprintf(number, ARRAYSIZE(number), L"%.1f", episode.number);
-        }
-        std::wstring name = title + L" - Ep " + number + L".mp4";
-        downloads_.AddRow(name, Str(STR_STATUS_PENDING));
+        DownloadItem item;
+        item.id = nextId_++;
+        item.addonId = request.addonId;
+        item.animeTitle = request.animeTitle;
+        item.animeUrl = request.animeUrl;
+        item.episodeNumber = episode.number;
+        item.pageUrl = episode.url;
+        item.player = episode.player;
+        item.outPath = folder + L"\\" +
+                       (IsMovie(episode.name)
+                            ? title + L".mp4"
+                            : title + L" - Ep " + EpisodeLabel(episode.number) + L".mp4");
+        item.status = DownloadStatus::Queued;
+        item.addedAt = std::time(nullptr);
+        items_.push_back(item);
+        downloads_.Upsert(item);
+        downloader_.Start(TaskOf(item));
     }
+    Persist();
+    UpdateActions();
+}
+
+// Applies what the engine reports to the item and its row.
+void MainWindow::OnDownloadEvent(std::unique_ptr<DownloadEvent> event) {
+    DownloadItem* item = Find(event->id);
+    if (item == nullptr) {
+        return;
+    }
+    // A stop that lands after the user already restarted the item is stale.
+    if (event->status == DownloadStatus::Stopped && downloader_.Holds(item->id)) {
+        return;
+    }
+
+    bool statusChanged = item->status != event->status;
+    item->status = event->status;
+    item->done = event->done;
+    if (event->total > 0) {
+        item->total = event->total;
+    }
+    item->fraction = event->fraction;
+    item->speed = event->speed;
+    item->error = event->error;
+    item->detail = event->detail;
+    if (!event->address.empty()) {
+        item->address = event->address;
+    }
+    if (!event->outPath.empty()) {
+        item->outPath = event->outPath;
+    }
+    if (IsActive(event->status)) {
+        item->lastTry = std::time(nullptr);
+    }
+    if (event->status == DownloadStatus::Completed) {
+        item->fraction = 1.0;
+        item->speed = 0.0;
+    }
+
+    Refresh(*item);
+    if (statusChanged) {
+        Persist();
+        UpdateActions();
+    }
+}
+
+// The item behind an id, or nothing.
+DownloadItem* MainWindow::Find(uint64_t id) {
+    for (DownloadItem& item : items_) {
+        if (item.id == id) {
+            return &item;
+        }
+    }
+    return nullptr;
+}
+
+// What the engine needs to run an item.
+DownloadTask MainWindow::TaskOf(const DownloadItem& item) const {
+    DownloadTask task;
+    task.id = item.id;
+    task.addonId = item.addonId;
+    task.pageUrl = item.pageUrl;
+    task.player = item.player;
+    task.outPath = item.outPath;
+    return task;
+}
+
+// Redraws the row of an item.
+void MainWindow::Refresh(const DownloadItem& item) {
+    downloads_.Upsert(item);
+}
+
+// Records the queue on disk.
+void MainWindow::Persist() {
+    queue::Save(items_);
+}
+
+// Lights the actions that apply to the selection, greys the others.
+void MainWindow::UpdateActions() {
+    bool canResume = false;
+    bool canStop = false;
+    bool anyActive = false;
+    std::vector<uint64_t> selected = downloads_.Selected();
+    for (const DownloadItem& item : items_) {
+        bool chosen = std::find(selected.begin(), selected.end(), item.id) != selected.end();
+        if (IsActive(item.status)) {
+            anyActive = true;
+            canStop = canStop || chosen;
+        }
+        if (chosen && (item.status == DownloadStatus::Stopped ||
+                       item.status == DownloadStatus::Failed)) {
+            canResume = true;
+        }
+    }
+    bool anySelected = !selected.empty();
+    bool anyItem = !items_.empty();
+
+    struct Action {
+        int command;
+        bool enabled;
+    };
+    const Action actions[] = {
+        {ID_FILE_START, canResume},
+        {ID_FILE_STOP, canStop},
+        {ID_FILE_REDOWNLOAD, anySelected},
+        {ID_FILE_REMOVE, anySelected},
+        {ID_DOWNLOAD_STOP_ALL, anyActive},
+        {ID_DOWNLOAD_DELETE_ALL, anyItem},
+        {ID_DOWNLOAD_REMOVE_COMPLETED, anyItem},
+    };
+    HMENU menu = GetMenu(hwnd_);
+    for (const Action& action : actions) {
+        toolbar_.Enable(action.command, action.enabled);
+        EnableMenuItem(menu, action.command,
+                       MF_BYCOMMAND | (action.enabled ? MF_ENABLED : MF_GRAYED));
+    }
+}
+
+// Hands an item to the engine, from its parts or from nothing.
+void MainWindow::StartItem(DownloadItem& item, bool fresh) {
+    if (fresh) {
+        downloader_.Cancel(item.id);
+        paths::RemoveTree(paths::PartsDir(item.id));
+        DeleteFileW(item.outPath.c_str());
+        item.done = 0;
+        item.total = 0;
+    }
+    item.status = DownloadStatus::Queued;
+    item.fraction = -1.0;
+    item.speed = 0.0;
+    item.error = DownloadError::None;
+    item.detail.clear();
+    Refresh(item);
+    downloader_.Start(TaskOf(item));
+}
+
+// Continues the stopped and failed items of the selection.
+void MainWindow::ResumeSelected() {
+    for (uint64_t id : downloads_.Selected()) {
+        DownloadItem* item = Find(id);
+        if (item != nullptr && (item->status == DownloadStatus::Stopped ||
+                                item->status == DownloadStatus::Failed)) {
+            StartItem(*item, false);
+        }
+    }
+    Persist();
+    UpdateActions();
+}
+
+// Stops the running items of the selection, keeping their parts.
+void MainWindow::StopSelected() {
+    for (uint64_t id : downloads_.Selected()) {
+        DownloadItem* item = Find(id);
+        if (item != nullptr && IsActive(item->status)) {
+            downloader_.Pause(id);
+        }
+    }
+}
+
+// Starts the selection over from nothing.
+void MainWindow::RedownloadSelected() {
+    for (uint64_t id : downloads_.Selected()) {
+        DownloadItem* item = Find(id);
+        if (item != nullptr) {
+            StartItem(*item, true);
+        }
+    }
+    Persist();
+    UpdateActions();
+}
+
+// Takes the selection out of the queue, and off the disk when asked.
+void MainWindow::RemoveSelected() {
+    std::vector<uint64_t> selected = downloads_.Selected();
+    if (selected.empty()) {
+        ShowNotice(Str(STR_NO_SELECTION));
+        return;
+    }
+    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+    Confirm confirm{STR_CONFIRM_DELETE_TITLE, STR_CONFIRM_DELETE_MSG, STR_TB_REMOVE,
+                    STR_CONFIRM_DELETE_FILES};
+    if (!ShowConfirm(hwnd_, instance, &confirm)) {
+        return;
+    }
+    for (uint64_t id : selected) {
+        DownloadItem* item = Find(id);
+        if (item == nullptr) {
+            continue;
+        }
+        downloader_.Cancel(id);
+        if (confirm.checked) {
+            DeleteFileW(item->outPath.c_str());
+        }
+        downloads_.Remove(id);
+        items_.erase(std::remove_if(items_.begin(), items_.end(),
+                                    [&](const DownloadItem& i) { return i.id == id; }),
+                     items_.end());
+    }
+    Persist();
+    UpdateActions();
+}
+
+// Stops every running item, keeping the parts.
+void MainWindow::StopAll() {
+    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+    Confirm confirm{STR_CONFIRM_STOP_ALL_TITLE, STR_CONFIRM_STOP_ALL_MSG, STR_TB_STOP_ALL,
+                    STR_COUNT};
+    if (ShowConfirm(hwnd_, instance, &confirm)) {
+        downloader_.PauseAll();
+    }
+}
+
+// Empties the queue, dropping the parts of what was running.
+void MainWindow::DeleteAll() {
+    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+    Confirm confirm{STR_CONFIRM_DELETE_ALL_TITLE, STR_CONFIRM_DELETE_ALL_MSG, STR_TB_REMOVE_ALL,
+                    STR_COUNT};
+    if (!ShowConfirm(hwnd_, instance, &confirm)) {
+        return;
+    }
+    downloader_.CancelAll();
+    for (const DownloadItem& item : items_) {
+        paths::RemoveTree(paths::PartsDir(item.id));
+    }
+    items_.clear();
+    downloads_.Clear();
+    Persist();
+    UpdateActions();
+}
+
+// Takes the completed items out of the queue.
+void MainWindow::RemoveCompleted() {
+    int removed = 0;
+    for (auto it = items_.begin(); it != items_.end();) {
+        if (it->status == DownloadStatus::Completed) {
+            downloads_.Remove(it->id);
+            it = items_.erase(it);
+            ++removed;
+        } else {
+            ++it;
+        }
+    }
+    Persist();
+    UpdateActions();
+
+    wchar_t message[128] = {};
+    swprintf(message, ARRAYSIZE(message), Str(STR_COMPLETED_REMOVED), removed);
+    ShowNotice(message);
+}
+
+// Opens the file of the first selected item, or the folder that holds it.
+void MainWindow::OpenSelected(bool folder) {
+    std::vector<uint64_t> selected = downloads_.Selected();
+    if (selected.empty()) {
+        return;
+    }
+    const DownloadItem* item = Find(selected.front());
+    if (item == nullptr) {
+        return;
+    }
+    if (folder) {
+        std::wstring arguments = L"/select,\"" + item->outPath + L"\"";
+        ShellExecuteW(hwnd_, L"open", L"explorer.exe", arguments.c_str(), nullptr, SW_SHOWNORMAL);
+        return;
+    }
+    if (item->status != DownloadStatus::Completed ||
+        GetFileAttributesW(item->outPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
+        ShowNotice(Str(STR_FILE_NOT_READY));
+        return;
+    }
+    ShellExecuteW(hwnd_, L"open", item->outPath.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+}
+
+// Shows a short message in the notice dialog.
+void MainWindow::ShowNotice(const wchar_t* message) {
+    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+    ::ShowNotice(hwnd_, instance, message);
 }
 
 // Reports an entry the shell does not implement yet in the status bar.
@@ -387,9 +804,7 @@ void MainWindow::ShowSoon(int commandId) {
 
     wchar_t message[192] = {};
     wsprintfW(message, Str(STR_STATUS_SOON), label);
-
-    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
-    ShowNotice(hwnd_, instance, message);
+    ShowNotice(message);
 }
 
 // Dispatches menu, toolbar and context menu commands.
@@ -399,6 +814,33 @@ void MainWindow::OnCommand(int commandId) {
     switch (commandId) {
     case ID_TASK_ADD:
         OnAddDownload();
+        break;
+    case ID_FILE_START:
+        ResumeSelected();
+        break;
+    case ID_FILE_STOP:
+        StopSelected();
+        break;
+    case ID_FILE_REDOWNLOAD:
+        RedownloadSelected();
+        break;
+    case ID_FILE_REMOVE:
+        RemoveSelected();
+        break;
+    case ID_DOWNLOAD_STOP_ALL:
+        StopAll();
+        break;
+    case ID_DOWNLOAD_DELETE_ALL:
+        DeleteAll();
+        break;
+    case ID_DOWNLOAD_REMOVE_COMPLETED:
+        RemoveCompleted();
+        break;
+    case ID_CTX_OPEN:
+        OpenSelected(false);
+        break;
+    case ID_CTX_OPEN_FOLDER:
+        OpenSelected(true);
         break;
     case ID_DOWNLOAD_SEARCH:
         ShowSearchDialog(hwnd_, instance);

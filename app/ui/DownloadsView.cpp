@@ -2,6 +2,8 @@
 
 #include <commctrl.h>
 
+#include "core/Text.h"
+#include "ui/Format.h"
 #include "ui/Strings.h"
 
 namespace {
@@ -13,13 +15,80 @@ struct Column {
 constexpr Column kColumns[] = {
     {STR_COL_FILENAME, 320},
     {STR_COL_SIZE, 90},
-    {STR_COL_STATUS, 120},
+    {STR_COL_STATUS, 140},
     {STR_COL_TIME_LEFT, 110},
-    {STR_COL_SPEED, 150},
-    {STR_COL_LAST_TRY, 150},
-    {STR_COL_ADDED, 150},
+    {STR_COL_SPEED, 110},
+    {STR_COL_LAST_TRY, 130},
+    {STR_COL_ADDED, 130},
 };
+
+enum ColumnIndex {
+    COL_FILENAME,
+    COL_SIZE,
+    COL_STATUS,
+    COL_TIME_LEFT,
+    COL_SPEED,
+    COL_LAST_TRY,
+    COL_ADDED,
+};
+
+// What the interface says about a failure.
+StringId ErrorText(DownloadError error) {
+    switch (error) {
+    case DownloadError::Source:
+        return STR_ERR_SOURCE;
+    case DownloadError::NoPlayer:
+        return STR_ERR_NO_PLAYER;
+    case DownloadError::NoVideo:
+        return STR_ERR_NO_VIDEO;
+    case DownloadError::Playlist:
+        return STR_ERR_PLAYLIST;
+    case DownloadError::Key:
+        return STR_ERR_KEY;
+    case DownloadError::Disk:
+        return STR_ERR_DISK;
+    default:
+        return STR_ERR_NETWORK;
+    }
+}
+
+// Sets one cell of a row.
+void SetCell(HWND list, int row, int column, const std::wstring& text) {
+    ListView_SetItemText(list, row, column, const_cast<wchar_t*>(text.c_str()));
+}
+
 }  // namespace
+
+// The text of the status cell.
+std::wstring StatusText(const DownloadItem& item) {
+    switch (item.status) {
+    case DownloadStatus::Queued:
+        return Str(STR_STATUS_PENDING);
+    case DownloadStatus::Resolving:
+        return Str(STR_STATUS_RESOLVING);
+    case DownloadStatus::Downloading:
+        if (item.fraction < 0.0) {
+            return Str(STR_STATUS_STARTING);
+        }
+        return std::to_wstring(static_cast<int>(item.fraction * 100.0)) + L" %";
+    case DownloadStatus::Assembling:
+        return Str(STR_STATUS_ASSEMBLING);
+    case DownloadStatus::Completed:
+        return Str(STR_STATUS_COMPLETED);
+    case DownloadStatus::Failed: {
+        std::wstring text = Str(STR_STATUS_FAILED);
+        text += L" : ";
+        text += Str(ErrorText(item.error));
+        if (!item.detail.empty()) {
+            text += L" (" + Widen(item.detail) + L")";
+        }
+        return text;
+    }
+    case DownloadStatus::Stopped:
+        return Str(STR_STATUS_STOPPED);
+    }
+    return std::wstring();
+}
 
 // Creates the ListView child and configures its columns and extended styles.
 bool DownloadsView::Create(HWND parent, HINSTANCE instance) {
@@ -52,14 +121,86 @@ void DownloadsView::AddColumns() {
     }
 }
 
-// Appends a queued download.
-void DownloadsView::AddRow(const std::wstring& fileName, const std::wstring& status) {
-    LVITEMW item = {};
-    item.mask = LVIF_TEXT;
-    item.iItem = ListView_GetItemCount(hwnd_);
-    item.pszText = const_cast<wchar_t*>(fileName.c_str());
-    int row = ListView_InsertItem(hwnd_, &item);
-    ListView_SetItemText(hwnd_, row, 2, const_cast<wchar_t*>(status.c_str()));
+// Inserts the row of an item, or refreshes it when it is already there.
+void DownloadsView::Upsert(const DownloadItem& item) {
+    int row = RowOf(item.id);
+    if (row < 0) {
+        LVITEMW entry = {};
+        entry.mask = LVIF_TEXT | LVIF_PARAM;
+        entry.iItem = ListView_GetItemCount(hwnd_);
+        entry.pszText = const_cast<wchar_t*>(L"");
+        entry.lParam = static_cast<LPARAM>(item.id);
+        row = ListView_InsertItem(hwnd_, &entry);
+    }
+    Fill(row, item);
+}
+
+// Writes every cell of a row from its item.
+void DownloadsView::Fill(int row, const DownloadItem& item) {
+    SetCell(hwnd_, row, COL_FILENAME, FileNameOf(item.outPath));
+    SetCell(hwnd_, row, COL_SIZE, format::Size(item.total > 0 ? item.total : item.done));
+    SetCell(hwnd_, row, COL_STATUS, StatusText(item));
+
+    bool downloading = item.status == DownloadStatus::Downloading;
+    double remaining = -1.0;
+    if (downloading && item.speed > 0.0) {
+        if (item.total > item.done) {
+            remaining = static_cast<double>(item.total - item.done) / item.speed;
+        } else if (item.fraction > 0.0 && item.done > 0) {
+            double estimated = static_cast<double>(item.done) / item.fraction;
+            remaining = (estimated - static_cast<double>(item.done)) / item.speed;
+        }
+    }
+    SetCell(hwnd_, row, COL_TIME_LEFT, format::Duration(remaining));
+    SetCell(hwnd_, row, COL_SPEED, downloading ? format::Speed(item.speed) : format::Dash());
+    SetCell(hwnd_, row, COL_LAST_TRY, format::Date(item.lastTry));
+    SetCell(hwnd_, row, COL_ADDED, format::Date(item.addedAt));
+}
+
+// Drops the row of an item.
+void DownloadsView::Remove(uint64_t id) {
+    int row = RowOf(id);
+    if (row >= 0) {
+        ListView_DeleteItem(hwnd_, row);
+    }
+}
+
+// Drops every row.
+void DownloadsView::Clear() {
+    ListView_DeleteAllItems(hwnd_);
+}
+
+// The ids of the selected rows, top to bottom.
+std::vector<uint64_t> DownloadsView::Selected() const {
+    std::vector<uint64_t> ids;
+    int row = -1;
+    while ((row = ListView_GetNextItem(hwnd_, row, LVNI_SELECTED)) >= 0) {
+        ids.push_back(IdAt(row));
+    }
+    return ids;
+}
+
+// The row of an item, or -1.
+int DownloadsView::RowOf(uint64_t id) const {
+    LVFINDINFOW find = {};
+    find.flags = LVFI_PARAM;
+    find.lParam = static_cast<LPARAM>(id);
+    return ListView_FindItem(hwnd_, -1, &find);
+}
+
+// The id of a row, or zero.
+uint64_t DownloadsView::IdAt(int row) const {
+    LVITEMW entry = {};
+    entry.mask = LVIF_PARAM;
+    entry.iItem = row;
+    if (!ListView_GetItem(hwnd_, &entry)) {
+        return 0;
+    }
+    return static_cast<uint64_t>(entry.lParam);
+}
+
+int DownloadsView::Count() const {
+    return ListView_GetItemCount(hwnd_);
 }
 
 // Refreshes the column captions after a language change.

@@ -40,6 +40,7 @@ int Walk(const Addon& addon, const std::string& url) {
     std::printf("episodes: %zu\n", episodes->size());
 
     const nlohmann::json& first = episodes->front();
+    std::printf("first: %s\n", first.value("url", "").c_str());
     std::optional<nlohmann::json> hosters =
         addon.Call("adm_hoster_list", {{"url", first.value("url", "")}}, &error);
     if (!hosters || !hosters->is_array()) {
