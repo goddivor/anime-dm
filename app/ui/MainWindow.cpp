@@ -60,6 +60,12 @@ std::wstring EpisodeLabel(double number) {
     return text;
 }
 
+// A colour halfway between the text and the surface, for what is greyed out.
+COLORREF Dim(COLORREF text, COLORREF surface) {
+    return RGB((GetRValue(text) + GetRValue(surface)) / 2, (GetGValue(text) + GetGValue(surface)) / 2,
+               (GetBValue(text) + GetBValue(surface)) / 2);
+}
+
 // Clamps a candidate sidebar width to keep both panes usable.
 int ClampSidebarWidth(int candidate, int clientWidth) {
     int maxWidth = clientWidth - kSplitterWidth - kMinListWidth;
@@ -397,9 +403,12 @@ LRESULT MainWindow::OnToolbarCustomDraw(NMTBCUSTOMDRAW* draw) {
     case CDDS_PREPAINT:
         FillRect(draw->nmcd.hdc, &draw->nmcd.rc, ActiveTheme().SurfaceBrush());
         return CDRF_NOTIFYITEMDRAW;
-    case CDDS_ITEMPREPAINT:
-        draw->clrText = ActiveTheme().Colors().text;
+    case CDDS_ITEMPREPAINT: {
+        const ThemeColors& colors = ActiveTheme().Colors();
+        bool disabled = (draw->nmcd.uItemState & CDIS_DISABLED) != 0;
+        draw->clrText = disabled ? Dim(colors.text, colors.surface) : colors.text;
         return TBCDRF_USECDCOLORS;
+    }
     default:
         return CDRF_DODEFAULT;
     }
