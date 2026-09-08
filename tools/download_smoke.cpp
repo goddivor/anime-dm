@@ -2,9 +2,12 @@
 // whole chain can be checked without launching the application:
 //
 //   download-smoke <addon id> <episode URL> <output path> [player]
+//   download-smoke --url <video URL> <output path> [referer]
 //
-// The source must be installed in the registry the application uses.
+// The first form resolves the episode through an installed source; the second
+// fetches a video the caller already knows, playlist or file.
 
+#include <atomic>
 #include <cstdio>
 #include <memory>
 #include <string>
@@ -15,7 +18,9 @@
 #include "core/Download.h"
 #include "core/Downloader.h"
 #include "core/Http.h"
+#include "core/Paths.h"
 #include "core/Text.h"
+#include "core/Transfer.h"
 
 namespace {
 
@@ -61,9 +66,62 @@ LRESULT CALLBACK Proc(HWND window, UINT msg, WPARAM wParam, LPARAM lParam) {
     return 0;
 }
 
+// Fetches a known video URL through the transfer layer alone.
+int FetchUrl(const std::string& url, const std::wstring& outPath, const std::string& referer) {
+    Http http;
+    std::atomic<bool> stop{false};
+    std::atomic<bool> discard{false};
+    TransferControl control{stop, discard};
+    TransferSource source;
+    source.url = url;
+    if (!referer.empty()) {
+        source.headers["Referer"] = referer;
+    }
+
+    std::wstring parts = paths::PartsDir(0);
+    std::unique_ptr<Transfer> transfer = OpenTransfer(http, source, parts, control);
+    if (!transfer) {
+        std::printf("the host refused the video\n");
+        return 2;
+    }
+    std::printf("kind: %s total=%llu\n", transfer->Extension().empty() ? "ranges" : "playlist",
+                static_cast<unsigned long long>(transfer->Total()));
+
+    bool fetched = transfer->Run(
+        Downloader::kConnections, [](uint64_t done, uint64_t total, double fraction, double speed) {
+            std::printf("downloading  done=%llu total=%llu fraction=%.3f speed=%.0f KB/s\n",
+                        static_cast<unsigned long long>(done),
+                        static_cast<unsigned long long>(total), fraction, speed / 1024.0);
+            std::fflush(stdout);
+        });
+    if (!fetched) {
+        std::printf("failed: error=%d %s\n", static_cast<int>(control.error),
+                    control.detail.c_str());
+        return 2;
+    }
+
+    std::wstring extension = transfer->Extension();
+    std::wstring finalPath = outPath;
+    if (!extension.empty()) {
+        size_t dot = finalPath.find_last_of(L'.');
+        finalPath = (dot == std::wstring::npos ? finalPath : finalPath.substr(0, dot)) + extension;
+    }
+    std::printf("assembling\n");
+    if (!transfer->Assemble(finalPath)) {
+        std::printf("assembly failed\n");
+        return 2;
+    }
+    paths::RemoveTree(parts);
+    std::printf("completed\npath: %s\n", Narrow(finalPath).c_str());
+    return 0;
+}
+
 }  // namespace
 
 int wmain(int argc, wchar_t** argv) {
+    if (argc >= 4 && std::wstring(argv[1]) == L"--url") {
+        return FetchUrl(Narrow(argv[2]), argv[3], argc > 4 ? Narrow(argv[4]) : std::string());
+    }
     if (argc < 4) {
         std::fprintf(stderr, "usage: download-smoke <addon id> <episode URL> <output> [player]\n");
         return 1;
