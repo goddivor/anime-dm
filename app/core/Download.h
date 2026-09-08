@@ -87,6 +87,10 @@ std::wstring FileNameOf(const std::wstring& path);
 // The number of an episode as it appears in names: 001, 012, 12.5.
 std::wstring EpisodeLabel(double number);
 
+// Collapses runs of whitespace, line breaks included, into single spaces and
+// trims the ends: what a title fetched from a page needs before being shown.
+std::string TidyText(const std::string& text);
+
 // Turns any text into a name Windows accepts: illegal characters replaced,
 // runs of whitespace (line breaks included) collapsed, ends trimmed.
 std::wstring SafeFileName(const std::wstring& text);

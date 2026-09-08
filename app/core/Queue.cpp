@@ -39,7 +39,7 @@ State Load() {
         }
         AnimeGroup group;
         group.url = entry.value("url", std::string());
-        group.title = entry.value("title", std::string());
+        group.title = TidyText(entry.value("title", std::string()));
         group.posterUrl = entry.value("posterUrl", std::string());
         group.expanded = entry.value("expanded", true);
         if (!group.url.empty()) {
@@ -54,7 +54,7 @@ State Load() {
         DownloadItem item;
         item.id = entry.value("id", uint64_t(0));
         item.addonId = entry.value("addonId", std::string());
-        item.animeTitle = entry.value("animeTitle", std::string());
+        item.animeTitle = TidyText(entry.value("animeTitle", std::string()));
         item.animeUrl = entry.value("animeUrl", std::string());
         item.episodeNumber = entry.value("episodeNumber", 0.0);
         item.pageUrl = entry.value("pageUrl", std::string());

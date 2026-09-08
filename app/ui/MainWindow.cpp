@@ -548,6 +548,7 @@ void MainWindow::OnAddDownload() {
         return;
     }
 
+    request.animeTitle = TidyText(request.animeTitle);
     std::wstring title = SafeFileName(Widen(request.animeTitle));
     std::wstring base = request.destination.empty() ? paths::UserDownloadsDir()
                                                     : request.destination;

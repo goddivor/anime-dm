@@ -20,6 +20,24 @@ std::wstring EpisodeLabel(double number) {
     return text;
 }
 
+// Collapses runs of whitespace into single spaces and trims the ends.
+std::string TidyText(const std::string& text) {
+    std::string clean;
+    bool pendingSpace = false;
+    for (char c : text) {
+        if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
+            pendingSpace = !clean.empty();
+            continue;
+        }
+        if (pendingSpace) {
+            clean += ' ';
+            pendingSpace = false;
+        }
+        clean += c;
+    }
+    return clean;
+}
+
 // Turns any text into a name Windows accepts.
 std::wstring SafeFileName(const std::wstring& text) {
     std::wstring clean;

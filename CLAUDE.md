@@ -49,7 +49,8 @@ build\download-smoke.exe --url <url vidéo> <sortie> [referer]    # le transfert
     `DownloadEvent` à la fenêtre par `PostMessage`.
   - `Transfer` : les deux façons de rapatrier une vidéo, décrites plus bas. `Playlist`
     analyse le sous-ensemble HLS utile ; `Cipher` déchiffre l'AES-128 des segments.
-  - `Queue` : la file entre deux sessions (`downloads.json`).
+  - `Queue` : la file entre deux sessions (`downloads.json`), épisodes et groupes d'animés.
+    Les affiches vivent à côté, dans `posters/`, nommées d'après le SHA-256 de la page.
   - `Digest` (SHA-256 par BCrypt), `Image` (décodage par GDI+), `Paths` (`%APPDATA%`), `Text`
     (conversions UTF-8 / UTF-16).
   - `adm_addon.h` : copie de l'en-tête ABI ; **doit rester en phase** avec celui du dépôt des
@@ -85,6 +86,16 @@ d'octets qui accélèrent.
 
 Le moteur ne touche jamais à l'interface : tout remonte en `DownloadEvent` posté à la
 fenêtre. **Arrêter** garde les parts ; **Supprimer** les jette.
+
+## Le panneau Catégories
+
+Un `TreeView` dont les lignes d'animé sont **dessinées à la main** (`Sidebar::DrawAnimeRow`,
+sur `CDRF_SKIPDEFAULT`) : chevron, affiche 34 × 48 aux coins arrondis, titre, nombre
+d'épisodes. Les autres lignes restent au dessin du contrôle, avec un glyphe d'état coloré
+par épisode. Le panneau est **reconstruit depuis le modèle** à chaque changement de
+structure ou d'état (jamais sur une simple progression) ; la sélection survit à la
+reconstruction et `Busy()` fait taire les notifications qu'elle déclenche. Cliquer une ligne
+filtre la liste ; le clic droit sur un animé ouvre, ouvre le dossier ou supprime l'animé.
 
 ## Le modèle d'addons
 
@@ -184,4 +195,5 @@ de l'utilisateur est la **session 2**. Conséquences :
   réglages côté application.
 - Seules les actions de téléchargement (reprendre, arrêter, supprimer…) sont grisées selon
   l'état ; le reste du menu ne l'est pas encore.
-- Le panneau Catégories n'a ni **compteurs**, ni **affiches**, ni **épisodes** : même raison.
+- Le clic droit sur un animé ne propose ni **icône de dossier** ni **adaptation Aniyomi** :
+  ces deux fonctions de l'application Tauri ne sont pas portées.
