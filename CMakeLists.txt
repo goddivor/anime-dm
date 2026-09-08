@@ -88,3 +88,35 @@ target_compile_definitions(addon-smoke PRIVATE
 )
 
 target_link_libraries(addon-smoke PRIVATE winhttp)
+
+# Console tool that runs the download engine on one episode.
+add_executable(download-smoke
+    tools/download_smoke.cpp
+    app/core/Addon.cpp
+    app/core/AddonStore.cpp
+    app/core/Cipher.cpp
+    app/core/Digest.cpp
+    app/core/Download.cpp
+    app/core/Downloader.cpp
+    app/core/Http.cpp
+    app/core/Paths.cpp
+    app/core/Playlist.cpp
+    app/core/Text.cpp
+    app/core/Transfer.cpp
+)
+
+target_include_directories(download-smoke PRIVATE app)
+
+target_compile_definitions(download-smoke PRIVATE
+    UNICODE
+    _UNICODE
+    WIN32_LEAN_AND_MEAN
+    NOMINMAX
+)
+
+target_link_libraries(download-smoke PRIVATE winhttp bcrypt ole32 shell32)
+
+if(MINGW)
+    target_compile_options(download-smoke PRIVATE -municode)
+    target_link_options(download-smoke PRIVATE -municode)
+endif()
