@@ -39,7 +39,7 @@ std::vector<DownloadItem> Load() {
         item.episodeNumber = entry.value("episodeNumber", 0.0);
         item.pageUrl = entry.value("pageUrl", std::string());
         item.player = entry.value("player", std::string());
-        item.outPath = Widen(entry.value("outPath", std::string()));
+        item.outPath = SafePath(Widen(entry.value("outPath", std::string())));
         item.status = static_cast<DownloadStatus>(entry.value("status", 0));
         item.done = entry.value("done", uint64_t(0));
         item.total = entry.value("total", uint64_t(0));

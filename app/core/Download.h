@@ -75,6 +75,13 @@ struct DownloadEvent {
 // The file name of an item, without its folder.
 std::wstring FileNameOf(const std::wstring& path);
 
+// Turns any text into a name Windows accepts: illegal characters replaced,
+// runs of whitespace (line breaks included) collapsed, ends trimmed.
+std::wstring SafeFileName(const std::wstring& text);
+
+// Applies SafeFileName to every segment of a path but its drive.
+std::wstring SafePath(const std::wstring& path);
+
 // Whether the engine still has, or may have, a hand on an item.
 inline bool IsActive(DownloadStatus status) {
     return status == DownloadStatus::Queued || status == DownloadStatus::Resolving ||

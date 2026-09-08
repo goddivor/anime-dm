@@ -30,17 +30,6 @@ constexpr int kMinListWidth = 240;
 constexpr UINT kDownloadEvent = WM_APP + 20;
 constexpr int kStatusColumn = 2;
 
-// Replaces the characters a file name cannot carry on Windows.
-std::wstring Sanitize(const std::wstring& text) {
-    std::wstring clean = text;
-    for (wchar_t& c : clean) {
-        if (wcschr(L"/\\:*?\"<>|", c) != nullptr) {
-            c = L'_';
-        }
-    }
-    return clean;
-}
-
 // Whether the episode is a film rather than a numbered episode.
 bool IsMovie(const std::string& name) {
     std::string lower = name;
@@ -498,7 +487,7 @@ void MainWindow::OnAddDownload() {
         return;
     }
 
-    std::wstring title = Sanitize(Widen(request.animeTitle));
+    std::wstring title = SafeFileName(Widen(request.animeTitle));
     std::wstring base = request.destination.empty() ? paths::UserDownloadsDir()
                                                     : request.destination;
     std::wstring folder = base + L"\\" + title;
