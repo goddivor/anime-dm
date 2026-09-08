@@ -2,6 +2,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 
@@ -76,6 +77,18 @@ State Load() {
             item.status = DownloadStatus::Stopped;
         }
         state.items.push_back(std::move(item));
+    }
+
+    // A file written before the groups existed still names every anime.
+    for (const DownloadItem& item : state.items) {
+        bool known = std::any_of(state.groups.begin(), state.groups.end(),
+                                 [&](const AnimeGroup& g) { return g.url == item.animeUrl; });
+        if (!known && !item.animeUrl.empty()) {
+            AnimeGroup group;
+            group.url = item.animeUrl;
+            group.title = item.animeTitle;
+            state.groups.push_back(std::move(group));
+        }
     }
     return state;
 }

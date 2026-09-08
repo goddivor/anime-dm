@@ -11,6 +11,7 @@
 #include <fstream>
 #include <thread>
 
+#include "core/Addon.h"
 #include "core/Digest.h"
 #include "core/Paths.h"
 #include "core/Queue.h"
@@ -38,6 +39,7 @@ constexpr int kStatusColumn = 2;
 // The bytes of an image, on their way from a worker thread to the panel.
 struct PosterPayloadData {
     std::string animeUrl;
+    std::string posterUrl;
     std::vector<uint8_t> bytes;
 };
 
@@ -560,7 +562,7 @@ void MainWindow::OnAddDownload() {
         if (!request.posterBytes.empty()) {
             WriteBytes(PosterPath(group.url), request.posterBytes);
             sidebar_.SetPoster(group.url, request.posterBytes);
-        } else if (!group.posterUrl.empty()) {
+        } else {
             FetchPoster(group);
         }
     }
@@ -592,8 +594,13 @@ void MainWindow::OnAddDownload() {
 
 // Keeps the poster a worker thread fetched.
 void MainWindow::OnPosterEvent(std::unique_ptr<PosterPayload> payload) {
-    if (payload->bytes.empty() || FindGroup(payload->animeUrl) == nullptr) {
+    AnimeGroup* group = FindGroup(payload->animeUrl);
+    if (payload->bytes.empty() || group == nullptr) {
         return;
+    }
+    if (group->posterUrl != payload->posterUrl) {
+        group->posterUrl = payload->posterUrl;
+        Persist();
     }
     WriteBytes(PosterPath(payload->animeUrl), payload->bytes);
     sidebar_.SetPoster(payload->animeUrl, payload->bytes);
@@ -760,19 +767,48 @@ void MainWindow::LoadPosters() {
         std::vector<uint8_t> bytes = ReadBytes(PosterPath(group.url));
         if (!bytes.empty()) {
             sidebar_.SetPoster(group.url, bytes);
-        } else if (!group.posterUrl.empty()) {
+        } else {
             FetchPoster(group);
         }
     }
 }
 
-// Fetches the poster of an anime off the interface thread.
+// Fetches the poster of an anime off the interface thread. When its address
+// is not known yet, the source is asked for it first.
 void MainWindow::FetchPoster(const AnimeGroup& group) {
     HWND window = hwnd_;
     Http* http = &http_;
+    const AddonStore* store = &store_;
     std::string animeUrl = group.url;
     std::string posterUrl = group.posterUrl;
-    std::thread([window, http, animeUrl, posterUrl] {
+    std::string addonId;
+    for (const DownloadItem& item : items_) {
+        if (item.animeUrl == animeUrl) {
+            addonId = item.addonId;
+            break;
+        }
+    }
+    if (posterUrl.empty() && addonId.empty()) {
+        return;
+    }
+
+    std::thread([window, http, store, animeUrl, posterUrl, addonId]() mutable {
+        if (posterUrl.empty()) {
+            std::unique_ptr<Addon> addon =
+                Addon::Load(store->LibraryPath(addonId), *http, store->ReadConfig(addonId));
+            if (!addon) {
+                return;
+            }
+            std::optional<nlohmann::json> details =
+                addon->Call("adm_anime_details", {{"url", animeUrl}});
+            if (!details || !details->is_object()) {
+                return;
+            }
+            posterUrl = details->value("posterUrl", std::string());
+            if (posterUrl.empty()) {
+                return;
+            }
+        }
         std::map<std::string, std::string> headers{{"Referer", OriginOf(animeUrl)}};
         std::optional<std::vector<uint8_t>> bytes = http->GetBytes(posterUrl, headers);
         if (!bytes || bytes->empty()) {
@@ -780,6 +816,7 @@ void MainWindow::FetchPoster(const AnimeGroup& group) {
         }
         auto* payload = new PosterPayload();
         payload->animeUrl = animeUrl;
+        payload->posterUrl = posterUrl;
         payload->bytes = std::move(*bytes);
         if (!PostMessageW(window, kPosterEvent, 0, reinterpret_cast<LPARAM>(payload))) {
             delete payload;
