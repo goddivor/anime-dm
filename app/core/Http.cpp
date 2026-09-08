@@ -59,6 +59,7 @@ std::wstring JoinHeaders(const std::map<std::string, std::string>& headers) {
     return block;
 }
 
+}  // namespace
 
 // Opens the session shared by every request of the process.
 Http::Http() {
@@ -76,6 +77,8 @@ Http::~Http() {
         session_ = nullptr;
     }
 }
+
+namespace {
 
 // Reads a numeric header of an answered request.
 bool QueryNumber(HINTERNET request, DWORD query, DWORD* value) {
