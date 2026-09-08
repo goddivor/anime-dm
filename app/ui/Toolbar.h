@@ -14,6 +14,7 @@ public:
     void Resize();
     void Retranslate();
     void ApplyTheme(const Theme& theme);
+    void Enable(int command, bool enabled);
     int Height() const;
     HWND Handle() const { return hwnd_; }
 

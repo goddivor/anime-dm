@@ -111,6 +111,11 @@ void Toolbar::ApplyTheme(const Theme& theme) {
     InvalidateRect(hwnd_, nullptr, TRUE);
 }
 
+// Greys a button out, or lights it up again.
+void Toolbar::Enable(int command, bool enabled) {
+    SendMessageW(hwnd_, TB_ENABLEBUTTON, command, MAKELPARAM(enabled ? TRUE : FALSE, 0));
+}
+
 // Re-runs auto-sizing so the toolbar tracks the parent width.
 void Toolbar::Resize() {
     SendMessageW(hwnd_, TB_AUTOSIZE, 0, 0);

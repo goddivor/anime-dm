@@ -3,6 +3,8 @@
 #include <windows.h>
 #include <shlobj.h>
 
+#include <filesystem>
+
 namespace {
 
 constexpr wchar_t kFolder[] = L"anime-dm";
@@ -62,6 +64,42 @@ std::wstring AddonsDir() {
 std::wstring SettingsFile() {
     std::wstring base = DataDir();
     return base.empty() ? std::wstring() : base + L"\\settings.json";
+}
+
+// `<data>/downloads.json`.
+std::wstring DownloadsFile() {
+    std::wstring base = DataDir();
+    return base.empty() ? std::wstring() : base + L"\\downloads.json";
+}
+
+// `<data>/parts/<id>`, created on demand.
+std::wstring PartsDir(unsigned long long id) {
+    std::wstring base = DataDir();
+    if (base.empty()) {
+        return std::wstring();
+    }
+    std::wstring dir = base + L"\\parts\\" + std::to_wstring(id);
+    return EnsureDir(dir) ? dir : std::wstring();
+}
+
+// Deletes a folder and everything under it.
+void RemoveTree(const std::wstring& path) {
+    if (path.empty()) {
+        return;
+    }
+    std::error_code ignored;
+    std::filesystem::remove_all(std::filesystem::path(path), ignored);
+}
+
+// The Downloads folder of the user profile.
+std::wstring UserDownloadsDir() {
+    PWSTR folder = nullptr;
+    if (FAILED(SHGetKnownFolderPath(FOLDERID_Downloads, 0, nullptr, &folder))) {
+        return std::wstring();
+    }
+    std::wstring dir(folder);
+    CoTaskMemFree(folder);
+    return dir;
 }
 
 }  // namespace paths

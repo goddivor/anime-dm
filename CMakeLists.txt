@@ -14,11 +14,19 @@ add_executable(anime-dm WIN32
     app/main.cpp
     app/core/Addon.cpp
     app/core/AddonStore.cpp
+    app/core/Cipher.cpp
     app/core/Digest.cpp
+    app/core/Download.cpp
+    app/core/Downloader.cpp
+    app/core/Playlist.cpp
+    app/core/Queue.cpp
+    app/core/Transfer.cpp
     app/core/Http.cpp
     app/core/Image.cpp
     app/core/Paths.cpp
     app/core/Text.cpp
+    app/ui/ConfirmDialog.cpp
+    app/ui/Format.cpp
     app/ui/MainWindow.cpp
     app/ui/MenuBar.cpp
     app/ui/Paint.cpp
