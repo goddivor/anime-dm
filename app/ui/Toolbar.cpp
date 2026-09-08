@@ -39,6 +39,10 @@ Toolbar::~Toolbar() {
         ImageList_Destroy(imageList_);
         imageList_ = nullptr;
     }
+    if (disabledList_ != nullptr) {
+        ImageList_Destroy(disabledList_);
+        disabledList_ = nullptr;
+    }
 }
 
 // Creates a flat toolbar of captioned icons pinned to the top of the parent.
@@ -107,6 +111,13 @@ void Toolbar::ApplyTheme(const Theme& theme) {
     SendMessageW(hwnd_, TB_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(imageList_));
     if (previous != nullptr) {
         ImageList_Destroy(previous);
+    }
+
+    HIMAGELIST previousDisabled = disabledList_;
+    disabledList_ = CreateToolbarImageList(theme.Colors().muted);
+    SendMessageW(hwnd_, TB_SETDISABLEDIMAGELIST, 0, reinterpret_cast<LPARAM>(disabledList_));
+    if (previousDisabled != nullptr) {
+        ImageList_Destroy(previousDisabled);
     }
     InvalidateRect(hwnd_, nullptr, TRUE);
 }

@@ -21,4 +21,5 @@ public:
 private:
     HWND hwnd_ = nullptr;
     HIMAGELIST imageList_ = nullptr;
+    HIMAGELIST disabledList_ = nullptr;
 };

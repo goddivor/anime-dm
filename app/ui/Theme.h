@@ -18,6 +18,7 @@ struct ThemeColors {
     COLORREF accent;      // what a chosen item is filled with
     COLORREF accentText;  // what is written on top of it
     COLORREF hover;       // what the pointer lights up
+    COLORREF muted;       // what is greyed out
     bool dark;
 };
 
