@@ -324,6 +324,14 @@ const Shape kInbox[] = {
              "4H7.24a2 2 0 0 0-1.79 1.11z"),
 };
 
+const Shape kChevronRight[] = {ADM_PATH("m9 18 6-6-6-6")};
+const Shape kChevronDown[] = {ADM_PATH("m6 9 6 6 6-6")};
+const Shape kClock[] = {ADM_CIRCLE(12, 12, 10), ADM_POLY("12 6 12 12 16 14")};
+const Shape kArrowDown[] = {ADM_PATH("M12 5v14"), ADM_PATH("m19 12-7 7-7-7")};
+const Shape kCheck[] = {ADM_PATH("M20 6 9 17l-5-5")};
+const Shape kCross[] = {ADM_PATH("M18 6 6 18"), ADM_PATH("m6 6 12 12")};
+const Shape kSquare[] = {ADM_RRECT(3, 3, 18, 18, 2)};
+
 #undef ADM_PATH
 #undef ADM_CIRCLE
 #undef ADM_RRECT
@@ -342,14 +350,6 @@ const IconDef kToolbarIcons[ICON_COUNT] = {
     ADM_ICON(kTrash), ADM_ICON(kListX),    ADM_ICON(kSettings),   ADM_ICON(kTimer),
     ADM_ICON(kPuzzle), ADM_ICON(kSearch),
 };
-
-const Shape kChevronRight[] = {ADM_PATH("m9 18 6-6-6-6")};
-const Shape kChevronDown[] = {ADM_PATH("m6 9 6 6 6-6")};
-const Shape kClock[] = {ADM_CIRCLE(12, 12, 10), ADM_POLY("12 6 12 12 16 14")};
-const Shape kArrowDown[] = {ADM_PATH("M12 5v14"), ADM_PATH("m19 12-7 7-7-7")};
-const Shape kCheck[] = {ADM_PATH("M20 6 9 17l-5-5")};
-const Shape kCross[] = {ADM_PATH("M18 6 6 18"), ADM_PATH("m6 6 12 12")};
-const Shape kSquare[] = {ADM_RRECT(3, 3, 18, 18, 2)};
 
 const IconDef kCategoryIcons[CAT_COUNT] = {
     ADM_ICON(kFolder),       ADM_ICON(kFilm),  ADM_ICON(kInbox),     ADM_ICON(kTimer),
