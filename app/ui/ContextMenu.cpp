@@ -20,3 +20,18 @@ int ShowDownloadsContextMenu(HWND owner, int x, int y) {
     DestroyMenu(menu);
     return command;
 }
+
+// Builds the anime menu, tracks it synchronously and returns the selection.
+int ShowAnimeContextMenu(HWND owner, int x, int y) {
+    HMENU menu = CreatePopupMenu();
+    AppendMenuW(menu, MF_STRING, ID_ANIME_OPEN, Str(STR_CTX_OPEN));
+    AppendMenuW(menu, MF_STRING, ID_ANIME_OPEN_FOLDER, Str(STR_CTX_OPEN_FOLDER));
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, MF_STRING, ID_ANIME_DELETE, Str(STR_ANIME_DELETE));
+
+    int command = static_cast<int>(TrackPopupMenu(
+        menu, TPM_RIGHTBUTTON | TPM_RETURNCMD, x, y, 0, owner, nullptr));
+
+    DestroyMenu(menu);
+    return command;
+}

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <map>
 #include <string>
 #include <vector>
@@ -22,6 +23,8 @@ struct AddRequest {
     std::string addonId;
     std::string animeTitle;
     std::string animeUrl;
+    std::string posterUrl;
+    std::vector<uint8_t> posterBytes;  // what the dialog already fetched, if anything
     std::wstring destination;
     std::vector<AddRequestEpisode> episodes;
 };

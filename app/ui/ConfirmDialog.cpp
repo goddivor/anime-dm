@@ -19,7 +19,11 @@ INT_PTR CALLBACK ConfirmDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM 
         SetWindowLongPtrW(dialog, GWLP_USERDATA, lParam);
         ActiveTheme().ApplyToDialog(dialog);
         SetDialogTitle(dialog, confirm->title);
-        SetDialogText(dialog, IDC_CONFIRM_TEXT, confirm->message);
+        if (confirm->text.empty()) {
+            SetDialogText(dialog, IDC_CONFIRM_TEXT, confirm->message);
+        } else {
+            SetDlgItemTextW(dialog, IDC_CONFIRM_TEXT, confirm->text.c_str());
+        }
         SetDialogText(dialog, IDOK, confirm->okLabel);
         SetDialogText(dialog, IDCANCEL, STR_DLG_CANCEL);
         HWND check = GetDlgItem(dialog, IDC_CONFIRM_CHECK);

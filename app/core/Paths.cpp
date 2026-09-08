@@ -72,6 +72,16 @@ std::wstring DownloadsFile() {
     return base.empty() ? std::wstring() : base + L"\\downloads.json";
 }
 
+// `<data>/posters`, created on demand.
+std::wstring PostersDir() {
+    std::wstring base = DataDir();
+    if (base.empty()) {
+        return std::wstring();
+    }
+    std::wstring dir = base + L"\\posters";
+    return EnsureDir(dir) ? dir : std::wstring();
+}
+
 // `<data>/parts/<id>`, created on demand.
 std::wstring PartsDir(unsigned long long id) {
     std::wstring base = DataDir();

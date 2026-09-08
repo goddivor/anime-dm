@@ -103,6 +103,63 @@ HBITMAP Fit(const std::vector<uint8_t>& bytes, int width, int height) {
     return Decode(bytes, fitted, tall);
 }
 
+// Fills a box with the source, cropping what overflows, with rounded corners.
+HBITMAP Cover(const std::vector<uint8_t>& bytes, int width, int height, int radius) {
+    if (bytes.empty() || width <= 0 || height <= 0) {
+        return nullptr;
+    }
+
+    IStream* stream = SHCreateMemStream(bytes.data(), static_cast<UINT>(bytes.size()));
+    if (stream == nullptr) {
+        return nullptr;
+    }
+    Gdiplus::Bitmap source(stream, FALSE);
+    stream->Release();
+    if (source.GetLastStatus() != Gdiplus::Ok || source.GetWidth() == 0 ||
+        source.GetHeight() == 0) {
+        return nullptr;
+    }
+
+    void* bits = nullptr;
+    HBITMAP bitmap = CreateSurface(width, height, &bits);
+    if (bitmap == nullptr) {
+        return nullptr;
+    }
+
+    float scale = max(static_cast<float>(width) / static_cast<float>(source.GetWidth()),
+                      static_cast<float>(height) / static_cast<float>(source.GetHeight()));
+    float drawnWidth = static_cast<float>(source.GetWidth()) * scale;
+    float drawnHeight = static_cast<float>(source.GetHeight()) * scale;
+    float left = (static_cast<float>(width) - drawnWidth) / 2.0f;
+    float top = (static_cast<float>(height) - drawnHeight) / 2.0f;
+
+    Gdiplus::Bitmap surface(width, height, width * 4, PixelFormat32bppPARGB,
+                            static_cast<BYTE*>(bits));
+    Gdiplus::Graphics graphics(&surface);
+    graphics.Clear(Gdiplus::Color(0, 0, 0, 0));
+    graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
+    graphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+    graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+
+    Gdiplus::GraphicsPath clip;
+    float diameter = static_cast<float>(radius) * 2.0f;
+    float w = static_cast<float>(width);
+    float h = static_cast<float>(height);
+    if (radius > 0) {
+        clip.AddArc(0.0f, 0.0f, diameter, diameter, 180.0f, 90.0f);
+        clip.AddArc(w - diameter, 0.0f, diameter, diameter, 270.0f, 90.0f);
+        clip.AddArc(w - diameter, h - diameter, diameter, diameter, 0.0f, 90.0f);
+        clip.AddArc(0.0f, h - diameter, diameter, diameter, 90.0f, 90.0f);
+        clip.CloseFigure();
+    } else {
+        clip.AddRectangle(Gdiplus::RectF(0.0f, 0.0f, w, h));
+    }
+    graphics.SetClip(&clip);
+    graphics.DrawImage(&source, Gdiplus::RectF(left, top, drawnWidth, drawnHeight));
+    graphics.Flush();
+    return bitmap;
+}
+
 // Decodes an encoded image into a square, ready for an image list.
 HBITMAP DecodeSquare(const std::vector<uint8_t>& bytes, int size) {
     return Decode(bytes, size, size);

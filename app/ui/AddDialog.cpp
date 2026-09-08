@@ -610,6 +610,8 @@ void Confirm(HWND dialog, Screen& screen) {
     request.addonId = screen.sources[static_cast<size_t>(source)].id;
     request.animeTitle = screen.title;
     request.animeUrl = screen.url;
+    request.posterUrl = screen.posterUrl;
+    request.posterBytes = screen.posterBytes;
     request.destination = ReadText(dialog, IDC_ADD_DEST);
     request.episodes.clear();
 

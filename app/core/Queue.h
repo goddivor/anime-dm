@@ -7,11 +7,17 @@
 // The download list between two sessions, kept in `downloads.json`.
 namespace queue {
 
-// Reads the list back. Whatever was running is handed back as stopped, its
-// parts still on disk, so the user resumes it.
-std::vector<DownloadItem> Load();
+// Everything the file holds.
+struct State {
+    std::vector<DownloadItem> items;
+    std::vector<AnimeGroup> groups;
+};
 
-// Writes the list, whole.
-void Save(const std::vector<DownloadItem>& items);
+// Reads the file back. Whatever was running is handed back as stopped, its
+// parts still on disk, so the user resumes it.
+State Load();
+
+// Writes the file, whole.
+void Save(const State& state);
 
 }  // namespace queue
