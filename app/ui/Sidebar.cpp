@@ -48,10 +48,14 @@ void PaintHeader(HWND header) {
     FillRect(dc, &client, background);
     DeleteObject(background);
 
+    // The frame of the panel starts here: its upper edge and both sides, the
+    // tree below carrying the rest.
     HPEN pen = CreatePen(PS_SOLID, 1, state->line);
     HPEN oldPen = static_cast<HPEN>(SelectObject(dc, pen));
-    MoveToEx(dc, client.left, client.bottom - 1, nullptr);
-    LineTo(dc, client.right, client.bottom - 1);
+    MoveToEx(dc, client.left, client.bottom, nullptr);
+    LineTo(dc, client.left, client.top);
+    LineTo(dc, client.right - 1, client.top);
+    LineTo(dc, client.right - 1, client.bottom);
 
     HFONT oldFont = nullptr;
     if (state->font != nullptr) {
@@ -67,6 +71,15 @@ void PaintHeader(HWND header) {
     }
 
     RECT box = CloseBoxRect(header);
+    if (state->hovered) {
+        HBRUSH lit = CreateSolidBrush(state->hover);
+        FillRect(dc, &box, lit);
+        DeleteObject(lit);
+    }
+    HBRUSH edge = CreateSolidBrush(state->line);
+    FrameRect(dc, &box, edge);
+    DeleteObject(edge);
+
     HPEN cross = CreatePen(PS_SOLID, 1, state->text);
     SelectObject(dc, cross);
     MoveToEx(dc, box.left + 6, box.top + 6, nullptr);
@@ -106,6 +119,32 @@ LRESULT CALLBACK HeaderProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         return 0;
     }
+    case WM_MOUSEMOVE: {
+        if (state == nullptr) {
+            return 0;
+        }
+        POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        RECT box = CloseBoxRect(hwnd);
+        bool over = PtInRect(&box, point) != FALSE;
+        if (over != state->hovered) {
+            state->hovered = over;
+            InvalidateRect(hwnd, &box, FALSE);
+        }
+        if (!state->tracking) {
+            TRACKMOUSEEVENT track = {sizeof(track), TME_LEAVE, hwnd, 0};
+            state->tracking = TrackMouseEvent(&track) != FALSE;
+        }
+        return 0;
+    }
+    case WM_MOUSELEAVE:
+        if (state != nullptr) {
+            state->tracking = false;
+            if (state->hovered) {
+                state->hovered = false;
+                InvalidateRect(hwnd, nullptr, FALSE);
+            }
+        }
+        return 0;
     default:
         return DefWindowProcW(hwnd, msg, wParam, lParam);
     }
@@ -196,6 +235,7 @@ bool Sidebar::Create(HWND parent, HINSTANCE instance) {
     headerState_.surface = GetSysColor(COLOR_BTNFACE);
     headerState_.text = GetSysColor(COLOR_BTNTEXT);
     headerState_.line = GetSysColor(COLOR_BTNSHADOW);
+    headerState_.hover = GetSysColor(COLOR_BTNHIGHLIGHT);
 
     header_ = CreateWindowExW(
         0, kHeaderClass, nullptr, WS_CHILD | WS_VISIBLE,
@@ -203,8 +243,8 @@ bool Sidebar::Create(HWND parent, HINSTANCE instance) {
     SetWindowLongPtrW(header_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&headerState_));
 
     tree_ = CreateWindowExW(
-        WS_EX_CLIENTEDGE, WC_TREEVIEWW, L"",
-        WS_CHILD | WS_VISIBLE | TVS_HASBUTTONS | TVS_LINESATROOT | TVS_SHOWSELALWAYS |
+        0, WC_TREEVIEWW, L"",
+        WS_CHILD | WS_VISIBLE | WS_BORDER | TVS_HASBUTTONS | TVS_LINESATROOT | TVS_SHOWSELALWAYS |
             TVS_FULLROWSELECT | TVS_NONEVENHEIGHT | TVS_NOHSCROLL,
         0, 0, 0, 0, parent, nullptr, instance, nullptr);
     if (tree_ == nullptr) {
@@ -493,6 +533,7 @@ void Sidebar::ApplyTheme(const Theme& theme) {
     headerState_.surface = colors.surface;
     headerState_.text = colors.text;
     headerState_.line = colors.line;
+    headerState_.hover = colors.hover;
     InvalidateRect(header_, nullptr, TRUE);
 
     RebuildIcons(theme);

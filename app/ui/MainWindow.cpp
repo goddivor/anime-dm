@@ -399,7 +399,6 @@ LRESULT MainWindow::OnListCustomDraw(NMLVCUSTOMDRAW* draw) {
     HPEN previous = static_cast<HPEN>(SelectObject(dc, pen));
 
     int columns = Header_GetItemCount(header);
-    int rightmost = 0;
     for (int column = 0; column < columns; ++column) {
         RECT item = {};
         if (!Header_GetItemRect(header, column, &item)) {
@@ -407,7 +406,6 @@ LRESULT MainWindow::OnListCustomDraw(NMLVCUSTOMDRAW* draw) {
         }
         MoveToEx(dc, item.right - 1, item.bottom, nullptr);
         LineTo(dc, item.right - 1, client.bottom);
-        rightmost = std::max<int>(rightmost, item.right);
     }
 
     // One rule under every row, existing or not, so the grid reaches the
@@ -415,10 +413,9 @@ LRESULT MainWindow::OnListCustomDraw(NMLVCUSTOMDRAW* draw) {
     RECT first = {};
     if (ListView_GetItemCount(list) > 0 && ListView_GetItemRect(list, 0, &first, LVIR_BOUNDS)) {
         int height = first.bottom - first.top;
-        int width = std::min<int>(client.right, rightmost);
         for (int y = first.bottom - 1; height > 0 && y < client.bottom; y += height) {
             MoveToEx(dc, client.left, y, nullptr);
-            LineTo(dc, width, y);
+            LineTo(dc, client.right, y);
         }
     }
 

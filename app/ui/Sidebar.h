@@ -19,6 +19,9 @@ struct SidebarHeaderState {
     COLORREF surface;
     COLORREF text;
     COLORREF line;
+    COLORREF hover;
+    bool hovered;   // the pointer rests on the close box
+    bool tracking;  // a leave notification is pending
 };
 
 // What a row of the tree stands for.

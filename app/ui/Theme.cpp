@@ -62,18 +62,61 @@ bool SystemPrefersDark() {
 
 // A themed header keeps its dark background but draws its captions with the
 // light-mode text colour, so the colour is forced through custom draw.
+// Paints one column caption of a header in the colours of the palette, so the
+// header shares the tone of the rows instead of the grey of the visual style.
+void DrawHeaderItem(HWND header, NMCUSTOMDRAW* draw) {
+    const ThemeColors& colors = ActiveTheme().Colors();
+    HDC dc = draw->hdc;
+    RECT cell = draw->rc;
+    HBRUSH background = CreateSolidBrush(colors.window);
+    FillRect(dc, &cell, background);
+    DeleteObject(background);
+
+    wchar_t text[256] = {};
+    HDITEMW item = {};
+    item.mask = HDI_TEXT | HDI_FORMAT;
+    item.pszText = text;
+    item.cchTextMax = ARRAYSIZE(text);
+    Header_GetItem(header, static_cast<int>(draw->dwItemSpec), &item);
+
+    HFONT font = reinterpret_cast<HFONT>(SendMessageW(header, WM_GETFONT, 0, 0));
+    HFONT previous = font != nullptr ? static_cast<HFONT>(SelectObject(dc, font)) : nullptr;
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, colors.text);
+    cell.left += 6;
+    cell.right -= 6;
+    UINT align = (item.fmt & HDF_JUSTIFYMASK) == HDF_RIGHT ? DT_RIGHT : DT_LEFT;
+    DrawTextW(dc, text, -1, &cell,
+              align | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
+    if (previous != nullptr) {
+        SelectObject(dc, previous);
+    }
+}
+
 // Draws the rule under the header and the dividers between its columns, in
-// the colour of the palette, once the header painted itself.
+// the colour of the palette, once the header painted itself. The stretch
+// past the last column takes the tone of the rows too.
 void RuleHeader(HWND header, HDC dc) {
     RECT client = {};
     GetClientRect(header, &client);
-    HPEN pen = CreatePen(PS_SOLID, 1, ActiveTheme().Colors().line);
+    const ThemeColors& colors = ActiveTheme().Colors();
+
+    int columns = Header_GetItemCount(header);
+    RECT tail = client;
+    RECT last = {};
+    if (columns > 0 && Header_GetItemRect(header, columns - 1, &last)) {
+        tail.left = last.right;
+    }
+    HBRUSH background = CreateSolidBrush(colors.window);
+    FillRect(dc, &tail, background);
+    DeleteObject(background);
+
+    HPEN pen = CreatePen(PS_SOLID, 1, colors.line);
     HPEN previous = static_cast<HPEN>(SelectObject(dc, pen));
 
     MoveToEx(dc, client.left, client.bottom - 1, nullptr);
     LineTo(dc, client.right, client.bottom - 1);
 
-    int columns = Header_GetItemCount(header);
     for (int column = 0; column < columns; ++column) {
         RECT item = {};
         if (Header_GetItemRect(header, column, &item)) {
@@ -85,27 +128,50 @@ void RuleHeader(HWND header, HDC dc) {
     DeleteObject(pen);
 }
 
-// Paints the one-pixel frame of a bordered list in the colour of the palette,
-// over whatever the system drew for the non-client area.
-void FrameList(HWND list) {
-    if ((GetWindowLongPtrW(list, GWL_STYLE) & WS_BORDER) == 0) {
+// Paints the one-pixel frame of a bordered control in the colour of the
+// palette, over whatever the system drew for the non-client area. Without
+// `top`, the upper edge takes the window colour instead: the caption bar
+// above it carries the frame there.
+void FrameWindow(HWND window, bool top) {
+    if ((GetWindowLongPtrW(window, GWL_STYLE) & WS_BORDER) == 0) {
         return;
     }
-    HDC dc = GetWindowDC(list);
+    HDC dc = GetWindowDC(window);
     if (dc == nullptr) {
         return;
     }
+    const ThemeColors& colors = ActiveTheme().Colors();
     RECT frame = {};
-    GetWindowRect(list, &frame);
+    GetWindowRect(window, &frame);
     OffsetRect(&frame, -frame.left, -frame.top);
-    HBRUSH brush = CreateSolidBrush(ActiveTheme().Colors().line);
+    HBRUSH brush = CreateSolidBrush(colors.line);
     FrameRect(dc, &frame, brush);
     DeleteObject(brush);
-    ReleaseDC(list, dc);
+    if (!top) {
+        RECT edge = {frame.left, frame.top, frame.right, frame.top + 1};
+        HBRUSH blank = CreateSolidBrush(colors.window);
+        FillRect(dc, &edge, blank);
+        DeleteObject(blank);
+    }
+    ReleaseDC(window, dc);
+}
+
+// Frames a tree the way the lists are framed, minus the upper edge.
+LRESULT CALLBACK TreeSubclass(HWND window, UINT msg, WPARAM wParam, LPARAM lParam,
+                              UINT_PTR id, DWORD_PTR) {
+    if (msg == WM_NCPAINT) {
+        LRESULT result = DefSubclassProc(window, msg, wParam, lParam);
+        FrameWindow(window, false);
+        return result;
+    }
+    if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(window, TreeSubclass, id);
+    }
+    return DefSubclassProc(window, msg, wParam, lParam);
 }
 
 LRESULT CALLBACK ListSubclass(HWND window, UINT msg, WPARAM wParam, LPARAM lParam,
-                              UINT_PTR id, DWORD_PTR data) {
+                              UINT_PTR id, DWORD_PTR) {
     if (msg == WM_NOTIFY) {
         auto* notify = reinterpret_cast<NMHDR*>(lParam);
         if (notify->code == NM_CUSTOMDRAW) {
@@ -114,8 +180,8 @@ LRESULT CALLBACK ListSubclass(HWND window, UINT msg, WPARAM wParam, LPARAM lPara
                 return CDRF_NOTIFYITEMDRAW | CDRF_NOTIFYPOSTPAINT;
             }
             if (draw->dwDrawStage == CDDS_ITEMPREPAINT) {
-                SetTextColor(draw->hdc, static_cast<COLORREF>(data));
-                return CDRF_NEWFONT;
+                DrawHeaderItem(notify->hwndFrom, draw);
+                return CDRF_SKIPDEFAULT;
             }
             if (draw->dwDrawStage == CDDS_POSTPAINT) {
                 RuleHeader(notify->hwndFrom, draw->hdc);
@@ -125,7 +191,7 @@ LRESULT CALLBACK ListSubclass(HWND window, UINT msg, WPARAM wParam, LPARAM lPara
     }
     if (msg == WM_NCPAINT) {
         LRESULT result = DefSubclassProc(window, msg, wParam, lParam);
-        FrameList(window);
+        FrameWindow(window, true);
         return result;
     }
     if (msg == WM_NCDESTROY) {
@@ -224,7 +290,9 @@ void Theme::ApplyToTree(HWND tree) const {
     TreeView_SetBkColor(tree, colors_.window);
     TreeView_SetTextColor(tree, colors_.text);
     TreeView_SetLineColor(tree, colors_.line);
+    SetWindowSubclass(tree, TreeSubclass, 1, 0);
     InvalidateRect(tree, nullptr, TRUE);
+    RedrawWindow(tree, nullptr, nullptr, RDW_FRAME | RDW_INVALIDATE);
 }
 
 namespace {
