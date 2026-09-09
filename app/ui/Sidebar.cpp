@@ -306,6 +306,9 @@ void Sidebar::Rebuild(const std::vector<AnimeGroup>& groups,
         }
     }
 
+    Node* rule = Add(SidebarNodeKind::Separator, std::string(), 0);
+    Insert(TVI_ROOT, L"", CAT_FOLDER, rule, 1);
+
     Node* queues = Add(SidebarNodeKind::Queues, std::string(), 0);
     HTREEITEM queueRoot = Insert(TVI_ROOT, Str(STR_CAT_QUEUE), CAT_QUEUE, queues, 1);
     Node* main = Add(SidebarNodeKind::QueueMain, std::string(), 0);
@@ -383,6 +386,10 @@ LRESULT Sidebar::OnCustomDraw(NMTVCUSTOMDRAW* draw) {
             DrawAnimeRow(draw, *static_cast<const Node*>(node));
             return CDRF_SKIPDEFAULT;
         }
+        if (node != nullptr && node->kind == SidebarNodeKind::Separator) {
+            DrawSeparator(draw);
+            return CDRF_SKIPDEFAULT;
+        }
         return CDRF_DODEFAULT;
     }
     default:
@@ -452,6 +459,26 @@ void Sidebar::DrawAnimeRow(NMTVCUSTOMDRAW* draw, const Node& node) {
     if (previousFont != nullptr) {
         SelectObject(dc, previousFont);
     }
+}
+
+// Paints the rule that parts the animes from the queues.
+void Sidebar::DrawSeparator(NMTVCUSTOMDRAW* draw) {
+    HDC dc = draw->nmcd.hdc;
+    RECT row = {};
+    TreeView_GetItemRect(tree_, reinterpret_cast<HTREEITEM>(draw->nmcd.dwItemSpec), &row, FALSE);
+
+    const ThemeColors& colors = ActiveTheme().Colors();
+    HBRUSH brush = CreateSolidBrush(colors.window);
+    FillRect(dc, &row, brush);
+    DeleteObject(brush);
+
+    HPEN pen = CreatePen(PS_SOLID, 1, colors.line);
+    HPEN previous = static_cast<HPEN>(SelectObject(dc, pen));
+    int middle = (row.top + row.bottom) / 2;
+    MoveToEx(dc, row.left + 6, middle, nullptr);
+    LineTo(dc, row.right - 6, middle);
+    SelectObject(dc, previous);
+    DeleteObject(pen);
 }
 
 // Rebuilds the rows and repaints the caption in the active language.

@@ -26,6 +26,7 @@ enum class SidebarNodeKind {
     All,
     Anime,
     Episode,
+    Separator,  // a rule between the animes and the queues
     Queues,
     QueueMain,
     QueueScheduler,
@@ -85,6 +86,7 @@ private:
     HTREEITEM Insert(HTREEITEM parent, const wchar_t* text, int icon, Node* node, int integral);
     Node* Add(SidebarNodeKind kind, const std::string& animeUrl, uint64_t itemId);
     void DrawAnimeRow(NMTVCUSTOMDRAW* draw, const Node& node);
+    void DrawSeparator(NMTVCUSTOMDRAW* draw);
     void RebuildIcons(const Theme& theme);
 
     HWND header_ = nullptr;

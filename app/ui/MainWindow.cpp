@@ -612,6 +612,11 @@ LRESULT MainWindow::OnSidebarNotify(NMHDR* notify) {
     switch (notify->code) {
     case NM_CUSTOMDRAW:
         return sidebar_.OnCustomDraw(reinterpret_cast<NMTVCUSTOMDRAW*>(notify));
+    case TVN_SELCHANGINGW: {
+        const SidebarNode* node =
+            sidebar_.NodeOf(reinterpret_cast<NMTREEVIEWW*>(notify)->itemNew.hItem);
+        return node != nullptr && node->kind == SidebarNodeKind::Separator ? TRUE : FALSE;
+    }
     case TVN_SELCHANGEDW:
         if (!sidebar_.Busy()) {
             OnSidebarSelect(sidebar_.NodeOf(reinterpret_cast<NMTREEVIEWW*>(notify)->itemNew.hItem));
