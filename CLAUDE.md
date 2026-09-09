@@ -97,8 +97,8 @@ sont reprises **à l'identique** dans `FolderIcon.cpp`, transcrites automatiquem
 (cherchés à côté de l'exécutable, puis un cran au-dessus pour un build de développement).
 L'application pilote `magick.exe` (embarqué dans `resources/folder-templates/bin`, sinon le
 `PATH`) sans fenêtre, et **met en cache** chaque `.ico` par empreinte de l'affiche et recette
-dans `icon-cache/`. La pose suit Explorer : `folder.ico` caché, `desktop.ini` caché et
-système, dossier en lecture seule, `SHChangeNotify`. L'option **Aniyomi** écrit `cover.jpg`
+dans `icon-cache/`. La pose passe par `SHGetSetFolderCustomSettings` (voir les pièges) : `.ico` caché sous un
+nom propre à la recette, `desktop.ini` caché et système, dossier en lecture seule. L'option **Aniyomi** écrit `cover.jpg`
 et `.nomedia`. Tout cela tourne hors du fil d'interface et remonte par `PostMessage`.
 
 ## Le panneau Catégories
@@ -196,10 +196,13 @@ de l'utilisateur est la **session 2**. Conséquences :
   dégrade proprement s'ils disparaissent.
 - **Les en-têtes GDI+ utilisent `min` et `max`** que `NOMINMAX` supprime : déclarer
   `using std::min; using std::max;` avant de les inclure.
-- **Explorer garde l'icône d'un dossier en cache par chemin du `.ico`** : un nouveau fichier
-  sous l'ancien nom laisse l'ancienne image, parfois des minutes. D'où un nom par recette et
-  par affiche, puis `SHChangeNotify` par PIDL (attributs, élément, dossier parent) et enfin
-  `SHCNE_ASSOCCHANGED`, seul événement qui invalide le cache d'icônes.
+- **Un `desktop.ini` écrit à la main ne rafraîchit jamais Explorer à coup sûr** : il garde
+  l'icône en cache par chemin du `.ico`, parfois des minutes. Ce que font FolderIco et l'onglet
+  « Personnaliser » : `SHGetSetFolderCustomSettings` avec `FCS_FORCEWRITE`, qui écrit le fichier
+  **et** met à jour l'état interne du shell. S'y ajoutent un nom de `.ico` par recette et par
+  affiche, `SHCNE_UPDATEIMAGE` sur l'image système du dossier, les notifications par PIDL
+  (attributs, élément, dossier parent) et `SHCNE_ASSOCCHANGED`, seul événement qui invalide le
+  cache d'icônes.
 
 ## Ce qui manque encore
 
