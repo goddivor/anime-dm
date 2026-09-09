@@ -32,10 +32,15 @@ constexpr ButtonSpec kButtons[] = {
     {ID_DOWNLOAD_SEARCH, ICON_SEARCH, STR_TB_SEARCH},
 };
 
-// The scale of the monitor the toolbar is on, 1.0 at 96 dpi.
+// The scale of the display the toolbar is on, 1.0 at 96 dpi.
 double ScaleOf(HWND window) {
-    UINT dpi = GetDpiForWindow(window);
-    return dpi == 0 ? 1.0 : static_cast<double>(dpi) / 96.0;
+    HDC dc = GetDC(window);
+    if (dc == nullptr) {
+        return 1.0;
+    }
+    int dpi = GetDeviceCaps(dc, LOGPIXELSX);
+    ReleaseDC(window, dc);
+    return dpi <= 0 ? 1.0 : static_cast<double>(dpi) / 96.0;
 }
 }  // namespace
 
