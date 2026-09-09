@@ -556,6 +556,9 @@ void Sidebar::SetBounds(int x, int y, int width, int height) {
     int headerHeight = height < kHeaderHeight ? height : kHeaderHeight;
     MoveWindow(header_, x, y, width, headerHeight, TRUE);
     MoveWindow(tree_, x, y + headerHeight, width, height - headerHeight, TRUE);
+    // The anime rows and the rule are laid out from the right edge: a resize
+    // has to repaint them whole, not just the strip the tree uncovers.
+    InvalidateRect(tree_, nullptr, FALSE);
 }
 
 // Shows or hides the whole panel, caption bar included.
