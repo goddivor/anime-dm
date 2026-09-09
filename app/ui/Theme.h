@@ -21,6 +21,8 @@ struct ThemeColors {
     COLORREF muted;       // what is greyed out
     COLORREF ok;          // what succeeded
     COLORREF bad;         // what failed
+    COLORREF header;      // the caption row of a list, a shade under the rows
+    COLORREF frame;       // the outline of a list, a shade over the rules
     bool dark;
 };
 

@@ -19,6 +19,7 @@ struct SidebarHeaderState {
     COLORREF surface;
     COLORREF text;
     COLORREF line;
+    COLORREF frame;  // the outline of the panel
     COLORREF hover;
     bool hovered;   // the pointer rests on the close box
     bool tracking;  // a leave notification is pending

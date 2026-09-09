@@ -68,7 +68,7 @@ void DrawHeaderItem(HWND header, NMCUSTOMDRAW* draw) {
     const ThemeColors& colors = ActiveTheme().Colors();
     HDC dc = draw->hdc;
     RECT cell = draw->rc;
-    HBRUSH background = CreateSolidBrush(colors.window);
+    HBRUSH background = CreateSolidBrush(colors.header);
     FillRect(dc, &cell, background);
     DeleteObject(background);
 
@@ -107,7 +107,7 @@ void RuleHeader(HWND header, HDC dc) {
     if (columns > 0 && Header_GetItemRect(header, columns - 1, &last)) {
         tail.left = last.right;
     }
-    HBRUSH background = CreateSolidBrush(colors.window);
+    HBRUSH background = CreateSolidBrush(colors.header);
     FillRect(dc, &tail, background);
     DeleteObject(background);
 
@@ -128,11 +128,11 @@ void RuleHeader(HWND header, HDC dc) {
     DeleteObject(pen);
 }
 
-// Paints the one-pixel frame of a bordered control in the colour of the
+// Paints the one-pixel frame of a bordered control in a colour of the
 // palette, over whatever the system drew for the non-client area. Without
 // `top`, the upper edge takes the window colour instead: the caption bar
 // above it carries the frame there.
-void FrameWindow(HWND window, bool top) {
+void FrameWindow(HWND window, bool top, COLORREF colour) {
     if ((GetWindowLongPtrW(window, GWL_STYLE) & WS_BORDER) == 0) {
         return;
     }
@@ -144,7 +144,7 @@ void FrameWindow(HWND window, bool top) {
     RECT frame = {};
     GetWindowRect(window, &frame);
     OffsetRect(&frame, -frame.left, -frame.top);
-    HBRUSH brush = CreateSolidBrush(colors.line);
+    HBRUSH brush = CreateSolidBrush(colour);
     FrameRect(dc, &frame, brush);
     DeleteObject(brush);
     if (!top) {
@@ -158,10 +158,10 @@ void FrameWindow(HWND window, bool top) {
 
 // Frames a tree the way the lists are framed, minus the upper edge.
 LRESULT CALLBACK TreeSubclass(HWND window, UINT msg, WPARAM wParam, LPARAM lParam,
-                              UINT_PTR id, DWORD_PTR) {
+                              UINT_PTR id, DWORD_PTR data) {
     if (msg == WM_NCPAINT) {
         LRESULT result = DefSubclassProc(window, msg, wParam, lParam);
-        FrameWindow(window, false);
+        FrameWindow(window, false, static_cast<COLORREF>(data));
         return result;
     }
     if (msg == WM_NCDESTROY) {
@@ -171,7 +171,7 @@ LRESULT CALLBACK TreeSubclass(HWND window, UINT msg, WPARAM wParam, LPARAM lPara
 }
 
 LRESULT CALLBACK ListSubclass(HWND window, UINT msg, WPARAM wParam, LPARAM lParam,
-                              UINT_PTR id, DWORD_PTR) {
+                              UINT_PTR id, DWORD_PTR data) {
     if (msg == WM_NOTIFY) {
         auto* notify = reinterpret_cast<NMHDR*>(lParam);
         if (notify->code == NM_CUSTOMDRAW) {
@@ -191,7 +191,7 @@ LRESULT CALLBACK ListSubclass(HWND window, UINT msg, WPARAM wParam, LPARAM lPara
     }
     if (msg == WM_NCPAINT) {
         LRESULT result = DefSubclassProc(window, msg, wParam, lParam);
-        FrameWindow(window, true);
+        FrameWindow(window, true, static_cast<COLORREF>(data));
         return result;
     }
     if (msg == WM_NCDESTROY) {
@@ -227,13 +227,15 @@ void Theme::Refresh() {
         colors_ = {RGB(0x1E, 0x1F, 0x22), RGB(0x26, 0x28, 0x2C), RGB(0xE6, 0xE6, 0xE6),
                    RGB(0x3A, 0x3D, 0x41), RGB(0x3B, 0x82, 0xF6), RGB(0xFF, 0xFF, 0xFF),
                    RGB(0x32, 0x35, 0x3A), RGB(0x80, 0x82, 0x86), RGB(0x4A, 0xDE, 0x80),
-                   RGB(0xF8, 0x71, 0x71), true};
+                   RGB(0xF8, 0x71, 0x71), RGB(0x18, 0x19, 0x1B), RGB(0x5E, 0x62, 0x68),
+                   true};
     } else {
         colors_ = {GetSysColor(COLOR_WINDOW),     GetSysColor(COLOR_BTNFACE),
                    GetSysColor(COLOR_WINDOWTEXT), GetSysColor(COLOR_BTNSHADOW),
                    RGB(0x1D, 0x6F, 0xD6),         RGB(0xFF, 0xFF, 0xFF),
                    RGB(0xE4, 0xEC, 0xF7),         GetSysColor(COLOR_GRAYTEXT),
                    RGB(0x16, 0xA3, 0x4A),         RGB(0xDC, 0x26, 0x26),
+                   RGB(0xF0, 0xF0, 0xF0),         GetSysColor(COLOR_BTNSHADOW),
                    false};
     }
 
@@ -268,7 +270,7 @@ void Theme::ApplyToList(HWND list) const {
         SetWindowTheme(header, colors_.dark ? L"DarkMode_ItemsView" : L"ItemsView", nullptr);
     }
 
-    SetWindowSubclass(list, ListSubclass, 1, static_cast<DWORD_PTR>(colors_.text));
+    SetWindowSubclass(list, ListSubclass, 1, static_cast<DWORD_PTR>(colors_.frame));
 
     ListView_SetBkColor(list, colors_.window);
     ListView_SetTextBkColor(list, colors_.window);
@@ -290,7 +292,9 @@ void Theme::ApplyToTree(HWND tree) const {
     TreeView_SetBkColor(tree, colors_.window);
     TreeView_SetTextColor(tree, colors_.text);
     TreeView_SetLineColor(tree, colors_.line);
-    SetWindowSubclass(tree, TreeSubclass, 1, 0);
+    // The categories panel is outlined in the text colour, the way IDM
+    // frames its own, the caption bar above the tree drawing the upper edge.
+    SetWindowSubclass(tree, TreeSubclass, 1, static_cast<DWORD_PTR>(colors_.text));
     InvalidateRect(tree, nullptr, TRUE);
     RedrawWindow(tree, nullptr, nullptr, RDW_FRAME | RDW_INVALIDATE);
 }

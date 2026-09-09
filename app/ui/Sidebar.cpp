@@ -50,7 +50,7 @@ void PaintHeader(HWND header) {
 
     // The frame of the panel starts here: its upper edge and both sides, the
     // tree below carrying the rest.
-    HPEN pen = CreatePen(PS_SOLID, 1, state->line);
+    HPEN pen = CreatePen(PS_SOLID, 1, state->frame);
     HPEN oldPen = static_cast<HPEN>(SelectObject(dc, pen));
     MoveToEx(dc, client.left, client.bottom, nullptr);
     LineTo(dc, client.left, client.top);
@@ -75,10 +75,10 @@ void PaintHeader(HWND header) {
         HBRUSH lit = CreateSolidBrush(state->hover);
         FillRect(dc, &box, lit);
         DeleteObject(lit);
+        HBRUSH edge = CreateSolidBrush(state->frame);
+        FrameRect(dc, &box, edge);
+        DeleteObject(edge);
     }
-    HBRUSH edge = CreateSolidBrush(state->line);
-    FrameRect(dc, &box, edge);
-    DeleteObject(edge);
 
     HPEN cross = CreatePen(PS_SOLID, 1, state->text);
     SelectObject(dc, cross);
@@ -235,6 +235,7 @@ bool Sidebar::Create(HWND parent, HINSTANCE instance) {
     headerState_.surface = GetSysColor(COLOR_BTNFACE);
     headerState_.text = GetSysColor(COLOR_BTNTEXT);
     headerState_.line = GetSysColor(COLOR_BTNSHADOW);
+    headerState_.frame = GetSysColor(COLOR_BTNTEXT);
     headerState_.hover = GetSysColor(COLOR_BTNHIGHLIGHT);
 
     header_ = CreateWindowExW(
@@ -244,7 +245,7 @@ bool Sidebar::Create(HWND parent, HINSTANCE instance) {
 
     tree_ = CreateWindowExW(
         0, WC_TREEVIEWW, L"",
-        WS_CHILD | WS_VISIBLE | WS_BORDER | TVS_HASBUTTONS | TVS_LINESATROOT | TVS_SHOWSELALWAYS |
+        WS_CHILD | WS_VISIBLE | WS_BORDER | TVS_HASBUTTONS | TVS_LINESATROOT |
             TVS_FULLROWSELECT | TVS_NONEVENHEIGHT | TVS_NOHSCROLL,
         0, 0, 0, 0, parent, nullptr, instance, nullptr);
     if (tree_ == nullptr) {
@@ -314,7 +315,8 @@ void Sidebar::Rebuild(const std::vector<AnimeGroup>& groups,
     nodes_.clear();
 
     Node* all = Add(SidebarNodeKind::All, std::string(), 0);
-    Insert(TVI_ROOT, Counted(Str(STR_CAT_ALL), items.size()).c_str(), CAT_FOLDER, all, 1);
+    HTREEITEM allRoot =
+        Insert(TVI_ROOT, Counted(Str(STR_CAT_ALL), items.size()).c_str(), CAT_FOLDER, all, 1);
 
     for (const AnimeGroup& group : groups) {
         std::vector<const DownloadItem*> episodes;
@@ -334,7 +336,7 @@ void Sidebar::Rebuild(const std::vector<AnimeGroup>& groups,
         Node* anime = Add(SidebarNodeKind::Anime, group.url, 0);
         anime->title = Widen(group.title);
         anime->count = static_cast<int>(episodes.size());
-        HTREEITEM parent = Insert(TVI_ROOT, anime->title.c_str(), CAT_ANIME, anime, kAnimeIntegral);
+        HTREEITEM parent = Insert(allRoot, anime->title.c_str(), CAT_ANIME, anime, kAnimeIntegral);
 
         for (const DownloadItem* item : episodes) {
             Node* episode = Add(SidebarNodeKind::Episode, group.url, item->id);
@@ -345,6 +347,8 @@ void Sidebar::Rebuild(const std::vector<AnimeGroup>& groups,
             SendMessageW(tree_, TVM_EXPAND, TVE_EXPAND, reinterpret_cast<LPARAM>(parent));
         }
     }
+
+    SendMessageW(tree_, TVM_EXPAND, TVE_EXPAND, reinterpret_cast<LPARAM>(allRoot));
 
     Node* rule = Add(SidebarNodeKind::Separator, std::string(), 0);
     Insert(TVI_ROOT, L"", CAT_FOLDER, rule, 1);
@@ -456,12 +460,18 @@ void Sidebar::DrawAnimeRow(NMTVCUSTOMDRAW* draw, const Node& node) {
     DeleteObject(brush);
 
     int indent = static_cast<int>(TreeView_GetIndent(tree_));
+    int level = 0;
+    for (HTREEITEM up = TreeView_GetParent(tree_, item); up != nullptr;
+         up = TreeView_GetParent(tree_, up)) {
+        ++level;
+    }
+    int left = row.left + indent * level;
     int middle = (row.top + row.bottom) / 2;
     bool expanded = (TreeView_GetItemState(tree_, item, TVIS_EXPANDED) & TVIS_EXPANDED) != 0;
     ImageList_Draw(icons_, expanded ? CAT_CHEVRON_DOWN : CAT_CHEVRON_RIGHT, dc,
-                   row.left + (indent - kGlyph) / 2, middle - kGlyph / 2, ILD_TRANSPARENT);
+                   left + (indent - kGlyph) / 2, middle - kGlyph / 2, ILD_TRANSPARENT);
 
-    RECT box = {row.left + indent + 2, middle - kPosterHeight / 2, 0, 0};
+    RECT box = {left + indent + 2, middle - kPosterHeight / 2, 0, 0};
     box.right = box.left + kPosterWidth;
     box.bottom = box.top + kPosterHeight;
     auto poster = posters_.find(node.animeUrl);
@@ -533,6 +543,7 @@ void Sidebar::ApplyTheme(const Theme& theme) {
     headerState_.surface = colors.surface;
     headerState_.text = colors.text;
     headerState_.line = colors.line;
+    headerState_.frame = colors.text;
     headerState_.hover = colors.hover;
     InvalidateRect(header_, nullptr, TRUE);
 
