@@ -196,7 +196,18 @@ BOOL CALLBACK ThemeChild(HWND child, LPARAM data) {
     } else if (lstrcmpiW(name, WC_EDITW) == 0 || lstrcmpiW(name, WC_COMBOBOXW) == 0) {
         SetWindowTheme(child, dark ? L"DarkMode_CFD" : L"CFD", nullptr);
     } else if (lstrcmpiW(name, WC_BUTTONW) == 0) {
-        SetWindowTheme(child, dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
+        // A themed check box or radio button draws its caption in the colour
+        // of the visual style, black whatever the dialog answers; without the
+        // style, the caption follows WM_CTLCOLORSTATIC like any label.
+        LONG style = GetWindowLongW(child, GWL_STYLE) & BS_TYPEMASK;
+        bool ticks = style == BS_CHECKBOX || style == BS_AUTOCHECKBOX ||
+                     style == BS_RADIOBUTTON || style == BS_AUTORADIOBUTTON ||
+                     style == BS_3STATE || style == BS_AUTO3STATE;
+        if (dark && ticks) {
+            SetWindowTheme(child, L"", L"");
+        } else {
+            SetWindowTheme(child, dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
+        }
     }
     return TRUE;
 }

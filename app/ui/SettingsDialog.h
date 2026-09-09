@@ -2,5 +2,8 @@
 
 #include <windows.h>
 
-// Shows the modal settings dialog. Returns IDOK or IDCANCEL.
-INT_PTR ShowSettingsDialog(HWND owner, HINSTANCE instance);
+#include "core/Settings.h"
+
+// Shows the options dialog over `settings`, which it updates as the user
+// goes. Returns true when anything changed.
+bool ShowSettingsDialog(HWND owner, HINSTANCE instance, Settings* settings);

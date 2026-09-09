@@ -41,6 +41,7 @@ State Load() {
         group.url = entry.value("url", std::string());
         group.title = TidyText(entry.value("title", std::string()));
         group.posterUrl = entry.value("posterUrl", std::string());
+        group.iconTemplate = entry.value("iconTemplate", std::string());
         group.expanded = entry.value("expanded", true);
         if (!group.url.empty()) {
             state.groups.push_back(std::move(group));
@@ -105,6 +106,7 @@ void Save(const State& state) {
             {"url", group.url},
             {"title", group.title},
             {"posterUrl", group.posterUrl},
+            {"iconTemplate", group.iconTemplate},
             {"expanded", group.expanded},
         });
     }

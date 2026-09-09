@@ -51,6 +51,8 @@ build\download-smoke.exe --url <url vidéo> <sortie> [referer]    # le transfert
     analyse le sous-ensemble HLS utile ; `Cipher` déchiffre l'AES-128 des segments.
   - `Queue` : la file entre deux sessions (`downloads.json`), épisodes et groupes d'animés.
     Les affiches vivent à côté, dans `posters/`, nommées d'après le SHA-256 de la page.
+  - `Settings` : `settings.json` (icônes de dossier, modèle, Aniyomi, thème, langue).
+  - `FolderIcon` : l'icône du dossier d'un animé, décrite plus bas.
   - `Digest` (SHA-256 par BCrypt), `Image` (décodage par GDI+), `Paths` (`%APPDATA%`), `Text`
     (conversions UTF-8 / UTF-16).
   - `adm_addon.h` : copie de l'en-tête ABI ; **doit rester en phase** avec celui du dépôt des
@@ -86,6 +88,18 @@ d'octets qui accélèrent.
 
 Le moteur ne touche jamais à l'interface : tout remonte en `DownloadEvent` posté à la
 fenêtre. **Arrêter** garde les parts ; **Supprimer** les jette.
+
+## Les icônes de dossier
+
+Les **recettes ImageMagick** de l'application Tauri (héritées de RightClickFolderIconTools)
+sont reprises **à l'identique** dans `FolderIcon.cpp`, transcrites automatiquement depuis
+`dev:src-tauri/src/foldericon.rs` ; les calques vivent dans `resources/folder-templates/images`
+(cherchés à côté de l'exécutable, puis un cran au-dessus pour un build de développement).
+L'application pilote `magick.exe` (embarqué dans `resources/folder-templates/bin`, sinon le
+`PATH`) sans fenêtre, et **met en cache** chaque `.ico` par empreinte de l'affiche et recette
+dans `icon-cache/`. La pose passe par `SHGetSetFolderCustomSettings` (voir les pièges) : `.ico` caché sous un
+nom propre à la recette, `desktop.ini` caché et système, dossier en lecture seule. L'option **Aniyomi** écrit `cover.jpg`
+et `.nomedia`. Tout cela tourne hors du fil d'interface et remonte par `PostMessage`.
 
 ## Le panneau Catégories
 
@@ -182,6 +196,13 @@ de l'utilisateur est la **session 2**. Conséquences :
   dégrade proprement s'ils disparaissent.
 - **Les en-têtes GDI+ utilisent `min` et `max`** que `NOMINMAX` supprime : déclarer
   `using std::min; using std::max;` avant de les inclure.
+- **Un `desktop.ini` écrit à la main ne rafraîchit jamais Explorer à coup sûr** : il garde
+  l'icône en cache par chemin du `.ico`, parfois des minutes. Ce que font FolderIco et l'onglet
+  « Personnaliser » : `SHGetSetFolderCustomSettings` avec `FCS_FORCEWRITE`, qui écrit le fichier
+  **et** met à jour l'état interne du shell. S'y ajoutent un nom de `.ico` par recette et par
+  affiche, `SHCNE_UPDATEIMAGE` sur l'image système du dossier, les notifications par PIDL
+  (attributs, élément, dossier parent) et `SHCNE_ASSOCCHANGED`, seul événement qui invalide le
+  cache d'icônes.
 
 ## Ce qui manque encore
 
@@ -189,11 +210,7 @@ de l'utilisateur est la **session 2**. Conséquences :
   `Downloader` ; ils attendent le fichier de réglages pour devenir des options.
 - Aucune **limitation de débit**, aucun **planificateur** : les entrées de menu existent,
   pas le comportement.
-- Les **icônes de dossier** de l'application Tauri ne sont pas portées (ImageMagick, gabarits,
-  pose selon le système).
-- Ni le **thème** ni la **langue** ne sont persistés : il n'existe pas encore de fichier de
-  réglages côté application.
 - Seules les actions de téléchargement (reprendre, arrêter, supprimer…) sont grisées selon
   l'état ; le reste du menu ne l'est pas encore.
-- Le clic droit sur un animé ne propose ni **icône de dossier** ni **adaptation Aniyomi** :
-  ces deux fonctions de l'application Tauri ne sont pas portées.
+- Les **superpositions** note, genre et logo des gabarits (qui lisent un `.nfo`) ne sont pas
+  portées, comme dans l'application Tauri.

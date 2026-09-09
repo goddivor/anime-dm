@@ -55,6 +55,7 @@ struct AnimeGroup {
     std::string url;  // the page of the anime, which identifies it
     std::string title;
     std::string posterUrl;
+    std::string iconTemplate;  // the recipe applied to its folder, if any
     bool expanded = true;
 };
 

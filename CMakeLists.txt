@@ -18,8 +18,10 @@ add_executable(anime-dm WIN32
     app/core/Digest.cpp
     app/core/Download.cpp
     app/core/Downloader.cpp
+    app/core/FolderIcon.cpp
     app/core/Playlist.cpp
     app/core/Queue.cpp
+    app/core/Settings.cpp
     app/core/Transfer.cpp
     app/core/Http.cpp
     app/core/Image.cpp
@@ -43,6 +45,7 @@ add_executable(anime-dm WIN32
     app/ui/NoticeDialog.cpp
     app/ui/SearchDialog.cpp
     app/ui/Strings.cpp
+    app/ui/TemplateNames.cpp
     app/ui/Theme.cpp
     app/ui/SettingsDialog.cpp
     app/ui/DownloadsView.cpp
