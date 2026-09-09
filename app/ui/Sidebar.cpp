@@ -48,10 +48,14 @@ void PaintHeader(HWND header) {
     FillRect(dc, &client, background);
     DeleteObject(background);
 
-    HPEN pen = CreatePen(PS_SOLID, 1, state->line);
+    // The frame of the panel starts here: its upper edge and both sides, the
+    // tree below carrying the rest.
+    HPEN pen = CreatePen(PS_SOLID, 1, state->frame);
     HPEN oldPen = static_cast<HPEN>(SelectObject(dc, pen));
-    MoveToEx(dc, client.left, client.bottom - 1, nullptr);
-    LineTo(dc, client.right, client.bottom - 1);
+    MoveToEx(dc, client.left, client.bottom, nullptr);
+    LineTo(dc, client.left, client.top);
+    LineTo(dc, client.right - 1, client.top);
+    LineTo(dc, client.right - 1, client.bottom);
 
     HFONT oldFont = nullptr;
     if (state->font != nullptr) {
@@ -67,6 +71,15 @@ void PaintHeader(HWND header) {
     }
 
     RECT box = CloseBoxRect(header);
+    if (state->hovered) {
+        HBRUSH lit = CreateSolidBrush(state->hover);
+        FillRect(dc, &box, lit);
+        DeleteObject(lit);
+        HBRUSH edge = CreateSolidBrush(state->frame);
+        FrameRect(dc, &box, edge);
+        DeleteObject(edge);
+    }
+
     HPEN cross = CreatePen(PS_SOLID, 1, state->text);
     SelectObject(dc, cross);
     MoveToEx(dc, box.left + 6, box.top + 6, nullptr);
@@ -106,6 +119,32 @@ LRESULT CALLBACK HeaderProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         return 0;
     }
+    case WM_MOUSEMOVE: {
+        if (state == nullptr) {
+            return 0;
+        }
+        POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        RECT box = CloseBoxRect(hwnd);
+        bool over = PtInRect(&box, point) != FALSE;
+        if (over != state->hovered) {
+            state->hovered = over;
+            InvalidateRect(hwnd, &box, FALSE);
+        }
+        if (!state->tracking) {
+            TRACKMOUSEEVENT track = {sizeof(track), TME_LEAVE, hwnd, 0};
+            state->tracking = TrackMouseEvent(&track) != FALSE;
+        }
+        return 0;
+    }
+    case WM_MOUSELEAVE:
+        if (state != nullptr) {
+            state->tracking = false;
+            if (state->hovered) {
+                state->hovered = false;
+                InvalidateRect(hwnd, nullptr, FALSE);
+            }
+        }
+        return 0;
     default:
         return DefWindowProcW(hwnd, msg, wParam, lParam);
     }
@@ -196,6 +235,8 @@ bool Sidebar::Create(HWND parent, HINSTANCE instance) {
     headerState_.surface = GetSysColor(COLOR_BTNFACE);
     headerState_.text = GetSysColor(COLOR_BTNTEXT);
     headerState_.line = GetSysColor(COLOR_BTNSHADOW);
+    headerState_.frame = GetSysColor(COLOR_BTNTEXT);
+    headerState_.hover = GetSysColor(COLOR_BTNHIGHLIGHT);
 
     header_ = CreateWindowExW(
         0, kHeaderClass, nullptr, WS_CHILD | WS_VISIBLE,
@@ -203,14 +244,17 @@ bool Sidebar::Create(HWND parent, HINSTANCE instance) {
     SetWindowLongPtrW(header_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&headerState_));
 
     tree_ = CreateWindowExW(
-        WS_EX_CLIENTEDGE, WC_TREEVIEWW, L"",
-        WS_CHILD | WS_VISIBLE | TVS_HASBUTTONS | TVS_LINESATROOT | TVS_SHOWSELALWAYS |
-            TVS_FULLROWSELECT | TVS_NONEVENHEIGHT | TVS_NOHSCROLL,
+        0, WC_TREEVIEWW, L"",
+        WS_CHILD | WS_VISIBLE | WS_BORDER | TVS_HASBUTTONS | TVS_LINESATROOT |
+            TVS_FULLROWSELECT | TVS_NONEVENHEIGHT,
         0, 0, 0, 0, parent, nullptr, instance, nullptr);
     if (tree_ == nullptr) {
         return false;
     }
     TreeView_SetItemHeight(tree_, kRowHeight);
+    // Painted off screen first, so a resize swaps one finished picture for
+    // another instead of showing every row being drawn.
+    TreeView_SetExtendedStyle(tree_, TVS_EX_DOUBLEBUFFER, TVS_EX_DOUBLEBUFFER);
 
     RebuildIcons(ActiveTheme());
     Rebuild({}, {});
@@ -274,7 +318,8 @@ void Sidebar::Rebuild(const std::vector<AnimeGroup>& groups,
     nodes_.clear();
 
     Node* all = Add(SidebarNodeKind::All, std::string(), 0);
-    Insert(TVI_ROOT, Counted(Str(STR_CAT_ALL), items.size()).c_str(), CAT_FOLDER, all, 1);
+    HTREEITEM allRoot =
+        Insert(TVI_ROOT, Counted(Str(STR_CAT_ALL), items.size()).c_str(), CAT_FOLDER, all, 1);
 
     for (const AnimeGroup& group : groups) {
         std::vector<const DownloadItem*> episodes;
@@ -294,7 +339,7 @@ void Sidebar::Rebuild(const std::vector<AnimeGroup>& groups,
         Node* anime = Add(SidebarNodeKind::Anime, group.url, 0);
         anime->title = Widen(group.title);
         anime->count = static_cast<int>(episodes.size());
-        HTREEITEM parent = Insert(TVI_ROOT, anime->title.c_str(), CAT_ANIME, anime, kAnimeIntegral);
+        HTREEITEM parent = Insert(allRoot, anime->title.c_str(), CAT_ANIME, anime, kAnimeIntegral);
 
         for (const DownloadItem* item : episodes) {
             Node* episode = Add(SidebarNodeKind::Episode, group.url, item->id);
@@ -305,6 +350,8 @@ void Sidebar::Rebuild(const std::vector<AnimeGroup>& groups,
             SendMessageW(tree_, TVM_EXPAND, TVE_EXPAND, reinterpret_cast<LPARAM>(parent));
         }
     }
+
+    SendMessageW(tree_, TVM_EXPAND, TVE_EXPAND, reinterpret_cast<LPARAM>(allRoot));
 
     Node* rule = Add(SidebarNodeKind::Separator, std::string(), 0);
     Insert(TVI_ROOT, L"", CAT_FOLDER, rule, 1);
@@ -416,12 +463,18 @@ void Sidebar::DrawAnimeRow(NMTVCUSTOMDRAW* draw, const Node& node) {
     DeleteObject(brush);
 
     int indent = static_cast<int>(TreeView_GetIndent(tree_));
+    int level = 0;
+    for (HTREEITEM up = TreeView_GetParent(tree_, item); up != nullptr;
+         up = TreeView_GetParent(tree_, up)) {
+        ++level;
+    }
+    int left = row.left + indent * level;
     int middle = (row.top + row.bottom) / 2;
     bool expanded = (TreeView_GetItemState(tree_, item, TVIS_EXPANDED) & TVIS_EXPANDED) != 0;
     ImageList_Draw(icons_, expanded ? CAT_CHEVRON_DOWN : CAT_CHEVRON_RIGHT, dc,
-                   row.left + (indent - kGlyph) / 2, middle - kGlyph / 2, ILD_TRANSPARENT);
+                   left + (indent - kGlyph) / 2, middle - kGlyph / 2, ILD_TRANSPARENT);
 
-    RECT box = {row.left + indent + 2, middle - kPosterHeight / 2, 0, 0};
+    RECT box = {left + indent + 2, middle - kPosterHeight / 2, 0, 0};
     box.right = box.left + kPosterWidth;
     box.bottom = box.top + kPosterHeight;
     auto poster = posters_.find(node.animeUrl);
@@ -493,17 +546,23 @@ void Sidebar::ApplyTheme(const Theme& theme) {
     headerState_.surface = colors.surface;
     headerState_.text = colors.text;
     headerState_.line = colors.line;
+    headerState_.frame = colors.text;
+    headerState_.hover = colors.hover;
     InvalidateRect(header_, nullptr, TRUE);
 
     RebuildIcons(theme);
     theme.ApplyToTree(tree_);
 }
 
-// Repositions the caption bar and the tree inside the panel bounds.
-void Sidebar::SetBounds(int x, int y, int width, int height) {
+// Queues the moves of the caption bar and the tree into a deferred batch.
+// Nothing is copied from the old position: the anime rows and the rule are
+// laid out from the right edge and have to be painted afresh.
+HDWP Sidebar::Place(HDWP batch, int x, int y, int width, int height) {
     int headerHeight = height < kHeaderHeight ? height : kHeaderHeight;
-    MoveWindow(header_, x, y, width, headerHeight, TRUE);
-    MoveWindow(tree_, x, y + headerHeight, width, height - headerHeight, TRUE);
+    UINT flags = SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS;
+    batch = DeferWindowPos(batch, header_, nullptr, x, y, width, headerHeight, flags);
+    return DeferWindowPos(batch, tree_, nullptr, x, y + headerHeight, width,
+                          height - headerHeight, flags);
 }
 
 // Shows or hides the whole panel, caption bar included.

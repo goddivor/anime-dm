@@ -149,7 +149,8 @@ configuration ; l'application les stocke dans `config.json` et les réinjecte au
   `Strings.h` / `Strings.cpp` ; **le nombre d'identifiants et le nombre d'entrées doivent
   toujours concorder** (le vérifier après chaque ajout). Français et anglais restent synchrones.
 - **Couleurs** : toujours `ActiveTheme().Colors()`, jamais de valeur en dur. La palette porte
-  `window`, `surface`, `text`, `line`, `accent`, `accentText`, `hover`.
+  `window`, `surface`, `text`, `line`, `accent`, `accentText`, `hover`, `muted`, `ok`, `bad`,
+  `header`, `frame`.
 - **Réseau** : jamais sur le fil d'interface. Fil séparé, résultat renvoyé par `PostMessage`,
   boutons grisés pendant l'opération.
 - **Captures d'écran** : les prendre soi-même via le MCP (voir plus bas), ou laisser

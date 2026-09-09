@@ -57,6 +57,36 @@ void SetCell(HWND list, int row, int column, const std::wstring& text) {
     ListView_SetItemText(list, row, column, const_cast<wchar_t*>(text.c_str()));
 }
 
+// Keeps the vertical scroll bar on screen even while the rows fit, the way
+// IDM frames its list. The control drops the bar whenever it recomputes its
+// range; putting it back disabled, right after, restores the frame.
+LRESULT CALLBACK KeepScrollBar(HWND list, UINT msg, WPARAM wParam, LPARAM lParam,
+                               UINT_PTR, DWORD_PTR) {
+    if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(list, KeepScrollBar, 1);
+        return DefSubclassProc(list, msg, wParam, lParam);
+    }
+    LRESULT result = DefSubclassProc(list, msg, wParam, lParam);
+
+    static thread_local bool restoring = false;
+    if (!restoring && (GetWindowLongPtrW(list, GWL_STYLE) & WS_VSCROLL) == 0) {
+        restoring = true;
+        // SetScrollInfo only disables a bar that is still there: a bar the
+        // control removed has to be shown again before its empty range makes
+        // Windows disable it rather than remove it.
+        ShowScrollBar(list, SB_VERT, TRUE);
+        SCROLLINFO info = {};
+        info.cbSize = sizeof(info);
+        info.fMask = SIF_RANGE | SIF_PAGE | SIF_DISABLENOSCROLL;
+        info.nMin = 0;
+        info.nMax = 0;
+        info.nPage = 1;
+        SetScrollInfo(list, SB_VERT, &info, TRUE);
+        restoring = false;
+    }
+    return result;
+}
+
 }  // namespace
 
 // The text of the status cell.
@@ -94,7 +124,7 @@ std::wstring StatusText(const DownloadItem& item) {
 bool DownloadsView::Create(HWND parent, HINSTANCE instance) {
     hwnd_ = CreateWindowExW(
         0, WC_LISTVIEWW, L"",
-        WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_SHOWSELALWAYS,
+        WS_CHILD | WS_VISIBLE | WS_BORDER | LVS_REPORT | LVS_SHOWSELALWAYS,
         0, 0, 0, 0,
         parent, nullptr, instance, nullptr);
     if (hwnd_ == nullptr) {
@@ -104,6 +134,7 @@ bool DownloadsView::Create(HWND parent, HINSTANCE instance) {
     ListView_SetExtendedListViewStyle(
         hwnd_, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES | LVS_EX_DOUBLEBUFFER);
     AddColumns();
+    SetWindowSubclass(hwnd_, KeepScrollBar, 1, 0);
     return true;
 }
 
@@ -215,7 +246,9 @@ void DownloadsView::Retranslate() {
     }
 }
 
-// Repositions and resizes the ListView within its parent client area.
-void DownloadsView::SetBounds(int x, int y, int width, int height) {
-    MoveWindow(hwnd_, x, y, width, height, TRUE);
+// Queues the move of the list into a deferred batch, without copying its
+// old pixels, so the frame and the rules are painted afresh where it lands.
+HDWP DownloadsView::Place(HDWP batch, int x, int y, int width, int height) {
+    return DeferWindowPos(batch, hwnd_, nullptr, x, y, width, height,
+                          SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS);
 }

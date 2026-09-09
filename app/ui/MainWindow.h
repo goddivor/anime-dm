@@ -60,6 +60,8 @@ private:
     void OnLeftButtonDown(int x);
     void OnMouseMove(int x);
     void OnLeftButtonUp();
+    void CancelSplitterDrag();
+    void DrawTracker(int x);
     void ApplyUiFont();
 
     // --- the queue ---
@@ -115,4 +117,5 @@ private:
     int sidebarWidth_ = 230;
     bool sidebarVisible_ = true;
     bool draggingSplitter_ = false;
+    int trackX_ = 0;  // where the tracker bar stands during a drag
 };

@@ -19,6 +19,10 @@ struct SidebarHeaderState {
     COLORREF surface;
     COLORREF text;
     COLORREF line;
+    COLORREF frame;  // the outline of the panel
+    COLORREF hover;
+    bool hovered;   // the pointer rests on the close box
+    bool tracking;  // a leave notification is pending
 };
 
 // What a row of the tree stands for.
@@ -49,7 +53,8 @@ public:
     ~Sidebar();
 
     bool Create(HWND parent, HINSTANCE instance);
-    void SetBounds(int x, int y, int width, int height);
+    // Queues the moves of the caption bar and the tree into a deferred batch.
+    HDWP Place(HDWP batch, int x, int y, int width, int height);
     void SetVisible(bool visible);
     void Retranslate();
     void ApplyTheme(const Theme& theme);

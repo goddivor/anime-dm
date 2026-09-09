@@ -15,7 +15,8 @@
 class DownloadsView {
 public:
     bool Create(HWND parent, HINSTANCE instance);
-    void SetBounds(int x, int y, int width, int height);
+    // Queues the move of the list into a deferred batch.
+    HDWP Place(HDWP batch, int x, int y, int width, int height);
     void Retranslate();
 
     // Inserts the row of an item, or refreshes it when it is already there.
