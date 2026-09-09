@@ -22,7 +22,7 @@ BEGIN
     LTEXT           "", IDC_ADD_COUNT, 12, 84, 424, 10
 
     CONTROL         "", IDC_ADD_POSTER, "Static", SS_OWNERDRAW | SS_NOTIFY, 448, 8, 60, 90
-    CONTROL         "", IDC_ADD_SEP1, "Static", SS_ETCHEDHORZ, 12, 106, 496, 1
+    CONTROL         "", IDC_ADD_SEP1, "Static", SS_OWNERDRAW, 12, 106, 496, 1
 
     LTEXT           "Épisodes :", IDC_ADD_LBL_EPISODES, 12, 118, 100, 10
     CONTROL         "", IDC_ADD_PLAYER, "Button", BS_OWNERDRAW | WS_TABSTOP, 140, 114, 190, 18
@@ -37,7 +37,7 @@ BEGIN
     LTEXT           "", IDC_ADD_HINT, 12, 294, 340, 10
     RTEXT           "", IDC_ADD_COUNTER, 428, 294, 80, 10
 
-    CONTROL         "", IDC_ADD_SEP2, "Static", SS_ETCHEDHORZ, 12, 308, 496, 1
+    CONTROL         "", IDC_ADD_SEP2, "Static", SS_OWNERDRAW, 12, 308, 496, 1
     LTEXT           "Destination :", IDC_ADD_LBL_DEST, 12, 318, 60, 10
     EDITTEXT        IDC_ADD_DEST, 74, 316, 362, 14, ES_AUTOHSCROLL | WS_TABSTOP
     PUSHBUTTON      "Parcourir...", IDC_ADD_BROWSE, 442, 315, 66, 16, WS_TABSTOP

@@ -705,6 +705,12 @@ INT_PTR CALLBACK AddDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lPar
             DrawPoster(*draw, *screen);
             return TRUE;
         }
+        if (draw->CtlID == IDC_ADD_SEP1 || draw->CtlID == IDC_ADD_SEP2) {
+            HBRUSH line = CreateSolidBrush(ActiveTheme().Colors().line);
+            FillRect(draw->hDC, &draw->rcItem, line);
+            DeleteObject(line);
+            return TRUE;
+        }
         if (draw->CtlID == IDC_ADD_PLAYER) {
             DrawPlayer(*draw, *screen);
             return TRUE;
