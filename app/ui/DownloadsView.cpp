@@ -57,6 +57,32 @@ void SetCell(HWND list, int row, int column, const std::wstring& text) {
     ListView_SetItemText(list, row, column, const_cast<wchar_t*>(text.c_str()));
 }
 
+// Keeps the vertical scroll bar on screen even while the rows fit, the way
+// IDM frames its list. The control drops the bar whenever it recomputes its
+// range; putting it back disabled, right after, restores the frame.
+LRESULT CALLBACK KeepScrollBar(HWND list, UINT msg, WPARAM wParam, LPARAM lParam,
+                               UINT_PTR, DWORD_PTR) {
+    if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(list, KeepScrollBar, 1);
+        return DefSubclassProc(list, msg, wParam, lParam);
+    }
+    LRESULT result = DefSubclassProc(list, msg, wParam, lParam);
+
+    static thread_local bool restoring = false;
+    if (!restoring && (GetWindowLongPtrW(list, GWL_STYLE) & WS_VSCROLL) == 0) {
+        restoring = true;
+        SCROLLINFO info = {};
+        info.cbSize = sizeof(info);
+        info.fMask = SIF_RANGE | SIF_PAGE | SIF_DISABLENOSCROLL;
+        info.nMin = 0;
+        info.nMax = 0;
+        info.nPage = 1;
+        SetScrollInfo(list, SB_VERT, &info, TRUE);
+        restoring = false;
+    }
+    return result;
+}
+
 }  // namespace
 
 // The text of the status cell.
@@ -104,6 +130,7 @@ bool DownloadsView::Create(HWND parent, HINSTANCE instance) {
     ListView_SetExtendedListViewStyle(
         hwnd_, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES | LVS_EX_DOUBLEBUFFER);
     AddColumns();
+    SetWindowSubclass(hwnd_, KeepScrollBar, 1, 0);
     return true;
 }
 
