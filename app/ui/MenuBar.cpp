@@ -108,8 +108,23 @@ HMENU BuildDownloadMenu() {
     return menu;
 }
 
+// Builds the toolbar submenu: the icon font, then every skin found.
+HMENU BuildToolbarMenu(const std::vector<std::wstring>& skins) {
+    HMENU menu = CreatePopupMenu();
+    AppendMenuW(menu, MF_STRING, ID_TOOLBAR_FLUENT, Str(STR_TOOLBAR_FLUENT));
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    if (skins.empty()) {
+        AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, Str(STR_TOOLBAR_NO_SKIN));
+    }
+    for (size_t i = 0; i < skins.size(); ++i) {
+        AppendMenuW(menu, MF_STRING, ID_TOOLBAR_SKIN_FIRST + static_cast<UINT_PTR>(i),
+                    skins[i].c_str());
+    }
+    return menu;
+}
+
 // Builds the view drop-down.
-HMENU BuildViewMenu() {
+HMENU BuildViewMenu(const std::vector<std::wstring>& skins) {
     const Entry head[] = {
         {ID_VIEW_ADDONS, Str(STR_VIEW_ADDONS)},
         {0, nullptr},
@@ -127,10 +142,6 @@ HMENU BuildViewMenu() {
         {ID_SORT_ADDRESS, Str(STR_SORT_ADDRESS)},
         {ID_SORT_PARENT_PAGE, Str(STR_SORT_PARENT_PAGE)},
     };
-    const Entry toolbar[] = {
-        {ID_TOOLBAR_CUSTOMIZE, Str(STR_TOOLBAR_CUSTOMIZE)},
-        {ID_TOOLBAR_INTERFACE, Str(STR_TOOLBAR_INTERFACE)},
-    };
     const Entry mode[] = {
         {ID_MODE_DARK, Str(STR_MODE_DARK)},
         {ID_MODE_LIGHT, Str(STR_MODE_LIGHT)},
@@ -147,7 +158,8 @@ HMENU BuildViewMenu() {
 
     HMENU menu = BuildPopup(head, ARRAYSIZE(head));
     AppendSubMenu(menu, STR_VIEW_SORT, sort, ARRAYSIZE(sort));
-    AppendSubMenu(menu, STR_VIEW_TOOLBAR, toolbar, ARRAYSIZE(toolbar));
+    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(BuildToolbarMenu(skins)),
+                Str(STR_VIEW_TOOLBAR));
     AppendMenuW(menu, MF_STRING, ID_VIEW_COLUMNS, Str(STR_VIEW_COLUMNS));
     AppendSubMenu(menu, STR_VIEW_MODE, mode, ARRAYSIZE(mode));
     AppendSubMenu(menu, STR_VIEW_FONT, font, ARRAYSIZE(font));
@@ -209,7 +221,7 @@ void MenuBar::AttachTo(HWND window) {
 
     const TopLevel entries[] = {
         {BuildTasksMenu(), STR_MENU_TASKS},   {BuildFileMenu(), STR_MENU_FILE},
-        {BuildDownloadMenu(), STR_MENU_DOWNLOAD}, {BuildViewMenu(), STR_MENU_VIEW},
+        {BuildDownloadMenu(), STR_MENU_DOWNLOAD}, {BuildViewMenu(skins_), STR_MENU_VIEW},
         {BuildHelpMenu(), STR_MENU_HELP},
     };
 
@@ -232,6 +244,28 @@ void MenuBar::AttachTo(HWND window) {
     }
 
     SetMenu(window, bar_);
+    SetToolbarSkin(skin_);
+}
+
+// Names the toolbar skins the View menu offers, and ticks the chosen one.
+void MenuBar::SetToolbarSkins(const std::vector<std::wstring>& names, int chosen) {
+    skins_ = names;
+    skin_ = chosen;
+}
+
+// Ticks the chosen skin, or the icon font.
+void MenuBar::SetToolbarSkin(int chosen) {
+    skin_ = chosen;
+    if (bar_ == nullptr) {
+        return;
+    }
+    UINT last = ID_TOOLBAR_SKIN_FIRST + static_cast<UINT>(skins_.empty() ? 0 : skins_.size() - 1);
+    UINT picked = chosen < 0 ? static_cast<UINT>(ID_TOOLBAR_FLUENT)
+                             : ID_TOOLBAR_SKIN_FIRST + static_cast<UINT>(chosen);
+    CheckMenuRadioItem(bar_, ID_TOOLBAR_FLUENT, last, picked, MF_BYCOMMAND);
+    if (chosen < 0) {
+        CheckMenuItem(bar_, ID_TOOLBAR_FLUENT, MF_BYCOMMAND | MF_CHECKED);
+    }
 }
 
 // Stores the palette and rebuilds the bar so the item style matches it.

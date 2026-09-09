@@ -80,6 +80,8 @@ private:
     void RemoveCompleted();
     void OpenSelected(bool folder);
     void ShowNotice(const wchar_t* message);
+    int ChosenSkin() const;
+    void ChooseSkin(int index);
 
     // --- the anime groups and the categories panel ---
     AnimeGroup* FindGroup(const std::string& url);
@@ -105,6 +107,7 @@ private:
     Downloader downloader_{http_, store_};
     std::vector<DownloadItem> items_;
     std::vector<AnimeGroup> groups_;
+    std::vector<ToolbarSkin> skins_;
     ListFilter filter_;
     Settings settings_;
     uint64_t nextId_ = 1;

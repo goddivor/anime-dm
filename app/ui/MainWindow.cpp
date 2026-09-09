@@ -287,11 +287,21 @@ void MainWindow::OnCreate() {
                           : themeCommand_ == ID_MODE_LIGHT ? ThemeMode::Light
                                                            : ThemeMode::System);
 
+    skins_ = skins::Discover();
+    std::vector<std::wstring> skinNames;
+    for (const ToolbarSkin& skin : skins_) {
+        skinNames.push_back(skin.name);
+    }
+    menuBar_.SetToolbarSkins(skinNames, ChosenSkin());
+
     menuBar_.AttachTo(hwnd_);
     menuBar_.SetCategoriesChecked(sidebarVisible_);
     menuBar_.SetTheme(themeCommand_);
     menuBar_.SetLanguage(languageCommand_);
     toolbar_.Create(hwnd_, instance);
+    if (ChosenSkin() >= 0) {
+        toolbar_.SetSkin(&skins_[static_cast<size_t>(ChosenSkin())], ActiveTheme());
+    }
     sidebar_.Create(hwnd_, instance);
 
     downloads_.Create(hwnd_, instance);
@@ -1377,6 +1387,28 @@ void MainWindow::OpenSelected(bool folder) {
     ShellExecuteW(hwnd_, L"open", item->outPath.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 }
 
+// The index of the skin the settings name, or -1 for the icon font.
+int MainWindow::ChosenSkin() const {
+    for (size_t i = 0; i < skins_.size(); ++i) {
+        if (Narrow(skins_[i].name) == settings_.toolbarSkin) {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
+}
+
+// Dresses the toolbar with a skin, or the icon font for -1, and remembers it.
+void MainWindow::ChooseSkin(int index) {
+    const ToolbarSkin* skin =
+        index >= 0 && index < static_cast<int>(skins_.size()) ? &skins_[static_cast<size_t>(index)]
+                                                               : nullptr;
+    toolbar_.SetSkin(skin, ActiveTheme());
+    menuBar_.SetToolbarSkin(skin != nullptr ? index : -1);
+    settings_.toolbarSkin = skin != nullptr ? Narrow(skin->name) : std::string();
+    settings::Save(settings_);
+    Relayout();
+}
+
 // Shows a short message in the notice dialog.
 void MainWindow::ShowNotice(const wchar_t* message) {
     HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
@@ -1475,6 +1507,9 @@ void MainWindow::OnCommand(int commandId) {
                                                        : "system";
         settings::Save(settings_);
         break;
+    case ID_TOOLBAR_FLUENT:
+        ChooseSkin(-1);
+        break;
     case ID_LANG_EN:
     case ID_LANG_FR:
         languageCommand_ = commandId;
@@ -1487,6 +1522,11 @@ void MainWindow::OnCommand(int commandId) {
         DestroyWindow(hwnd_);
         break;
     default:
+        if (commandId >= ID_TOOLBAR_SKIN_FIRST &&
+            commandId < ID_TOOLBAR_SKIN_FIRST + static_cast<int>(skins_.size())) {
+            ChooseSkin(commandId - ID_TOOLBAR_SKIN_FIRST);
+            break;
+        }
         ShowSoon(commandId);
         break;
     }

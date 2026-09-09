@@ -380,14 +380,84 @@ COLORREF CategoryStroke(int icon) {
 
 #undef ADM_ICON
 
-// Renders one toolbar glyph.
+// The code points of the same icons in Segoe Fluent Icons, which Segoe MDL2
+// Assets shares: what Windows itself draws its toolbars with.
+const wchar_t* const kToolbarGlyphs[ICON_COUNT] = {
+    L"\xE710",  // Add
+    L"\xE768",  // Play
+    L"\xE71A",  // Stop
+    L"\xE711",  // Cancel
+    L"\xE74D",  // Delete
+    L"\xE894",  // Clear
+    L"\xE713",  // Setting
+    L"\xE823",  // Recent
+    L"\xEA86",  // Puzzle
+    L"\xE721",  // Search
+};
+
+const wchar_t* const kCategoryGlyphs[CAT_COUNT] = {
+    L"\xE8B7",  // Folder
+    L"\xE714",  // Video
+    L"\xE715",  // Mail
+    L"\xE916",  // Stopwatch
+    L"\xE76C",  // ChevronRight
+    L"\xE70D",  // ChevronDown
+    L"\xE823",  // Recent
+    L"\xE896",  // Download
+    L"\xE73E",  // CheckMark
+    L"\xE711",  // Cancel
+    L"\xE71A",  // Stop
+};
+
+// How much of the 24-unit grid a font glyph fills.
+constexpr float kGlyphEm = 20.0f;
+
+// The icon font of the system, looked up once.
+const Gdiplus::FontFamily* GlyphFamily() {
+    static const Gdiplus::FontFamily* family = [] {
+        for (const wchar_t* name : {L"Segoe Fluent Icons", L"Segoe MDL2 Assets"}) {
+            auto* candidate = new Gdiplus::FontFamily(name);
+            if (candidate->GetLastStatus() == Gdiplus::Ok && candidate->IsAvailable()) {
+                return static_cast<const Gdiplus::FontFamily*>(candidate);
+            }
+            delete candidate;
+        }
+        return static_cast<const Gdiplus::FontFamily*>(nullptr);
+    }();
+    return family;
+}
+
+// Draws one glyph of the icon font, centred on the 24-unit grid.
+void DrawGlyph(Graphics& graphics, const wchar_t* glyph) {
+    const Gdiplus::FontFamily* family = GlyphFamily();
+    Gdiplus::Font font(family, kGlyphEm, Gdiplus::FontStyleRegular, Gdiplus::UnitPixel);
+    Gdiplus::SolidBrush brush(StrokeColor());
+    Gdiplus::StringFormat format(Gdiplus::StringFormat::GenericTypographic());
+    format.SetAlignment(Gdiplus::StringAlignmentCenter);
+    format.SetLineAlignment(Gdiplus::StringAlignmentCenter);
+    format.SetFormatFlags(format.GetFormatFlags() | Gdiplus::StringFormatFlagsNoFontFallback);
+    graphics.SetTextRenderingHint(Gdiplus::TextRenderingHintAntiAlias);
+    graphics.DrawString(glyph, -1, &font, Gdiplus::RectF(0.0f, 0.0f, kGrid, kGrid), &format,
+                        &brush);
+}
+
+// Renders one toolbar glyph: from the system icon font when it is there,
+// from the lucide outline otherwise.
 void DrawToolbarGlyph(Graphics& graphics, int icon) {
+    if (GlyphFamily() != nullptr) {
+        DrawGlyph(graphics, kToolbarGlyphs[icon]);
+        return;
+    }
     DrawShapes(graphics, kToolbarIcons[icon].shapes, kToolbarIcons[icon].count);
 }
 
 // Renders one category glyph in its own colour.
 void DrawCategoryGlyph(Graphics& graphics, int icon) {
     g_stroke = CategoryStroke(icon);
+    if (GlyphFamily() != nullptr) {
+        DrawGlyph(graphics, kCategoryGlyphs[icon]);
+        return;
+    }
     DrawShapes(graphics, kCategoryIcons[icon].shapes, kCategoryIcons[icon].count);
 }
 
@@ -459,6 +529,51 @@ GdiPlusRuntime::~GdiPlusRuntime() {
 HIMAGELIST CreateToolbarImageList(COLORREF stroke) {
     g_stroke = stroke;
     return BuildImageList(kToolbarSize, ICON_COUNT, DrawToolbarGlyph);
+}
+
+// Renders one toolbar glyph into a cell of any size.
+HBITMAP CreateToolbarGlyph(ToolbarIcon icon, int width, int height, COLORREF stroke) {
+    g_stroke = stroke;
+    BITMAPINFO info = {};
+    info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    info.bmiHeader.biWidth = width;
+    info.bmiHeader.biHeight = -height;
+    info.bmiHeader.biPlanes = 1;
+    info.bmiHeader.biBitCount = 32;
+    info.bmiHeader.biCompression = BI_RGB;
+    void* bits = nullptr;
+    HDC screen = GetDC(nullptr);
+    HBITMAP bitmap = CreateDIBSection(screen, &info, DIB_RGB_COLORS, &bits, nullptr, 0);
+    ReleaseDC(nullptr, screen);
+    if (bitmap == nullptr) {
+        return nullptr;
+    }
+
+    Gdiplus::Bitmap surface(width, height, width * 4, PixelFormat32bppPARGB,
+                            static_cast<BYTE*>(bits));
+    Graphics graphics(&surface);
+    graphics.Clear(Color(0, 0, 0, 0));
+    graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+    graphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+    float side = static_cast<float>(min(width, height)) * 0.62f;
+    graphics.TranslateTransform((static_cast<float>(width) - side) / 2.0f,
+                                (static_cast<float>(height) - side) / 2.0f);
+    float scale = side / kGrid;
+    graphics.ScaleTransform(scale, scale);
+    DrawToolbarGlyph(graphics, icon);
+    graphics.Flush();
+    return bitmap;
+}
+
+// The name of the system icon font the glyphs come from.
+const wchar_t* GlyphFontName() {
+    static wchar_t name[LF_FACESIZE] = {};
+    const Gdiplus::FontFamily* family = GlyphFamily();
+    if (family == nullptr) {
+        return L"";
+    }
+    family->GetFamilyName(name);
+    return name;
 }
 
 // Builds the 16x16 glyphs used by the categories tree.

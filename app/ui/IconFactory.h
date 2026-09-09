@@ -62,6 +62,15 @@ private:
 // The caller owns the returned list and must ImageList_Destroy it.
 HIMAGELIST CreateToolbarImageList(COLORREF stroke);
 
+// Renders one toolbar glyph into a cell of any size, for a toolbar skin that
+// has no picture for it. The caller owns the bitmap.
+HBITMAP CreateToolbarGlyph(ToolbarIcon icon, int width, int height, COLORREF stroke);
+
+// The name of the system icon font the glyphs come from, empty when neither
+// Segoe Fluent Icons nor Segoe MDL2 Assets is installed and the lucide
+// outlines are drawn instead.
+const wchar_t* GlyphFontName();
+
 // Builds a 16x16 alpha-blended image list with the category tree glyphs.
 // The caller owns the returned list and must ImageList_Destroy it.
 HIMAGELIST CreateCategoryImageList(const CategoryPalette& palette);
