@@ -31,6 +31,7 @@
 namespace {
 constexpr wchar_t kWindowClass[] = L"AnimeDmMainWindow";
 constexpr int kSplitterWidth = 5;
+constexpr int kMargin = 6;  // breathing room between the panels and the frame
 constexpr int kMinSidebarWidth = 140;
 constexpr int kMinListWidth = 240;
 constexpr UINT kDownloadEvent = WM_APP + 20;
@@ -111,7 +112,7 @@ bool IsMovie(const std::string& name) {
 
 // Clamps a candidate sidebar width to keep both panes usable.
 int ClampSidebarWidth(int candidate, int clientWidth) {
-    int maxWidth = clientWidth - kSplitterWidth - kMinListWidth;
+    int maxWidth = clientWidth - 2 * kMargin - kSplitterWidth - kMinListWidth;
     if (candidate < kMinSidebarWidth) {
         candidate = kMinSidebarWidth;
     }
@@ -501,18 +502,26 @@ void MainWindow::Relayout() {
     RECT client = {};
     GetClientRect(hwnd_, &client);
 
-    int top = toolbar_.Height();
-    int contentHeight = client.bottom - top;
+    int top = toolbar_.Height() + kMargin;
+    int bottom = client.bottom - kMargin;
+    int height = std::max<int>(0, bottom - top);
+    int right = client.right - kMargin;
 
+    // The panels move in one deferred batch, without copying their old
+    // pixels: a copied image would leave the hand-drawn edges ghosting at
+    // every position the splitter passes through.
+    HDWP batch = BeginDeferWindowPos(3);
     if (!sidebarVisible_) {
-        downloads_.SetBounds(0, top, client.right, contentHeight);
-        return;
+        batch = downloads_.Place(batch, kMargin, top, right - kMargin, height);
+    } else {
+        sidebarWidth_ = ClampSidebarWidth(sidebarWidth_, client.right);
+        batch = sidebar_.Place(batch, kMargin, top, sidebarWidth_, height);
+        int listX = kMargin + sidebarWidth_ + kSplitterWidth;
+        batch = downloads_.Place(batch, listX, top, right - listX, height);
     }
-
-    sidebarWidth_ = ClampSidebarWidth(sidebarWidth_, client.right);
-    sidebar_.SetBounds(0, top, sidebarWidth_, contentHeight);
-    int listX = sidebarWidth_ + kSplitterWidth;
-    downloads_.SetBounds(listX, top, client.right - listX, contentHeight);
+    if (batch != nullptr) {
+        EndDeferWindowPos(batch);
+    }
 }
 
 // Returns the draggable splitter band between the sidebar and the list.
@@ -521,8 +530,8 @@ RECT MainWindow::SplitterRect() const {
     GetClientRect(hwnd_, &client);
 
     RECT rect = {};
-    rect.left = sidebarWidth_;
-    rect.right = sidebarWidth_ + kSplitterWidth;
+    rect.left = kMargin + sidebarWidth_;
+    rect.right = rect.left + kSplitterWidth;
     rect.top = toolbar_.Height();
     rect.bottom = client.bottom;
     return rect;
@@ -550,7 +559,8 @@ void MainWindow::OnLeftButtonDown(int x) {
     if (!sidebarVisible_) {
         return;
     }
-    if (x >= sidebarWidth_ && x < sidebarWidth_ + kSplitterWidth) {
+    RECT splitter = SplitterRect();
+    if (x >= splitter.left && x < splitter.right) {
         draggingSplitter_ = true;
         SetCapture(hwnd_);
     }
@@ -563,7 +573,7 @@ void MainWindow::OnMouseMove(int x) {
     }
     RECT client = {};
     GetClientRect(hwnd_, &client);
-    sidebarWidth_ = ClampSidebarWidth(x, client.right);
+    sidebarWidth_ = ClampSidebarWidth(x - kMargin, client.right);
     Relayout();
 }
 

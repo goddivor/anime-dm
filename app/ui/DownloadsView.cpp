@@ -246,7 +246,9 @@ void DownloadsView::Retranslate() {
     }
 }
 
-// Repositions and resizes the ListView within its parent client area.
-void DownloadsView::SetBounds(int x, int y, int width, int height) {
-    MoveWindow(hwnd_, x, y, width, height, TRUE);
+// Queues the move of the list into a deferred batch, without copying its
+// old pixels, so the frame and the rules are painted afresh where it lands.
+HDWP DownloadsView::Place(HDWP batch, int x, int y, int width, int height) {
+    return DeferWindowPos(batch, hwnd_, nullptr, x, y, width, height,
+                          SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS);
 }

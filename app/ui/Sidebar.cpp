@@ -554,14 +554,15 @@ void Sidebar::ApplyTheme(const Theme& theme) {
     theme.ApplyToTree(tree_);
 }
 
-// Repositions the caption bar and the tree inside the panel bounds.
-void Sidebar::SetBounds(int x, int y, int width, int height) {
+// Queues the moves of the caption bar and the tree into a deferred batch.
+// Nothing is copied from the old position: the anime rows and the rule are
+// laid out from the right edge and have to be painted afresh.
+HDWP Sidebar::Place(HDWP batch, int x, int y, int width, int height) {
     int headerHeight = height < kHeaderHeight ? height : kHeaderHeight;
-    MoveWindow(header_, x, y, width, headerHeight, TRUE);
-    MoveWindow(tree_, x, y + headerHeight, width, height - headerHeight, TRUE);
-    // The anime rows and the rule are laid out from the right edge: a resize
-    // has to repaint them whole, not just the strip the tree uncovers.
-    InvalidateRect(tree_, nullptr, FALSE);
+    UINT flags = SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS;
+    batch = DeferWindowPos(batch, header_, nullptr, x, y, width, headerHeight, flags);
+    return DeferWindowPos(batch, tree_, nullptr, x, y + headerHeight, width,
+                          height - headerHeight, flags);
 }
 
 // Shows or hides the whole panel, caption bar included.
