@@ -140,7 +140,7 @@ bool MainWindow::Create(HINSTANCE instance, const wchar_t* title) {
     RegisterClassExW(&wc);
 
     hwnd_ = CreateWindowExW(
-        0, kWindowClass, title, WS_OVERLAPPEDWINDOW,
+        0, kWindowClass, title, WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
         CW_USEDEFAULT, CW_USEDEFAULT, 1100, 720,
         nullptr, nullptr, instance, this);
 

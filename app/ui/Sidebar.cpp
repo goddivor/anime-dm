@@ -252,6 +252,9 @@ bool Sidebar::Create(HWND parent, HINSTANCE instance) {
         return false;
     }
     TreeView_SetItemHeight(tree_, kRowHeight);
+    // Painted off screen first, so a resize swaps one finished picture for
+    // another instead of showing every row being drawn.
+    TreeView_SetExtendedStyle(tree_, TVS_EX_DOUBLEBUFFER, TVS_EX_DOUBLEBUFFER);
 
     RebuildIcons(ActiveTheme());
     Rebuild({}, {});
