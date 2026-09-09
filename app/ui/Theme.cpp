@@ -1,5 +1,7 @@
 #include "ui/Theme.h"
 
+#include "ui/Resource.h"
+
 #include <commctrl.h>
 #include <dwmapi.h>
 #include <uxtheme.h>
@@ -334,13 +336,30 @@ BOOL CALLBACK ThemeChild(HWND child, LPARAM data) {
 
 }  // namespace
 
-// Repaints a dialog and its controls with the active palette.
+// Repaints a dialog and its controls with the active palette, and gives it
+// the icon of the application in its caption.
 void Theme::ApplyToDialog(HWND dialog) const {
     BOOL dark = colors_.dark ? TRUE : FALSE;
     if (FAILED(DwmSetWindowAttribute(dialog, kImmersiveDarkMode, &dark, sizeof(dark)))) {
         DwmSetWindowAttribute(dialog, kImmersiveDarkModeLegacy, &dark, sizeof(dark));
     }
     EnumChildWindows(dialog, ThemeChild, reinterpret_cast<LPARAM>(this));
+
+    // A modal frame hides the caption icon; the dialogs keep their look
+    // without it, and show the icon like every other window.
+    LONG_PTR extended = GetWindowLongPtrW(dialog, GWL_EXSTYLE);
+    if ((extended & WS_EX_DLGMODALFRAME) != 0) {
+        SetWindowLongPtrW(dialog, GWL_EXSTYLE, extended & ~WS_EX_DLGMODALFRAME);
+        SetWindowPos(dialog, nullptr, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    }
+    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(dialog, GWLP_HINSTANCE));
+    HICON big = LoadIconW(instance, MAKEINTRESOURCEW(IDI_APP));
+    HICON small = static_cast<HICON>(LoadImageW(instance, MAKEINTRESOURCEW(IDI_APP), IMAGE_ICON,
+                                                GetSystemMetrics(SM_CXSMICON),
+                                                GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR));
+    SendMessageW(dialog, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(big));
+    SendMessageW(dialog, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(small));
 }
 
 // Returns the brush a control should paint its background with, or zero to
