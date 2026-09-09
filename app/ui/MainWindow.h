@@ -15,6 +15,15 @@
 #include "ui/Theme.h"
 #include "ui/Toolbar.h"
 
+struct PosterPayload;
+
+// Which items the list shows, as chosen in the categories panel.
+struct ListFilter {
+    enum class Kind { All, Anime, QueueMain, QueueScheduler };
+    Kind kind = Kind::All;
+    std::string animeUrl;
+};
+
 // Top-level application window backed by a registered Win32 window class.
 class MainWindow {
 public:
@@ -32,6 +41,10 @@ private:
     void ShowSoon(int commandId);
     void OnAddDownload();
     void OnDownloadEvent(std::unique_ptr<DownloadEvent> event);
+    void OnPosterEvent(std::unique_ptr<PosterPayload> payload);
+    LRESULT OnSidebarNotify(NMHDR* notify);
+    void OnSidebarSelect(const SidebarNode* node);
+    void OnSidebarContext();
     void ApplyTheme();
     void Retranslate();
     LRESULT OnToolbarCustomDraw(NMTBCUSTOMDRAW* draw);
@@ -63,6 +76,18 @@ private:
     void OpenSelected(bool folder);
     void ShowNotice(const wchar_t* message);
 
+    // --- the anime groups and the categories panel ---
+    AnimeGroup* FindGroup(const std::string& url);
+    bool Visible(const DownloadItem& item) const;
+    void FillList();
+    void RebuildSidebar();
+    void PruneGroups();
+    void LoadPosters();
+    void FetchPoster(const AnimeGroup& group);
+    void OpenAnime(const std::string& url);
+    void OpenAnimeFolder(const std::string& url);
+    void DeleteAnime(const std::string& url);
+
     HWND hwnd_ = nullptr;
     HFONT uiFont_ = nullptr;
     HACCEL accel_ = nullptr;
@@ -70,6 +95,8 @@ private:
     AddonStore store_{http_};
     Downloader downloader_{http_, store_};
     std::vector<DownloadItem> items_;
+    std::vector<AnimeGroup> groups_;
+    ListFilter filter_;
     uint64_t nextId_ = 1;
     MenuBar menuBar_;
     Toolbar toolbar_;

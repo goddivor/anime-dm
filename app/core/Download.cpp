@@ -1,11 +1,41 @@
 #include "core/Download.h"
 
+#include <cstdio>
 #include <cwchar>
 
 // The file name of an item, without its folder.
 std::wstring FileNameOf(const std::wstring& path) {
     size_t cut = path.find_last_of(L"\\/");
     return cut == std::wstring::npos ? path : path.substr(cut + 1);
+}
+
+// The number of an episode as it appears in names.
+std::wstring EpisodeLabel(double number) {
+    wchar_t text[32] = {};
+    if (number == static_cast<double>(static_cast<long>(number))) {
+        swprintf(text, 32, L"%03ld", static_cast<long>(number));
+    } else {
+        swprintf(text, 32, L"%.1f", number);
+    }
+    return text;
+}
+
+// Collapses runs of whitespace into single spaces and trims the ends.
+std::string TidyText(const std::string& text) {
+    std::string clean;
+    bool pendingSpace = false;
+    for (char c : text) {
+        if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
+            pendingSpace = !clean.empty();
+            continue;
+        }
+        if (pendingSpace) {
+            clean += ' ';
+            pendingSpace = false;
+        }
+        clean += c;
+    }
+    return clean;
 }
 
 // Turns any text into a name Windows accepts.

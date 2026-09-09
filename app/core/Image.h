@@ -19,6 +19,10 @@ HBITMAP Decode(const std::vector<uint8_t>& bytes, int width, int height);
 // Same, but keeping the proportions of the source inside the box given.
 HBITMAP Fit(const std::vector<uint8_t>& bytes, int width, int height);
 
+// Fills a box with the source, cropping what overflows, and rounds the
+// corners by `radius` pixels: what a poster thumbnail looks like.
+HBITMAP Cover(const std::vector<uint8_t>& bytes, int width, int height, int radius);
+
 // A fully transparent square, to keep a row without icon in step with the
 // others in an image list.
 HBITMAP Transparent(int size);

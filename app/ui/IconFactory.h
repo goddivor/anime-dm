@@ -19,12 +19,30 @@ enum ToolbarIcon {
 };
 
 // Category tree glyph indices; the order matches the image list built below.
+// The first four name the categories, the next two fold and unfold an anime,
+// the last five tell the state of an episode.
 enum CategoryIcon {
     CAT_FOLDER,
     CAT_ANIME,
     CAT_QUEUE,
     CAT_TIMER,
+    CAT_CHEVRON_RIGHT,
+    CAT_CHEVRON_DOWN,
+    CAT_WAITING,
+    CAT_DOWNLOADING,
+    CAT_DONE,
+    CAT_FAILED,
+    CAT_STOPPED,
     CAT_COUNT,
+};
+
+// The colours the category glyphs are drawn with.
+struct CategoryPalette {
+    COLORREF text;
+    COLORREF muted;
+    COLORREF accent;
+    COLORREF ok;
+    COLORREF bad;
 };
 
 // Starts the GDI+ runtime used to render anti-aliased icons, for the process lifetime.
@@ -46,4 +64,4 @@ HIMAGELIST CreateToolbarImageList(COLORREF stroke);
 
 // Builds a 16x16 alpha-blended image list with the category tree glyphs.
 // The caller owns the returned list and must ImageList_Destroy it.
-HIMAGELIST CreateCategoryImageList(COLORREF stroke);
+HIMAGELIST CreateCategoryImageList(const CategoryPalette& palette);

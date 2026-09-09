@@ -2,6 +2,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 
@@ -11,20 +12,39 @@
 
 namespace queue {
 
-// Reads the list back.
-std::vector<DownloadItem> Load() {
-    std::vector<DownloadItem> items;
+// Reads the file back.
+State Load() {
+    State state;
     std::wstring path = paths::DownloadsFile();
     if (path.empty()) {
-        return items;
+        return state;
     }
     std::ifstream file(std::filesystem::path(path), std::ios::binary);
     if (!file) {
-        return items;
+        return state;
     }
-    nlohmann::json list = nlohmann::json::parse(file, nullptr, false);
-    if (!list.is_array()) {
-        return items;
+    nlohmann::json root = nlohmann::json::parse(file, nullptr, false);
+    nlohmann::json list = nlohmann::json::array();
+    nlohmann::json groups = nlohmann::json::array();
+    if (root.is_array()) {
+        list = root;
+    } else if (root.is_object()) {
+        list = root.value("items", nlohmann::json::array());
+        groups = root.value("groups", nlohmann::json::array());
+    }
+
+    for (const nlohmann::json& entry : groups) {
+        if (!entry.is_object()) {
+            continue;
+        }
+        AnimeGroup group;
+        group.url = entry.value("url", std::string());
+        group.title = TidyText(entry.value("title", std::string()));
+        group.posterUrl = entry.value("posterUrl", std::string());
+        group.expanded = entry.value("expanded", true);
+        if (!group.url.empty()) {
+            state.groups.push_back(std::move(group));
+        }
     }
 
     for (const nlohmann::json& entry : list) {
@@ -34,12 +54,13 @@ std::vector<DownloadItem> Load() {
         DownloadItem item;
         item.id = entry.value("id", uint64_t(0));
         item.addonId = entry.value("addonId", std::string());
-        item.animeTitle = entry.value("animeTitle", std::string());
+        item.animeTitle = TidyText(entry.value("animeTitle", std::string()));
         item.animeUrl = entry.value("animeUrl", std::string());
         item.episodeNumber = entry.value("episodeNumber", 0.0);
         item.pageUrl = entry.value("pageUrl", std::string());
         item.player = entry.value("player", std::string());
         item.outPath = SafePath(Widen(entry.value("outPath", std::string())));
+        item.movie = entry.value("movie", item.outPath.find(L" - Ep ") == std::wstring::npos);
         item.status = static_cast<DownloadStatus>(entry.value("status", 0));
         item.done = entry.value("done", uint64_t(0));
         item.total = entry.value("total", uint64_t(0));
@@ -55,19 +76,40 @@ std::vector<DownloadItem> Load() {
         if (IsActive(item.status)) {
             item.status = DownloadStatus::Stopped;
         }
-        items.push_back(std::move(item));
+        state.items.push_back(std::move(item));
     }
-    return items;
+
+    // A file written before the groups existed still names every anime.
+    for (const DownloadItem& item : state.items) {
+        bool known = std::any_of(state.groups.begin(), state.groups.end(),
+                                 [&](const AnimeGroup& g) { return g.url == item.animeUrl; });
+        if (!known && !item.animeUrl.empty()) {
+            AnimeGroup group;
+            group.url = item.animeUrl;
+            group.title = item.animeTitle;
+            state.groups.push_back(std::move(group));
+        }
+    }
+    return state;
 }
 
-// Writes the list, whole.
-void Save(const std::vector<DownloadItem>& items) {
+// Writes the file, whole.
+void Save(const State& state) {
     std::wstring path = paths::DownloadsFile();
     if (path.empty()) {
         return;
     }
+    nlohmann::json groups = nlohmann::json::array();
+    for (const AnimeGroup& group : state.groups) {
+        groups.push_back({
+            {"url", group.url},
+            {"title", group.title},
+            {"posterUrl", group.posterUrl},
+            {"expanded", group.expanded},
+        });
+    }
     nlohmann::json list = nlohmann::json::array();
-    for (const DownloadItem& item : items) {
+    for (const DownloadItem& item : state.items) {
         list.push_back({
             {"id", item.id},
             {"addonId", item.addonId},
@@ -76,6 +118,7 @@ void Save(const std::vector<DownloadItem>& items) {
             {"episodeNumber", item.episodeNumber},
             {"pageUrl", item.pageUrl},
             {"player", item.player},
+            {"movie", item.movie},
             {"outPath", Narrow(item.outPath)},
             {"status", static_cast<int>(item.status)},
             {"done", item.done},
@@ -89,13 +132,17 @@ void Save(const std::vector<DownloadItem>& items) {
         });
     }
 
+    nlohmann::json root;
+    root["items"] = std::move(list);
+    root["groups"] = std::move(groups);
+
     std::wstring temp = path + L".tmp";
     {
         std::ofstream file(std::filesystem::path(temp), std::ios::binary | std::ios::trunc);
         if (!file) {
             return;
         }
-        file << list.dump(2);
+        file << root.dump(2);
     }
     MoveFileExW(temp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING);
 }

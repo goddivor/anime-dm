@@ -18,6 +18,9 @@ std::wstring SettingsFile();
 // `<data>/downloads.json`, the queue between two sessions.
 std::wstring DownloadsFile();
 
+// `<data>/posters`, one image per anime of the queue.
+std::wstring PostersDir();
+
 // `<data>/parts/<id>`, where the pieces of one download wait to be assembled.
 std::wstring PartsDir(unsigned long long id);
 

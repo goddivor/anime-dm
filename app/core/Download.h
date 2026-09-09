@@ -36,6 +36,7 @@ struct DownloadItem {
     double episodeNumber = 0.0;
     std::string pageUrl;
     std::string player;  // empty lets the source decide
+    bool movie = false;  // a film rather than a numbered episode
     std::wstring outPath;
     DownloadStatus status = DownloadStatus::Queued;
     uint64_t done = 0;
@@ -47,6 +48,14 @@ struct DownloadItem {
     std::string detail;  // what the engine adds to the error, when it can
     std::time_t addedAt = 0;
     std::time_t lastTry = 0;
+};
+
+// One anime of the queue, as the categories panel shows it.
+struct AnimeGroup {
+    std::string url;  // the page of the anime, which identifies it
+    std::string title;
+    std::string posterUrl;
+    bool expanded = true;
 };
 
 // What the engine needs to run one item.
@@ -74,6 +83,13 @@ struct DownloadEvent {
 
 // The file name of an item, without its folder.
 std::wstring FileNameOf(const std::wstring& path);
+
+// The number of an episode as it appears in names: 001, 012, 12.5.
+std::wstring EpisodeLabel(double number);
+
+// Collapses runs of whitespace, line breaks included, into single spaces and
+// trims the ends: what a title fetched from a page needs before being shown.
+std::string TidyText(const std::string& text);
 
 // Turns any text into a name Windows accepts: illegal characters replaced,
 // runs of whitespace (line breaks included) collapsed, ends trimmed.

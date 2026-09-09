@@ -69,4 +69,8 @@ enum CommandId : int {
 
     ID_CTX_OPEN,
     ID_CTX_OPEN_FOLDER,
+
+    ID_ANIME_OPEN,
+    ID_ANIME_OPEN_FOLDER,
+    ID_ANIME_DELETE,
 };

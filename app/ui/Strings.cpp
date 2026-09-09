@@ -225,6 +225,14 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"%d téléchargement(s) terminé(s) retiré(s).", L"%d completed download(s) removed."},
     {L"Le fichier n'est pas encore disponible.", L"The file is not available yet."},
     {L"Aucun téléchargement sélectionné.", L"No download selected."},
+
+    {L"Film", L"Movie"},
+    {L"Supprimer l'animé", L"Delete the anime"},
+    {L"Supprimer l'animé", L"Delete the anime"},
+    {L"Confirmer la suppression de « %s » ?", L"Confirm the deletion of \"%s\"?"},
+    {L"Le fichier a été déplacé ou supprimé.", L"The file was moved or deleted."},
+    {L"Le dossier a été déplacé, renommé ou supprimé.",
+     L"The folder was moved, renamed or deleted."},
 };
 
 Language g_language = Language::French;

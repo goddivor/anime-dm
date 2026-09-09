@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include <windows.h>
 
 #include "ui/Strings.h"
@@ -11,6 +13,7 @@ struct Confirm {
     StringId okLabel;
     StringId checkLabel;  // STR_COUNT hides the box
     bool checked = false;  // in: the initial state; out: what the user chose
+    std::wstring text;     // when set, shown instead of `message`
 };
 
 // Asks the question in its own small dialog. True when the user confirmed.

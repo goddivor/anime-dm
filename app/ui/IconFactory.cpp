@@ -324,6 +324,14 @@ const Shape kInbox[] = {
              "4H7.24a2 2 0 0 0-1.79 1.11z"),
 };
 
+const Shape kChevronRight[] = {ADM_PATH("m9 18 6-6-6-6")};
+const Shape kChevronDown[] = {ADM_PATH("m6 9 6 6 6-6")};
+const Shape kClock[] = {ADM_CIRCLE(12, 12, 10), ADM_POLY("12 6 12 12 16 14")};
+const Shape kArrowDown[] = {ADM_PATH("M12 5v14"), ADM_PATH("m19 12-7 7-7-7")};
+const Shape kCheck[] = {ADM_PATH("M20 6 9 17l-5-5")};
+const Shape kCross[] = {ADM_PATH("M18 6 6 18"), ADM_PATH("m6 6 12 12")};
+const Shape kSquare[] = {ADM_RRECT(3, 3, 18, 18, 2)};
+
 #undef ADM_PATH
 #undef ADM_CIRCLE
 #undef ADM_RRECT
@@ -344,11 +352,31 @@ const IconDef kToolbarIcons[ICON_COUNT] = {
 };
 
 const IconDef kCategoryIcons[CAT_COUNT] = {
-    ADM_ICON(kFolder),
-    ADM_ICON(kFilm),
-    ADM_ICON(kInbox),
-    ADM_ICON(kTimer),
+    ADM_ICON(kFolder),       ADM_ICON(kFilm),  ADM_ICON(kInbox),     ADM_ICON(kTimer),
+    ADM_ICON(kChevronRight), ADM_ICON(kChevronDown), ADM_ICON(kClock), ADM_ICON(kArrowDown),
+    ADM_ICON(kCheck),        ADM_ICON(kCross), ADM_ICON(kSquare),
 };
+
+CategoryPalette g_palette = {};
+
+// The colour a category glyph is drawn with: the state glyphs carry their own.
+COLORREF CategoryStroke(int icon) {
+    switch (icon) {
+    case CAT_CHEVRON_RIGHT:
+    case CAT_CHEVRON_DOWN:
+    case CAT_WAITING:
+    case CAT_STOPPED:
+        return g_palette.muted;
+    case CAT_DOWNLOADING:
+        return g_palette.accent;
+    case CAT_DONE:
+        return g_palette.ok;
+    case CAT_FAILED:
+        return g_palette.bad;
+    default:
+        return g_palette.text;
+    }
+}
 
 #undef ADM_ICON
 
@@ -357,8 +385,9 @@ void DrawToolbarGlyph(Graphics& graphics, int icon) {
     DrawShapes(graphics, kToolbarIcons[icon].shapes, kToolbarIcons[icon].count);
 }
 
-// Renders one category glyph.
+// Renders one category glyph in its own colour.
 void DrawCategoryGlyph(Graphics& graphics, int icon) {
+    g_stroke = CategoryStroke(icon);
     DrawShapes(graphics, kCategoryIcons[icon].shapes, kCategoryIcons[icon].count);
 }
 
@@ -433,7 +462,7 @@ HIMAGELIST CreateToolbarImageList(COLORREF stroke) {
 }
 
 // Builds the 16x16 glyphs used by the categories tree.
-HIMAGELIST CreateCategoryImageList(COLORREF stroke) {
-    g_stroke = stroke;
+HIMAGELIST CreateCategoryImageList(const CategoryPalette& palette) {
+    g_palette = palette;
     return BuildImageList(kCategorySize, CAT_COUNT, DrawCategoryGlyph);
 }

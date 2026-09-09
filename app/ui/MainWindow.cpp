@@ -7,7 +7,12 @@
 
 #include <algorithm>
 #include <ctime>
+#include <filesystem>
+#include <fstream>
+#include <thread>
 
+#include "core/Addon.h"
+#include "core/Digest.h"
 #include "core/Paths.h"
 #include "core/Queue.h"
 #include "core/Text.h"
@@ -28,7 +33,60 @@ constexpr int kSplitterWidth = 5;
 constexpr int kMinSidebarWidth = 140;
 constexpr int kMinListWidth = 240;
 constexpr UINT kDownloadEvent = WM_APP + 20;
+constexpr UINT kPosterEvent = WM_APP + 21;
 constexpr int kStatusColumn = 2;
+
+// The bytes of an image, on their way from a worker thread to the panel.
+struct PosterPayloadData {
+    std::string animeUrl;
+    std::string posterUrl;
+    std::vector<uint8_t> bytes;
+};
+
+// The scheme and host of a URL, with a trailing slash: what image hosts want
+// to see as a referer.
+std::string OriginOf(const std::string& url) {
+    size_t scheme = url.find("://");
+    if (scheme == std::string::npos) {
+        return std::string();
+    }
+    size_t end = url.find('/', scheme + 3);
+    return url.substr(0, end == std::string::npos ? url.size() : end) + "/";
+}
+
+// Where the poster of an anime is kept, named after its page.
+std::wstring PosterPath(const std::string& animeUrl) {
+    std::wstring dir = paths::PostersDir();
+    if (dir.empty()) {
+        return std::wstring();
+    }
+    std::vector<uint8_t> key(animeUrl.begin(), animeUrl.end());
+    return dir + L"\\" + Widen(digest::Sha256Hex(key).substr(0, 16)) + L".img";
+}
+
+// The whole content of a file, empty when absent.
+std::vector<uint8_t> ReadBytes(const std::wstring& path) {
+    std::ifstream file(std::filesystem::path(path), std::ios::binary);
+    if (!file) {
+        return {};
+    }
+    return std::vector<uint8_t>(std::istreambuf_iterator<char>(file), {});
+}
+
+// Writes a file whole.
+void WriteBytes(const std::wstring& path, const std::vector<uint8_t>& bytes) {
+    std::ofstream file(std::filesystem::path(path), std::ios::binary | std::ios::trunc);
+    if (file) {
+        file.write(reinterpret_cast<const char*>(bytes.data()),
+                   static_cast<std::streamsize>(bytes.size()));
+    }
+}
+
+// The folder that holds a file.
+std::wstring FolderOf(const std::wstring& path) {
+    size_t cut = path.find_last_of(L"\\/");
+    return cut == std::wstring::npos ? std::wstring() : path.substr(0, cut);
+}
 
 // Whether the episode is a film rather than a numbered episode.
 bool IsMovie(const std::string& name) {
@@ -36,17 +94,6 @@ bool IsMovie(const std::string& name) {
     std::transform(lower.begin(), lower.end(), lower.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return lower.find("film") != std::string::npos || lower.find("movie") != std::string::npos;
-}
-
-// The number of an episode as it appears in the file name: 001, 012, 12.5.
-std::wstring EpisodeLabel(double number) {
-    wchar_t text[32] = {};
-    if (number == static_cast<double>(static_cast<long>(number))) {
-        swprintf(text, ARRAYSIZE(text), L"%03ld", static_cast<long>(number));
-    } else {
-        swprintf(text, ARRAYSIZE(text), L"%.1f", number);
-    }
-    return text;
 }
 
 // Clamps a candidate sidebar width to keep both panes usable.
@@ -61,6 +108,9 @@ int ClampSidebarWidth(int candidate, int clientWidth) {
     return candidate;
 }
 }  // namespace
+
+// The bytes of an image, on their way from a worker thread to the panel.
+struct PosterPayload : PosterPayloadData {};
 
 // Registers the window class and creates the top-level window.
 bool MainWindow::Create(HINSTANCE instance, const wchar_t* title) {
@@ -120,6 +170,9 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     case kDownloadEvent:
         OnDownloadEvent(std::unique_ptr<DownloadEvent>(reinterpret_cast<DownloadEvent*>(lParam)));
         return 0;
+    case kPosterEvent:
+        OnPosterEvent(std::unique_ptr<PosterPayload>(reinterpret_cast<PosterPayload*>(lParam)));
+        return 0;
     case WM_CONTEXTMENU:
         OnContextMenu(reinterpret_cast<HWND>(wParam), GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
         return 0;
@@ -159,6 +212,9 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
             } else if (notify->code == NM_DBLCLK) {
                 OpenSelected(false);
             }
+        }
+        if (notify->hwndFrom == sidebar_.Handle()) {
+            return OnSidebarNotify(notify);
         }
         break;
     }
@@ -210,11 +266,16 @@ void MainWindow::OnCreate() {
     downloads_.Create(hwnd_, instance);
     ApplyUiFont();
 
-    items_ = queue::Load();
+    queue::State state = queue::Load();
+    items_ = std::move(state.items);
+    groups_ = std::move(state.groups);
     for (const DownloadItem& item : items_) {
         nextId_ = std::max(nextId_, item.id + 1);
-        downloads_.Upsert(item);
     }
+    PruneGroups();
+    FillList();
+    RebuildSidebar();
+    LoadPosters();
     downloader_.Attach(hwnd_, kDownloadEvent);
 
     ACCEL accels[] = {
@@ -487,10 +548,25 @@ void MainWindow::OnAddDownload() {
         return;
     }
 
+    request.animeTitle = TidyText(request.animeTitle);
     std::wstring title = SafeFileName(Widen(request.animeTitle));
     std::wstring base = request.destination.empty() ? paths::UserDownloadsDir()
                                                     : request.destination;
     std::wstring folder = base + L"\\" + title;
+
+    if (FindGroup(request.animeUrl) == nullptr) {
+        AnimeGroup group;
+        group.url = request.animeUrl;
+        group.title = request.animeTitle;
+        group.posterUrl = request.posterUrl;
+        groups_.push_back(group);
+        if (!request.posterBytes.empty()) {
+            WriteBytes(PosterPath(group.url), request.posterBytes);
+            sidebar_.SetPoster(group.url, request.posterBytes);
+        } else {
+            FetchPoster(group);
+        }
+    }
 
     for (const AddRequestEpisode& episode : request.episodes) {
         DownloadItem item;
@@ -501,6 +577,7 @@ void MainWindow::OnAddDownload() {
         item.episodeNumber = episode.number;
         item.pageUrl = episode.url;
         item.player = episode.player;
+        item.movie = IsMovie(episode.name);
         item.outPath = folder + L"\\" +
                        (IsMovie(episode.name)
                             ? title + L".mp4"
@@ -508,10 +585,319 @@ void MainWindow::OnAddDownload() {
         item.status = DownloadStatus::Queued;
         item.addedAt = std::time(nullptr);
         items_.push_back(item);
-        downloads_.Upsert(item);
+        Refresh(item);
         downloader_.Start(TaskOf(item));
     }
     Persist();
+    RebuildSidebar();
+    UpdateActions();
+}
+
+// Keeps the poster a worker thread fetched.
+void MainWindow::OnPosterEvent(std::unique_ptr<PosterPayload> payload) {
+    AnimeGroup* group = FindGroup(payload->animeUrl);
+    if (payload->bytes.empty() || group == nullptr) {
+        return;
+    }
+    if (group->posterUrl != payload->posterUrl) {
+        group->posterUrl = payload->posterUrl;
+        Persist();
+    }
+    WriteBytes(PosterPath(payload->animeUrl), payload->bytes);
+    sidebar_.SetPoster(payload->animeUrl, payload->bytes);
+}
+
+// Routes what the categories tree reports: painting, clicks, folds.
+LRESULT MainWindow::OnSidebarNotify(NMHDR* notify) {
+    switch (notify->code) {
+    case NM_CUSTOMDRAW:
+        return sidebar_.OnCustomDraw(reinterpret_cast<NMTVCUSTOMDRAW*>(notify));
+    case TVN_SELCHANGINGW: {
+        const SidebarNode* node =
+            sidebar_.NodeOf(reinterpret_cast<NMTREEVIEWW*>(notify)->itemNew.hItem);
+        return node != nullptr && node->kind == SidebarNodeKind::Separator ? TRUE : FALSE;
+    }
+    case TVN_SELCHANGEDW:
+        if (!sidebar_.Busy()) {
+            OnSidebarSelect(sidebar_.NodeOf(reinterpret_cast<NMTREEVIEWW*>(notify)->itemNew.hItem));
+        }
+        return 0;
+    case TVN_ITEMEXPANDEDW: {
+        auto* view = reinterpret_cast<NMTREEVIEWW*>(notify);
+        const SidebarNode* node = sidebar_.NodeOf(view->itemNew.hItem);
+        if (!sidebar_.Busy() && node != nullptr && node->kind == SidebarNodeKind::Anime) {
+            if (AnimeGroup* group = FindGroup(node->animeUrl)) {
+                group->expanded = view->action == TVE_EXPAND;
+                Persist();
+            }
+        }
+        return 0;
+    }
+    case NM_RCLICK:
+        OnSidebarContext();
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+// Filters the list to what the chosen row stands for.
+void MainWindow::OnSidebarSelect(const SidebarNode* node) {
+    if (node == nullptr) {
+        return;
+    }
+    ListFilter filter;
+    switch (node->kind) {
+    case SidebarNodeKind::Anime:
+    case SidebarNodeKind::Episode:
+        filter.kind = ListFilter::Kind::Anime;
+        filter.animeUrl = node->animeUrl;
+        break;
+    case SidebarNodeKind::QueueMain:
+        filter.kind = ListFilter::Kind::QueueMain;
+        break;
+    case SidebarNodeKind::QueueScheduler:
+        filter.kind = ListFilter::Kind::QueueScheduler;
+        break;
+    default:
+        break;
+    }
+    if (filter.kind != filter_.kind || filter.animeUrl != filter_.animeUrl) {
+        filter_ = filter;
+        FillList();
+    }
+    if (node->kind == SidebarNodeKind::Episode) {
+        int row = downloads_.RowOf(node->itemId);
+        if (row >= 0) {
+            ListView_SetItemState(downloads_.Handle(), -1, 0, LVIS_SELECTED);
+            ListView_SetItemState(downloads_.Handle(), row, LVIS_SELECTED | LVIS_FOCUSED,
+                                  LVIS_SELECTED | LVIS_FOCUSED);
+            ListView_EnsureVisible(downloads_.Handle(), row, FALSE);
+        }
+    }
+    UpdateActions();
+}
+
+// Shows the menu of the anime or the episode under the pointer.
+void MainWindow::OnSidebarContext() {
+    POINT screen = {};
+    GetCursorPos(&screen);
+    TVHITTESTINFO hit = {};
+    hit.pt = screen;
+    ScreenToClient(sidebar_.Handle(), &hit.pt);
+    HTREEITEM item = TreeView_HitTest(sidebar_.Handle(), &hit);
+    const SidebarNode* node = sidebar_.NodeOf(item);
+    if (node == nullptr) {
+        return;
+    }
+    TreeView_SelectItem(sidebar_.Handle(), item);
+    std::string url = node->animeUrl;
+
+    if (node->kind == SidebarNodeKind::Anime) {
+        switch (ShowAnimeContextMenu(hwnd_, screen.x, screen.y)) {
+        case ID_ANIME_OPEN:
+            OpenAnime(url);
+            break;
+        case ID_ANIME_OPEN_FOLDER:
+            OpenAnimeFolder(url);
+            break;
+        case ID_ANIME_DELETE:
+            DeleteAnime(url);
+            break;
+        default:
+            break;
+        }
+    } else if (node->kind == SidebarNodeKind::Episode) {
+        int command = ShowDownloadsContextMenu(hwnd_, screen.x, screen.y);
+        if (command != 0) {
+            OnCommand(command);
+        }
+    }
+}
+
+// The group of an anime, or nothing.
+AnimeGroup* MainWindow::FindGroup(const std::string& url) {
+    for (AnimeGroup& group : groups_) {
+        if (group.url == url) {
+            return &group;
+        }
+    }
+    return nullptr;
+}
+
+// Whether the list shows an item under the current filter.
+bool MainWindow::Visible(const DownloadItem& item) const {
+    switch (filter_.kind) {
+    case ListFilter::Kind::Anime:
+        return item.animeUrl == filter_.animeUrl;
+    case ListFilter::Kind::QueueScheduler:
+        return false;
+    default:
+        return true;
+    }
+}
+
+// Rebuilds the list from the items the filter lets through.
+void MainWindow::FillList() {
+    downloads_.Clear();
+    for (const DownloadItem& item : items_) {
+        if (Visible(item)) {
+            downloads_.Upsert(item);
+        }
+    }
+}
+
+// Hands the model to the categories panel.
+void MainWindow::RebuildSidebar() {
+    sidebar_.Rebuild(groups_, items_);
+}
+
+// Drops the groups no item refers to any more, and their posters.
+void MainWindow::PruneGroups() {
+    for (auto it = groups_.begin(); it != groups_.end();) {
+        bool used = std::any_of(items_.begin(), items_.end(),
+                                [&](const DownloadItem& item) { return item.animeUrl == it->url; });
+        if (used) {
+            ++it;
+            continue;
+        }
+        DeleteFileW(PosterPath(it->url).c_str());
+        sidebar_.DropPoster(it->url);
+        it = groups_.erase(it);
+    }
+}
+
+// Shows the posters kept on disk, and fetches the missing ones.
+void MainWindow::LoadPosters() {
+    for (const AnimeGroup& group : groups_) {
+        std::vector<uint8_t> bytes = ReadBytes(PosterPath(group.url));
+        if (!bytes.empty()) {
+            sidebar_.SetPoster(group.url, bytes);
+        } else {
+            FetchPoster(group);
+        }
+    }
+}
+
+// Fetches the poster of an anime off the interface thread. When its address
+// is not known yet, the source is asked for it first.
+void MainWindow::FetchPoster(const AnimeGroup& group) {
+    HWND window = hwnd_;
+    Http* http = &http_;
+    const AddonStore* store = &store_;
+    std::string animeUrl = group.url;
+    std::string posterUrl = group.posterUrl;
+    std::string addonId;
+    for (const DownloadItem& item : items_) {
+        if (item.animeUrl == animeUrl) {
+            addonId = item.addonId;
+            break;
+        }
+    }
+    if (posterUrl.empty() && addonId.empty()) {
+        return;
+    }
+
+    std::thread([window, http, store, animeUrl, posterUrl, addonId]() mutable {
+        if (posterUrl.empty()) {
+            std::unique_ptr<Addon> addon =
+                Addon::Load(store->LibraryPath(addonId), *http, store->ReadConfig(addonId));
+            if (!addon) {
+                return;
+            }
+            std::optional<nlohmann::json> details =
+                addon->Call("adm_anime_details", {{"url", animeUrl}});
+            if (!details || !details->is_object()) {
+                return;
+            }
+            posterUrl = details->value("posterUrl", std::string());
+            if (posterUrl.empty()) {
+                return;
+            }
+        }
+        std::map<std::string, std::string> headers{{"Referer", OriginOf(animeUrl)}};
+        std::optional<std::vector<uint8_t>> bytes = http->GetBytes(posterUrl, headers);
+        if (!bytes || bytes->empty()) {
+            return;
+        }
+        auto* payload = new PosterPayload();
+        payload->animeUrl = animeUrl;
+        payload->posterUrl = posterUrl;
+        payload->bytes = std::move(*bytes);
+        if (!PostMessageW(window, kPosterEvent, 0, reinterpret_cast<LPARAM>(payload))) {
+            delete payload;
+        }
+    }).detach();
+}
+
+// Opens every completed episode of an anime.
+void MainWindow::OpenAnime(const std::string& url) {
+    int opened = 0;
+    for (const DownloadItem& item : items_) {
+        if (item.animeUrl != url || item.status != DownloadStatus::Completed ||
+            GetFileAttributesW(item.outPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
+            continue;
+        }
+        ShellExecuteW(hwnd_, L"open", item.outPath.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        ++opened;
+    }
+    if (opened == 0) {
+        ShowNotice(Str(STR_FILE_MISSING));
+    }
+}
+
+// Opens the folder of an anime.
+void MainWindow::OpenAnimeFolder(const std::string& url) {
+    for (const DownloadItem& item : items_) {
+        if (item.animeUrl != url) {
+            continue;
+        }
+        std::wstring folder = FolderOf(item.outPath);
+        if (GetFileAttributesW(folder.c_str()) == INVALID_FILE_ATTRIBUTES) {
+            break;
+        }
+        ShellExecuteW(hwnd_, L"open", folder.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        return;
+    }
+    ShowNotice(Str(STR_FOLDER_MISSING));
+}
+
+// Takes an anime and its episodes out of the queue, and off the disk when asked.
+void MainWindow::DeleteAnime(const std::string& url) {
+    AnimeGroup* group = FindGroup(url);
+    if (group == nullptr) {
+        return;
+    }
+    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+    Confirm confirm{STR_CONFIRM_DELETE_ANIME_TITLE, STR_CONFIRM_DELETE_ANIME_MSG, STR_ANIME_DELETE,
+                    STR_CONFIRM_DELETE_FILES};
+    wchar_t text[512] = {};
+    swprintf(text, ARRAYSIZE(text), Str(STR_CONFIRM_DELETE_ANIME_MSG), Widen(group->title).c_str());
+    confirm.text = text;
+    if (!ShowConfirm(hwnd_, instance, &confirm)) {
+        return;
+    }
+
+    std::wstring folder;
+    for (auto it = items_.begin(); it != items_.end();) {
+        if (it->animeUrl != url) {
+            ++it;
+            continue;
+        }
+        downloader_.Cancel(it->id);
+        if (confirm.checked) {
+            DeleteFileW(it->outPath.c_str());
+            folder = FolderOf(it->outPath);
+        }
+        downloads_.Remove(it->id);
+        it = items_.erase(it);
+    }
+    if (!folder.empty()) {
+        RemoveDirectoryW(folder.c_str());
+    }
+    PruneGroups();
+    Persist();
+    RebuildSidebar();
     UpdateActions();
 }
 
@@ -553,6 +939,7 @@ void MainWindow::OnDownloadEvent(std::unique_ptr<DownloadEvent> event) {
     Refresh(*item);
     if (statusChanged) {
         Persist();
+        RebuildSidebar();
         UpdateActions();
     }
 }
@@ -580,12 +967,19 @@ DownloadTask MainWindow::TaskOf(const DownloadItem& item) const {
 
 // Redraws the row of an item.
 void MainWindow::Refresh(const DownloadItem& item) {
-    downloads_.Upsert(item);
+    if (Visible(item)) {
+        downloads_.Upsert(item);
+    } else {
+        downloads_.Remove(item.id);
+    }
 }
 
 // Records the queue on disk.
 void MainWindow::Persist() {
-    queue::Save(items_);
+    queue::State state;
+    state.items = items_;
+    state.groups = groups_;
+    queue::Save(state);
 }
 
 // Lights the actions that apply to the selection, greys the others.
@@ -709,7 +1103,9 @@ void MainWindow::RemoveSelected() {
                                     [&](const DownloadItem& i) { return i.id == id; }),
                      items_.end());
     }
+    PruneGroups();
     Persist();
+    RebuildSidebar();
     UpdateActions();
 }
 
@@ -737,7 +1133,9 @@ void MainWindow::DeleteAll() {
     }
     items_.clear();
     downloads_.Clear();
+    PruneGroups();
     Persist();
+    RebuildSidebar();
     UpdateActions();
 }
 
@@ -753,7 +1151,9 @@ void MainWindow::RemoveCompleted() {
             ++it;
         }
     }
+    PruneGroups();
     Persist();
+    RebuildSidebar();
     UpdateActions();
 
     wchar_t message[128] = {};
