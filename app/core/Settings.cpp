@@ -30,6 +30,7 @@ Settings Load() {
     settings.aniyomi = root.value("aniyomiAdapt", settings.aniyomi);
     settings.theme = root.value("theme", settings.theme);
     settings.language = root.value("lang", settings.language);
+    settings.toolbarSkin = root.value("toolbarSkin", settings.toolbarSkin);
     if (settings.folderTemplate.empty()) {
         settings.folderTemplate = "none";
     }
@@ -48,6 +49,7 @@ void Save(const Settings& settings) {
         {"aniyomiAdapt", settings.aniyomi},
         {"theme", settings.theme},
         {"lang", settings.language},
+        {"toolbarSkin", settings.toolbarSkin},
     };
     std::wstring temp = path + L".tmp";
     {

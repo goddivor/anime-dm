@@ -49,8 +49,7 @@ enum CommandId : int {
     ID_SORT_LOCATION,
     ID_SORT_ADDRESS,
     ID_SORT_PARENT_PAGE,
-    ID_TOOLBAR_CUSTOMIZE,
-    ID_TOOLBAR_INTERFACE,
+    ID_TOOLBAR_FLUENT,
     ID_MODE_DARK,
     ID_MODE_LIGHT,
     ID_MODE_SYSTEM,
@@ -77,4 +76,7 @@ enum CommandId : int {
 
     // One entry per folder-icon recipe follows this id.
     ID_ICON_TEMPLATE_FIRST = 3000,
+
+    // One entry per toolbar skin follows this id.
+    ID_TOOLBAR_SKIN_FIRST = 3200,
 };

@@ -140,9 +140,13 @@ configuration ; l'application les stocke dans `config.json` et les réinjecte au
 - **Commits** : conventional commits **en anglais**, impératif ; staging sélectif (jamais
   `git add .`) ; **aucune** signature `Co-Authored-By` ou « Generated with » ; pas de push
   automatique. Toujours passer par le skill `/commit`.
-- **Pas d'emoji dans le code**, ni dans les messages. Les icônes sont des tracés vectoriels
-  dessinés par `IconFactory` à partir de la géométrie **lucide** (licence ISC), la même que
-  l'application React.
+- **Pas d'emoji dans le code**, ni dans les messages. Les icônes de l'interface sont des
+  glyphes de la police système **Segoe Fluent Icons** (Segoe MDL2 Assets sur Windows 10),
+  rendus par `IconFactory` dans des listes d'images ; les tracés **lucide** (licence ISC) de
+  l'application React restent en repli si la police manque. La barre d'outils accepte aussi
+  les **peaux d'IDM** (`.tbi` + bandes BMP de douze boutons) déposées dans
+  `%APPDATA%\anime-dm\toolbar` ou `resources\toolbar`, choisies par Affichage › Barre
+  d'outils (`ToolbarSkin.cpp`) ; Addons et Rechercher, qu'IDM n'a pas, gardent un glyphe.
 - **Commentaires** : code auto-documenté ; un commentaire **uniquement sur une fonction**,
   court et précis. Pas de `//` en fin de ligne.
 - **Traduction** : tout texte visible passe par `Str(STR_…)`. La table vit dans

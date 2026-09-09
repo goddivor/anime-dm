@@ -31,18 +31,17 @@ constexpr ButtonSpec kButtons[] = {
     {ID_VIEW_ADDONS, ICON_ADDONS, STR_TB_ADDONS},
     {ID_DOWNLOAD_SEARCH, ICON_SEARCH, STR_TB_SEARCH},
 };
+
+// The scale of the monitor the toolbar is on, 1.0 at 96 dpi.
+double ScaleOf(HWND window) {
+    UINT dpi = GetDpiForWindow(window);
+    return dpi == 0 ? 1.0 : static_cast<double>(dpi) / 96.0;
+}
 }  // namespace
 
-// Releases the GDI image list owned by the toolbar.
+// Releases the image lists owned by the toolbar.
 Toolbar::~Toolbar() {
-    if (imageList_ != nullptr) {
-        ImageList_Destroy(imageList_);
-        imageList_ = nullptr;
-    }
-    if (disabledList_ != nullptr) {
-        ImageList_Destroy(disabledList_);
-        disabledList_ = nullptr;
-    }
+    DropLists();
 }
 
 // Creates a flat toolbar of captioned icons pinned to the top of the parent.
@@ -57,36 +56,83 @@ bool Toolbar::Create(HWND parent, HINSTANCE instance) {
 
     SendMessageW(hwnd_, TB_BUTTONSTRUCTSIZE, sizeof(TBBUTTON), 0);
     SendMessageW(hwnd_, TB_SETEXTENDEDSTYLE, 0, TBSTYLE_EX_MIXEDBUTTONS);
-    SendMessageW(hwnd_, TB_SETBITMAPSIZE, 0, MAKELPARAM(kIconSize, kIconSize));
     SendMessageW(hwnd_, TB_SETPADDING, 0, MAKELPARAM(kPaddingX, kPaddingY));
 
-    imageList_ = CreateToolbarImageList(GetSysColor(COLOR_BTNTEXT));
+    RebuildImages(ActiveTheme());
+    RebuildButtons();
+    return true;
+}
+
+// Frees every image list the toolbar holds.
+void Toolbar::DropLists() {
+    if (imageList_ != nullptr) {
+        ImageList_Destroy(imageList_);
+        imageList_ = nullptr;
+    }
+    if (disabledList_ != nullptr) {
+        ImageList_Destroy(disabledList_);
+        disabledList_ = nullptr;
+    }
+    skins::Release(&strips_);
+}
+
+// Builds the pictures of the buttons for the active palette: the strips of
+// the skin when one is chosen and readable, the icon font otherwise.
+void Toolbar::RebuildImages(const Theme& theme) {
+    const ThemeColors& colors = theme.Colors();
+    DropLists();
+
+    if (skin_ != nullptr &&
+        skins::Load(*skin_, ScaleOf(hwnd_), colors.text, colors.muted, &strips_)) {
+        SendMessageW(hwnd_, TB_SETBITMAPSIZE, 0, MAKELPARAM(strips_.width, strips_.height));
+        SendMessageW(hwnd_, TB_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(strips_.normal));
+        SendMessageW(hwnd_, TB_SETHOTIMAGELIST, 0, reinterpret_cast<LPARAM>(strips_.hot));
+        SendMessageW(hwnd_, TB_SETDISABLEDIMAGELIST, 0,
+                     reinterpret_cast<LPARAM>(strips_.disabled));
+        return;
+    }
+
+    imageList_ = CreateToolbarImageList(colors.text);
+    disabledList_ = CreateToolbarImageList(colors.muted);
+    SendMessageW(hwnd_, TB_SETBITMAPSIZE, 0, MAKELPARAM(kIconSize, kIconSize));
     SendMessageW(hwnd_, TB_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(imageList_));
+    SendMessageW(hwnd_, TB_SETHOTIMAGELIST, 0, 0);
+    SendMessageW(hwnd_, TB_SETDISABLEDIMAGELIST, 0, reinterpret_cast<LPARAM>(disabledList_));
+}
+
+// Recreates the buttons, which is what makes the toolbar take a new picture
+// size into account.
+void Toolbar::RebuildButtons() {
+    struct Enabled {
+        int command;
+        bool enabled;
+    };
+    Enabled kept[ARRAYSIZE(kButtons)] = {};
+    int count = static_cast<int>(SendMessageW(hwnd_, TB_BUTTONCOUNT, 0, 0));
+    for (size_t i = 0; i < ARRAYSIZE(kButtons); ++i) {
+        kept[i].command = kButtons[i].command;
+        kept[i].enabled = count == 0 || (SendMessageW(hwnd_, TB_ISBUTTONENABLED,
+                                                      kButtons[i].command, 0) != 0);
+    }
+    while (SendMessageW(hwnd_, TB_BUTTONCOUNT, 0, 0) > 0) {
+        SendMessageW(hwnd_, TB_DELETEBUTTON, 0, 0);
+    }
 
     TBBUTTON buttons[ARRAYSIZE(kButtons)] = {};
     for (size_t i = 0; i < ARRAYSIZE(kButtons); ++i) {
-        if (kButtons[i].command == 0) {
-            buttons[i].fsStyle = BTNS_SEP;
-            continue;
-        }
         buttons[i].iBitmap = kButtons[i].icon;
         buttons[i].idCommand = kButtons[i].command;
-        buttons[i].fsState = TBSTATE_ENABLED;
+        buttons[i].fsState = kept[i].enabled ? TBSTATE_ENABLED : 0;
         buttons[i].fsStyle = BTNS_AUTOSIZE | BTNS_SHOWTEXT;
         buttons[i].iString = reinterpret_cast<INT_PTR>(Str(kButtons[i].text));
     }
-
     SendMessageW(hwnd_, TB_ADDBUTTONS, ARRAYSIZE(buttons), reinterpret_cast<LPARAM>(buttons));
     SendMessageW(hwnd_, TB_AUTOSIZE, 0, 0);
-    return true;
 }
 
 // Refreshes the button captions after a language change.
 void Toolbar::Retranslate() {
     for (const ButtonSpec& spec : kButtons) {
-        if (spec.command == 0) {
-            continue;
-        }
         TBBUTTONINFOW info = {};
         info.cbSize = sizeof(info);
         info.dwMask = TBIF_TEXT;
@@ -96,7 +142,7 @@ void Toolbar::Retranslate() {
     SendMessageW(hwnd_, TB_AUTOSIZE, 0, 0);
 }
 
-// Redraws the glyphs in the colour the active palette uses for text.
+// Redraws the pictures in the colours of the active palette.
 void Toolbar::ApplyTheme(const Theme& theme) {
     // A themed toolbar paints its own background over the custom draw pass, so
     // visual styles have to step aside for the dark palette to show through.
@@ -105,20 +151,16 @@ void Toolbar::ApplyTheme(const Theme& theme) {
     } else {
         SetWindowTheme(hwnd_, nullptr, nullptr);
     }
+    RebuildImages(theme);
+    RebuildButtons();
+    InvalidateRect(hwnd_, nullptr, TRUE);
+}
 
-    HIMAGELIST previous = imageList_;
-    imageList_ = CreateToolbarImageList(theme.Colors().text);
-    SendMessageW(hwnd_, TB_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(imageList_));
-    if (previous != nullptr) {
-        ImageList_Destroy(previous);
-    }
-
-    HIMAGELIST previousDisabled = disabledList_;
-    disabledList_ = CreateToolbarImageList(theme.Colors().muted);
-    SendMessageW(hwnd_, TB_SETDISABLEDIMAGELIST, 0, reinterpret_cast<LPARAM>(disabledList_));
-    if (previousDisabled != nullptr) {
-        ImageList_Destroy(previousDisabled);
-    }
+// Dresses the buttons with a skin, or with the icon font when null.
+void Toolbar::SetSkin(const ToolbarSkin* skin, const Theme& theme) {
+    skin_ = skin != nullptr ? std::make_unique<ToolbarSkin>(*skin) : nullptr;
+    RebuildImages(theme);
+    RebuildButtons();
     InvalidateRect(hwnd_, nullptr, TRUE);
 }
 

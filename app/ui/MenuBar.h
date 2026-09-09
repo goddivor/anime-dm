@@ -1,5 +1,8 @@
 #pragma once
 
+#include <string>
+#include <vector>
+
 #include <windows.h>
 
 class Theme;
@@ -18,11 +21,18 @@ public:
     void SetTheme(int commandId);
     void SetLanguage(int commandId);
 
+    // Names the toolbar skins the View menu offers, and ticks the chosen one
+    // (-1 for the icon font). Takes effect on the next rebuild.
+    void SetToolbarSkins(const std::vector<std::wstring>& names, int chosen);
+    void SetToolbarSkin(int chosen);
+
 private:
     HFONT MenuFont() const;
 
     HMENU bar_ = nullptr;
     HBRUSH background_ = nullptr;
+    std::vector<std::wstring> skins_;
+    int skin_ = -1;
     mutable HFONT font_ = nullptr;
     COLORREF surface_ = 0;
     COLORREF text_ = 0;
