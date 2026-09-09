@@ -246,7 +246,7 @@ bool Sidebar::Create(HWND parent, HINSTANCE instance) {
     tree_ = CreateWindowExW(
         0, WC_TREEVIEWW, L"",
         WS_CHILD | WS_VISIBLE | WS_BORDER | TVS_HASBUTTONS | TVS_LINESATROOT |
-            TVS_FULLROWSELECT | TVS_NONEVENHEIGHT | TVS_NOHSCROLL,
+            TVS_FULLROWSELECT | TVS_NONEVENHEIGHT,
         0, 0, 0, 0, parent, nullptr, instance, nullptr);
     if (tree_ == nullptr) {
         return false;
