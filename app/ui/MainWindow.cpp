@@ -259,6 +259,11 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_LBUTTONUP:
         OnLeftButtonUp();
         return 0;
+    case WM_CAPTURECHANGED:
+        if (draggingSplitter_ && reinterpret_cast<HWND>(lParam) != hwnd_) {
+            CancelSplitterDrag();
+        }
+        return 0;
     case WM_DESTROY:
         OnDestroy();
         return 0;
@@ -554,7 +559,22 @@ bool MainWindow::OnSetCursor() {
     return false;
 }
 
-// Starts a splitter drag when the press lands on the splitter band.
+// Inverts the splitter band at a position: drawn once to show the tracker,
+// drawn again to take it away. The window is locked for the duration of the
+// drag, so the bar paints over the panels without disturbing them.
+void MainWindow::DrawTracker(int x) {
+    HDC dc = GetDCEx(hwnd_, nullptr, DCX_CACHE | DCX_LOCKWINDOWUPDATE);
+    if (dc == nullptr) {
+        return;
+    }
+    RECT band = SplitterRect();
+    PatBlt(dc, x, band.top, kSplitterWidth, band.bottom - band.top, DSTINVERT);
+    ReleaseDC(hwnd_, dc);
+}
+
+// Starts a splitter drag when the press lands on the splitter band. The
+// panels stay put until the release: only a tracker bar follows the pointer,
+// the way IDM does it, so nothing is repainted halfway.
 void MainWindow::OnLeftButtonDown(int x) {
     if (!sidebarVisible_) {
         return;
@@ -562,27 +582,47 @@ void MainWindow::OnLeftButtonDown(int x) {
     RECT splitter = SplitterRect();
     if (x >= splitter.left && x < splitter.right) {
         draggingSplitter_ = true;
+        trackX_ = splitter.left;
         SetCapture(hwnd_);
+        LockWindowUpdate(hwnd_);
+        DrawTracker(trackX_);
     }
 }
 
-// Resizes the sidebar to follow the cursor during a splitter drag.
+// Moves the tracker bar with the pointer during a splitter drag.
 void MainWindow::OnMouseMove(int x) {
     if (!draggingSplitter_) {
         return;
     }
     RECT client = {};
     GetClientRect(hwnd_, &client);
-    sidebarWidth_ = ClampSidebarWidth(x - kMargin, client.right);
+    int next = kMargin + ClampSidebarWidth(x - kMargin, client.right);
+    if (next != trackX_) {
+        DrawTracker(trackX_);
+        trackX_ = next;
+        DrawTracker(trackX_);
+    }
+}
+
+// Ends a splitter drag: the tracker goes away and the panels take the width
+// it marked, in one repaint.
+void MainWindow::OnLeftButtonUp() {
+    if (!draggingSplitter_) {
+        return;
+    }
+    DrawTracker(trackX_);
+    LockWindowUpdate(nullptr);
+    draggingSplitter_ = false;
+    sidebarWidth_ = trackX_ - kMargin;
+    ReleaseCapture();
     Relayout();
 }
 
-// Ends an in-progress splitter drag.
-void MainWindow::OnLeftButtonUp() {
-    if (draggingSplitter_) {
-        draggingSplitter_ = false;
-        ReleaseCapture();
-    }
+// Drops a drag the system interrupted, leaving the panels as they were.
+void MainWindow::CancelSplitterDrag() {
+    DrawTracker(trackX_);
+    LockWindowUpdate(nullptr);
+    draggingSplitter_ = false;
 }
 
 // Asks the user for an anime, then queues the episodes it picked.
