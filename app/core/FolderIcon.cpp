@@ -2,6 +2,7 @@
 
 #include <windows.h>
 #include <objbase.h>
+#include <shellapi.h>
 #include <shlobj.h>
 
 #include <filesystem>
