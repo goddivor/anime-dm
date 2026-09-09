@@ -364,10 +364,28 @@ bool WriteWhole(const std::wstring& path, const void* data, size_t size) {
     return file.good();
 }
 
+// Removes the icons an earlier apply left in a folder, whatever their name.
+void RemoveOldIcons(const std::wstring& folder) {
+    WIN32_FIND_DATAW found = {};
+    HANDLE search = FindFirstFileW((folder + L"\\folder*.ico").c_str(), &found);
+    if (search == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    do {
+        std::wstring file = folder + L"\\" + found.cFileName;
+        SetFileAttributesW(file.c_str(), FILE_ATTRIBUTE_NORMAL);
+        DeleteFileW(file.c_str());
+    } while (FindNextFileW(search, &found));
+    FindClose(search);
+}
+
 // Points Explorer at the icon: desktop.ini, hidden files, read-only folder.
-bool Place(const std::wstring& cached, const std::wstring& folder) {
+// The icon carries its key in its name: Explorer caches a folder icon by
+// path, so a new file at the old name would keep showing the old picture.
+bool Place(const std::wstring& cached, const std::wstring& folder, const std::wstring& key) {
     paths::EnsureDir(folder);
-    std::wstring ico = folder + L"\\folder.ico";
+    std::wstring name = L"folder-" + key + L".ico";
+    std::wstring ico = folder + L"\\" + name;
     std::wstring ini = folder + L"\\desktop.ini";
 
     // What an earlier apply left is hidden and system, which Windows refuses
@@ -376,18 +394,16 @@ bool Place(const std::wstring& cached, const std::wstring& folder) {
     if (folderAttributes != INVALID_FILE_ATTRIBUTES) {
         SetFileAttributesW(folder.c_str(), folderAttributes & ~FILE_ATTRIBUTE_READONLY);
     }
-    for (const std::wstring& file : {ico, ini}) {
-        SetFileAttributesW(file.c_str(), FILE_ATTRIBUTE_NORMAL);
-        DeleteFileW(file.c_str());
-    }
+    RemoveOldIcons(folder);
+    SetFileAttributesW(ini.c_str(), FILE_ATTRIBUTE_NORMAL);
+    DeleteFileW(ini.c_str());
 
     if (!CopyFileW(cached.c_str(), ico.c_str(), FALSE)) {
         return false;
     }
-    const char content[] =
-        "[.ShellClassInfo]\r\nIconResource=folder.ico,0\r\n[ViewState]\r\nMode=\r\nVid=\r\n"
-        "FolderType=Generic\r\n";
-    if (!WriteWhole(ini, content, sizeof(content) - 1)) {
+    std::string content = "[.ShellClassInfo]\r\nIconResource=" + Narrow(name) +
+                          ",0\r\n[ViewState]\r\nMode=\r\nVid=\r\nFolderType=Generic\r\n";
+    if (!WriteWhole(ini, content.data(), content.size())) {
         return false;
     }
 
@@ -397,7 +413,8 @@ bool Place(const std::wstring& cached, const std::wstring& folder) {
     if (folderAttributes != INVALID_FILE_ATTRIBUTES) {
         SetFileAttributesW(folder.c_str(), folderAttributes | FILE_ATTRIBUTE_READONLY);
     }
-    SHChangeNotify(SHCNE_UPDATEDIR, SHCNF_PATHW, folder.c_str(), nullptr);
+    SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSH, folder.c_str(), nullptr);
+    SHChangeNotify(SHCNE_UPDATEDIR, SHCNF_PATHW | SHCNF_FLUSH, folder.c_str(), nullptr);
     return true;
 }
 
@@ -472,7 +489,7 @@ Error Apply(const std::wstring& folder, const std::vector<uint8_t>& poster,
             return error;
         }
     }
-    return Place(cached, folder) ? Error::None : Error::Disk;
+    return Place(cached, folder, key) ? Error::None : Error::Disk;
 }
 
 // Writes cover.jpg and .nomedia into the folder.
