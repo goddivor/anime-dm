@@ -71,6 +71,10 @@ LRESULT CALLBACK KeepScrollBar(HWND list, UINT msg, WPARAM wParam, LPARAM lParam
     static thread_local bool restoring = false;
     if (!restoring && (GetWindowLongPtrW(list, GWL_STYLE) & WS_VSCROLL) == 0) {
         restoring = true;
+        // SetScrollInfo only disables a bar that is still there: a bar the
+        // control removed has to be shown again before its empty range makes
+        // Windows disable it rather than remove it.
+        ShowScrollBar(list, SB_VERT, TRUE);
         SCROLLINFO info = {};
         info.cbSize = sizeof(info);
         info.fMask = SIF_RANGE | SIF_PAGE | SIF_DISABLENOSCROLL;
