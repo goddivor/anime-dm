@@ -24,6 +24,7 @@
 #include "ui/ContextMenu.h"
 #include "ui/HelpDialogs.h"
 #include "ui/NoticeDialog.h"
+#include "ui/Resource.h"
 #include "ui/SearchDialog.h"
 #include "ui/SettingsDialog.h"
 #include "ui/Strings.h"
@@ -138,6 +139,10 @@ bool MainWindow::Create(HINSTANCE instance, const wchar_t* title) {
     wc.lpszClassName = kWindowClass;
     wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
     wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
+    wc.hIcon = LoadIconW(instance, MAKEINTRESOURCEW(IDI_APP));
+    wc.hIconSm = static_cast<HICON>(LoadImageW(instance, MAKEINTRESOURCEW(IDI_APP), IMAGE_ICON,
+                                               GetSystemMetrics(SM_CXSMICON),
+                                               GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR));
     RegisterClassExW(&wc);
 
     hwnd_ = CreateWindowExW(

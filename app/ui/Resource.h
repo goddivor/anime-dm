@@ -5,6 +5,8 @@
 #define IDC_STATIC (-1)
 #endif
 
+#define IDI_APP 100
+
 #define IDD_ADD_DOWNLOAD 200
 #define IDC_ADD_SOURCE 201
 #define IDC_ADD_URL 202
