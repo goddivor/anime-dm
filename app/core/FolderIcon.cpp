@@ -395,12 +395,20 @@ void TouchFolder(const std::wstring& folder) {
     CloseHandle(handle);
 }
 
-// Tells Explorer the folder changed, in every way it listens to: the item
-// and its attributes by identifier, the parent folder, then the icon cache
-// itself, which only SHCNE_ASSOCCHANGED invalidates. Path notifications
-// alone leave an open window showing the old picture for minutes.
+// Tells Explorer the folder changed, in every way it listens to: the image
+// it keeps for the folder in the system image list, the item and its
+// attributes by identifier, the parent folder, then the icon cache itself,
+// which only SHCNE_ASSOCCHANGED invalidates. Path notifications alone leave
+// an open window showing the old picture for minutes.
 void NotifyShell(const std::wstring& folder) {
     HRESULT com = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+
+    SHFILEINFOW info = {};
+    if (SHGetFileInfoW(folder.c_str(), 0, &info, sizeof(info), SHGFI_SYSICONINDEX) != 0) {
+        SHChangeNotify(SHCNE_UPDATEIMAGE, SHCNF_DWORD | SHCNF_FLUSH, nullptr,
+                       reinterpret_cast<LPCVOID>(static_cast<INT_PTR>(info.iIcon)));
+    }
+
     PIDLIST_ABSOLUTE pidl = nullptr;
     if (SUCCEEDED(SHParseDisplayName(folder.c_str(), nullptr, &pidl, 0, nullptr))) {
         SHChangeNotify(SHCNE_ATTRIBUTES, SHCNF_IDLIST | SHCNF_FLUSH, pidl, nullptr);
@@ -444,10 +452,22 @@ bool Place(const std::wstring& cached, const std::wstring& folder, const std::ws
     if (!CopyFileW(cached.c_str(), ico.c_str(), FALSE)) {
         return false;
     }
-    std::string content = "[.ShellClassInfo]\r\nIconResource=" + Narrow(name) +
-                          ",0\r\n[ViewState]\r\nMode=\r\nVid=\r\nFolderType=Generic\r\n";
-    if (!WriteWhole(ini, content.data(), content.size())) {
-        return false;
+
+    // The shell writes desktop.ini itself, and updates what it remembers of
+    // the folder on the way: this is what the Customize tab and the folder
+    // icon tools do, and what a hand-written file never triggers.
+    SHFOLDERCUSTOMSETTINGS custom = {};
+    custom.dwSize = sizeof(custom);
+    custom.dwMask = FCSM_ICONFILE;
+    custom.pszIconFile = const_cast<LPWSTR>(ico.c_str());
+    custom.cchIconFile = 0;
+    custom.iIconIndex = 0;
+    if (FAILED(SHGetSetFolderCustomSettings(&custom, folder.c_str(), FCS_FORCEWRITE))) {
+        std::string content = "[.ShellClassInfo]\r\nIconResource=" + Narrow(name) +
+                              ",0\r\n[ViewState]\r\nMode=\r\nVid=\r\nFolderType=Generic\r\n";
+        if (!WriteWhole(ini, content.data(), content.size())) {
+            return false;
+        }
     }
 
     SetFileAttributesW(ini.c_str(), FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM);
