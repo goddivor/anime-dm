@@ -9,6 +9,7 @@
 #include "core/Download.h"
 #include "core/Downloader.h"
 #include "core/Http.h"
+#include "core/Settings.h"
 #include "ui/DownloadsView.h"
 #include "ui/MenuBar.h"
 #include "ui/Sidebar.h"
@@ -16,6 +17,7 @@
 #include "ui/Toolbar.h"
 
 struct PosterPayload;
+struct IconPayload;
 
 // Which items the list shows, as chosen in the categories panel.
 struct ListFilter {
@@ -42,6 +44,7 @@ private:
     void OnAddDownload();
     void OnDownloadEvent(std::unique_ptr<DownloadEvent> event);
     void OnPosterEvent(std::unique_ptr<PosterPayload> payload);
+    void OnIconEvent(std::unique_ptr<IconPayload> payload);
     LRESULT OnSidebarNotify(NMHDR* notify);
     void OnSidebarSelect(const SidebarNode* node);
     void OnSidebarContext();
@@ -87,6 +90,10 @@ private:
     void OpenAnime(const std::string& url);
     void OpenAnimeFolder(const std::string& url);
     void DeleteAnime(const std::string& url);
+    std::wstring FolderOfAnime(const std::string& url) const;
+    void DecorateFolder(const std::string& url, const std::string& chosenTemplate);
+    void ApplyIcon(const std::string& url, const std::string& templateId, bool aniyomi,
+                   bool announce);
 
     HWND hwnd_ = nullptr;
     HFONT uiFont_ = nullptr;
@@ -97,6 +104,7 @@ private:
     std::vector<DownloadItem> items_;
     std::vector<AnimeGroup> groups_;
     ListFilter filter_;
+    Settings settings_;
     uint64_t nextId_ = 1;
     MenuBar menuBar_;
     Toolbar toolbar_;

@@ -13,6 +13,7 @@
 
 #include "core/Addon.h"
 #include "core/Digest.h"
+#include "core/FolderIcon.h"
 #include "core/Paths.h"
 #include "core/Queue.h"
 #include "core/Text.h"
@@ -34,6 +35,7 @@ constexpr int kMinSidebarWidth = 140;
 constexpr int kMinListWidth = 240;
 constexpr UINT kDownloadEvent = WM_APP + 20;
 constexpr UINT kPosterEvent = WM_APP + 21;
+constexpr UINT kIconEvent = WM_APP + 22;
 constexpr int kStatusColumn = 2;
 
 // The bytes of an image, on their way from a worker thread to the panel.
@@ -41,6 +43,17 @@ struct PosterPayloadData {
     std::string animeUrl;
     std::string posterUrl;
     std::vector<uint8_t> bytes;
+};
+
+// What a worker thread reports once it dressed a folder up.
+struct IconPayloadData {
+    std::string animeUrl;
+    std::string templateId;  // empty when no icon was asked for
+    foldericon::Error error = foldericon::Error::None;
+    std::string detail;
+    bool aniyomi = false;
+    bool aniyomiOk = false;
+    bool announce = false;  // whether the user asked for it and awaits an answer
 };
 
 // The scheme and host of a URL, with a trailing slash: what image hosts want
@@ -112,6 +125,9 @@ int ClampSidebarWidth(int candidate, int clientWidth) {
 // The bytes of an image, on their way from a worker thread to the panel.
 struct PosterPayload : PosterPayloadData {};
 
+// What a worker thread reports once it dressed a folder up.
+struct IconPayload : IconPayloadData {};
+
 // Registers the window class and creates the top-level window.
 bool MainWindow::Create(HINSTANCE instance, const wchar_t* title) {
     WNDCLASSEXW wc = {};
@@ -172,6 +188,9 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
     case kPosterEvent:
         OnPosterEvent(std::unique_ptr<PosterPayload>(reinterpret_cast<PosterPayload*>(lParam)));
+        return 0;
+    case kIconEvent:
+        OnIconEvent(std::unique_ptr<IconPayload>(reinterpret_cast<IconPayload*>(lParam)));
         return 0;
     case WM_CONTEXTMENU:
         OnContextMenu(reinterpret_cast<HWND>(wParam), GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
@@ -252,9 +271,15 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
 void MainWindow::OnCreate() {
     HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
 
-    themeCommand_ = ID_MODE_SYSTEM;
-    languageCommand_ = ID_LANG_FR;
-    ActiveTheme().SetMode(ThemeMode::System);
+    settings_ = settings::Load();
+    languageCommand_ = settings_.language == "en" ? ID_LANG_EN : ID_LANG_FR;
+    ::SetLanguage(languageCommand_ == ID_LANG_EN ? Language::English : Language::French);
+    themeCommand_ = settings_.theme == "dark"    ? ID_MODE_DARK
+                    : settings_.theme == "light" ? ID_MODE_LIGHT
+                                                 : ID_MODE_SYSTEM;
+    ActiveTheme().SetMode(themeCommand_ == ID_MODE_DARK    ? ThemeMode::Dark
+                          : themeCommand_ == ID_MODE_LIGHT ? ThemeMode::Light
+                                                           : ThemeMode::System);
 
     menuBar_.AttachTo(hwnd_);
     menuBar_.SetCategoriesChecked(sidebarVisible_);
@@ -544,7 +569,7 @@ void MainWindow::OnAddDownload() {
     HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
 
     AddRequest request;
-    if (ShowAddDialog(hwnd_, instance, store_, http_, &request) != IDOK) {
+    if (ShowAddDialog(hwnd_, instance, store_, http_, settings_, &request) != IDOK) {
         return;
     }
 
@@ -588,9 +613,95 @@ void MainWindow::OnAddDownload() {
         Refresh(item);
         downloader_.Start(TaskOf(item));
     }
+    if (!request.posterBytes.empty()) {
+        DecorateFolder(request.animeUrl, request.folderTemplate);
+    }
     Persist();
     RebuildSidebar();
     UpdateActions();
+}
+
+// Records what a worker thread did to a folder and tells the user when asked.
+void MainWindow::OnIconEvent(std::unique_ptr<IconPayload> payload) {
+    AnimeGroup* group = FindGroup(payload->animeUrl);
+    if (!payload->templateId.empty()) {
+        if (payload->error == foldericon::Error::None) {
+            if (group != nullptr && group->iconTemplate != payload->templateId) {
+                group->iconTemplate = payload->templateId;
+                Persist();
+            }
+            if (payload->announce) {
+                ShowNotice(Str(STR_ICON_APPLIED));
+            }
+        } else {
+            StringId text = payload->error == foldericon::Error::NoMagick   ? STR_ICON_NO_MAGICK
+                            : payload->error == foldericon::Error::NoAssets ? STR_ICON_NO_ASSETS
+                                                                             : STR_ICON_FAILED;
+            std::wstring message = Str(text);
+            if (!payload->detail.empty()) {
+                message += L"\n" + Widen(payload->detail);
+            }
+            ShowNotice(message.c_str());
+        }
+    }
+    if (payload->aniyomi && payload->announce) {
+        ShowNotice(Str(payload->aniyomiOk ? STR_ANIME_ANIYOMI_DONE : STR_ICON_FAILED));
+    }
+}
+
+// The folder the episodes of an anime go to, empty when it has none.
+std::wstring MainWindow::FolderOfAnime(const std::string& url) const {
+    for (const DownloadItem& item : items_) {
+        if (item.animeUrl == url) {
+            return FolderOf(item.outPath);
+        }
+    }
+    return std::wstring();
+}
+
+// Dresses the folder of a new anime up the way the settings ask, with the
+// recipe the user picked on the way in, if any.
+void MainWindow::DecorateFolder(const std::string& url, const std::string& chosenTemplate) {
+    std::string templateId;
+    if (settings_.folderIcons) {
+        templateId = chosenTemplate.empty() ? settings_.folderTemplate : chosenTemplate;
+    }
+    if (templateId.empty() && !settings_.aniyomi) {
+        return;
+    }
+    ApplyIcon(url, templateId, settings_.aniyomi, false);
+}
+
+// Renders and applies an icon, writes the Aniyomi files, or both, off the
+// interface thread.
+void MainWindow::ApplyIcon(const std::string& url, const std::string& templateId, bool aniyomi,
+                           bool announce) {
+    std::wstring folder = FolderOfAnime(url);
+    std::vector<uint8_t> poster = ReadBytes(PosterPath(url));
+    if (folder.empty() || poster.empty()) {
+        if (announce) {
+            ShowNotice(Str(STR_ICON_NO_FOLDER));
+        }
+        return;
+    }
+
+    HWND window = hwnd_;
+    std::thread([window, url, templateId, aniyomi, announce, folder, poster] {
+        auto* payload = new IconPayload();
+        payload->animeUrl = url;
+        payload->templateId = templateId;
+        payload->aniyomi = aniyomi;
+        payload->announce = announce;
+        if (!templateId.empty()) {
+            payload->error = foldericon::Apply(folder, poster, templateId, &payload->detail);
+        }
+        if (aniyomi) {
+            payload->aniyomiOk = foldericon::AdaptForAniyomi(folder, poster);
+        }
+        if (!PostMessageW(window, kIconEvent, 0, reinterpret_cast<LPARAM>(payload))) {
+            delete payload;
+        }
+    }).detach();
 }
 
 // Keeps the poster a worker thread fetched.
@@ -605,6 +716,9 @@ void MainWindow::OnPosterEvent(std::unique_ptr<PosterPayload> payload) {
     }
     WriteBytes(PosterPath(payload->animeUrl), payload->bytes);
     sidebar_.SetPoster(payload->animeUrl, payload->bytes);
+    if (group->iconTemplate.empty()) {
+        DecorateFolder(payload->animeUrl, std::string());
+    }
 }
 
 // Routes what the categories tree reports: painting, clicks, folds.
@@ -694,12 +808,30 @@ void MainWindow::OnSidebarContext() {
     std::string url = node->animeUrl;
 
     if (node->kind == SidebarNodeKind::Anime) {
-        switch (ShowAnimeContextMenu(hwnd_, screen.x, screen.y)) {
+        AnimeMenuOptions options;
+        options.templates = foldericon::TemplateIds();
+        if (const AnimeGroup* group = FindGroup(url)) {
+            options.currentTemplate = group->iconTemplate;
+        }
+        std::wstring folder = FolderOfAnime(url);
+        options.offerAniyomi = !folder.empty() && !foldericon::HasAniyomiFiles(folder);
+
+        int command = ShowAnimeContextMenu(hwnd_, screen.x, screen.y, options);
+        if (command >= ID_ICON_TEMPLATE_FIRST &&
+            command < ID_ICON_TEMPLATE_FIRST + static_cast<int>(options.templates.size())) {
+            ApplyIcon(url, options.templates[static_cast<size_t>(command - ID_ICON_TEMPLATE_FIRST)],
+                      false, true);
+            return;
+        }
+        switch (command) {
         case ID_ANIME_OPEN:
             OpenAnime(url);
             break;
         case ID_ANIME_OPEN_FOLDER:
             OpenAnimeFolder(url);
+            break;
+        case ID_ANIME_ANIYOMI:
+            ApplyIcon(url, std::string(), true, true);
             break;
         case ID_ANIME_DELETE:
             DeleteAnime(url);
@@ -1246,7 +1378,9 @@ void MainWindow::OnCommand(int commandId) {
         ShowSearchDialog(hwnd_, instance);
         break;
     case ID_VIEW_SETTINGS:
-        ShowSettingsDialog(hwnd_, instance);
+        if (ShowSettingsDialog(hwnd_, instance, &settings_)) {
+            settings::Save(settings_);
+        }
         break;
     case ID_HELP_SHORTCUTS:
         ShowShortcutsDialog(hwnd_, instance);
@@ -1275,12 +1409,18 @@ void MainWindow::OnCommand(int commandId) {
                                                     : ThemeMode::System);
         menuBar_.SetTheme(commandId);
         ApplyTheme();
+        settings_.theme = commandId == ID_MODE_DARK    ? "dark"
+                          : commandId == ID_MODE_LIGHT ? "light"
+                                                       : "system";
+        settings::Save(settings_);
         break;
     case ID_LANG_EN:
     case ID_LANG_FR:
         languageCommand_ = commandId;
         ::SetLanguage(commandId == ID_LANG_EN ? Language::English : Language::French);
         Retranslate();
+        settings_.language = commandId == ID_LANG_EN ? "en" : "fr";
+        settings::Save(settings_);
         break;
     case ID_TASK_QUIT:
         DestroyWindow(hwnd_);

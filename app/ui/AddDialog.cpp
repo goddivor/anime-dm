@@ -20,7 +20,10 @@
 #include "core/Text.h"
 #include "ui/AddSelection.h"
 #include "ui/Paint.h"
+#include "core/FolderIcon.h"
+#include "core/Settings.h"
 #include "ui/PosterDialog.h"
+#include "ui/TemplateNames.h"
 #include "ui/Resource.h"
 #include "ui/Strings.h"
 #include "ui/Theme.h"
@@ -42,7 +45,8 @@ constexpr int kRevealed[] = {
 
 // The controls that sit under it and slide up while it is hidden.
 constexpr int kBottom[] = {
-    IDC_ADD_SEP2, IDC_ADD_LBL_DEST, IDC_ADD_DEST, IDC_ADD_BROWSE, IDOK, IDCANCEL,
+    IDC_ADD_SEP2, IDC_ADD_LBL_DEST,     IDC_ADD_DEST, IDC_ADD_BROWSE,
+    IDOK,         IDC_ADD_LBL_TEMPLATE, IDC_ADD_TEMPLATE, IDCANCEL,
 };
 
 // One episode as the source described it.
@@ -71,7 +75,9 @@ struct Players {
 struct Screen {
     const AddonStore* store = nullptr;
     Http* http = nullptr;
+    const Settings* settings = nullptr;
     AddRequest* request = nullptr;
+    std::vector<std::string> templates;
 
     std::vector<InstalledAddon> sources;
 
@@ -364,6 +370,24 @@ void SetExpanded(HWND dialog, Screen& screen, bool expanded) {
     InvalidateRect(dialog, nullptr, TRUE);
 }
 
+// Offers the folder-icon recipes, or hides the row when icons are off.
+void FillTemplates(HWND dialog, Screen& screen) {
+    bool shown = screen.settings != nullptr && screen.settings->folderIcons;
+    ShowWindow(GetDlgItem(dialog, IDC_ADD_LBL_TEMPLATE), shown ? SW_SHOW : SW_HIDE);
+    ShowWindow(GetDlgItem(dialog, IDC_ADD_TEMPLATE), shown ? SW_SHOW : SW_HIDE);
+    if (!shown) {
+        return;
+    }
+    screen.templates = foldericon::TemplateIds();
+    SendDlgItemMessageW(dialog, IDC_ADD_TEMPLATE, CB_ADDSTRING, 0,
+                        reinterpret_cast<LPARAM>(Str(STR_ADD_FOLDER_ICON_DEFAULT)));
+    for (const std::string& id : screen.templates) {
+        SendDlgItemMessageW(dialog, IDC_ADD_TEMPLATE, CB_ADDSTRING, 0,
+                            reinterpret_cast<LPARAM>(Str(TemplateName(id))));
+    }
+    SendDlgItemMessageW(dialog, IDC_ADD_TEMPLATE, CB_SETCURSEL, 0, 0);
+}
+
 // Matches every control to the state.
 void Refresh(HWND dialog, Screen& screen) {
     bool loaded = !screen.episodes.empty();
@@ -589,6 +613,7 @@ void Retranslate(HWND dialog) {
     SetDialogText(dialog, IDC_ADD_LBL_EPISODES, STR_DLG_ADD_EPISODES);
     SetDialogText(dialog, IDC_ADD_HINT, STR_ADD_PLAYER_HINT);
     SetDialogText(dialog, IDC_ADD_LBL_DEST, STR_DLG_ADD_DEST);
+    SetDialogText(dialog, IDC_ADD_LBL_TEMPLATE, STR_ADD_FOLDER_ICON);
     SetDialogText(dialog, IDC_ADD_BROWSE, STR_DLG_BROWSE);
     SetDialogText(dialog, IDCANCEL, STR_DLG_CANCEL);
 }
@@ -613,6 +638,11 @@ void Confirm(HWND dialog, Screen& screen) {
     request.posterUrl = screen.posterUrl;
     request.posterBytes = screen.posterBytes;
     request.destination = ReadText(dialog, IDC_ADD_DEST);
+    request.folderTemplate.clear();
+    int template_ = static_cast<int>(SendDlgItemMessageW(dialog, IDC_ADD_TEMPLATE, CB_GETCURSEL, 0, 0));
+    if (template_ > 0 && static_cast<size_t>(template_) <= screen.templates.size()) {
+        request.folderTemplate = screen.templates[static_cast<size_t>(template_ - 1)];
+    }
     request.episodes.clear();
 
     for (int index : screen.picked) {
@@ -651,6 +681,7 @@ INT_PTR CALLBACK AddDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lPar
         InitEpisodeList(dialog);
         SetDlgItemTextW(dialog, IDC_ADD_DEST, DefaultDestination().c_str());
         LoadPlayerOptions(dialog, *screen);
+        FillTemplates(dialog, *screen);
 
         // How far the bottom of the dialog rides up while the anime block is
         // hidden: the gap between the link row and the rule above the folder.
@@ -870,10 +901,11 @@ INT_PTR CALLBACK AddDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lPar
 
 // Runs the add dialog modally against its owner window.
 INT_PTR ShowAddDialog(HWND owner, HINSTANCE instance, const AddonStore& store, Http& http,
-                      AddRequest* request) {
+                      const Settings& settings, AddRequest* request) {
     Screen screen;
     screen.store = &store;
     screen.http = &http;
+    screen.settings = &settings;
     screen.request = request;
     screen.sources = store.Installed();
 

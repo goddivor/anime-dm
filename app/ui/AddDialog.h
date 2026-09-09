@@ -9,6 +9,7 @@
 
 class AddonStore;
 class Http;
+struct Settings;
 
 // One episode the user picked, with the player it should use.
 struct AddRequestEpisode {
@@ -25,10 +26,11 @@ struct AddRequest {
     std::string animeUrl;
     std::string posterUrl;
     std::vector<uint8_t> posterBytes;  // what the dialog already fetched, if anything
+    std::string folderTemplate;        // a recipe id; empty means the default one
     std::wstring destination;
     std::vector<AddRequestEpisode> episodes;
 };
 
 // Shows the add dialog. Returns IDOK and fills `request` when confirmed.
 INT_PTR ShowAddDialog(HWND owner, HINSTANCE instance, const AddonStore& store, Http& http,
-                      AddRequest* request);
+                      const Settings& settings, AddRequest* request);

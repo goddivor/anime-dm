@@ -72,5 +72,9 @@ enum CommandId : int {
 
     ID_ANIME_OPEN,
     ID_ANIME_OPEN_FOLDER,
+    ID_ANIME_ANIYOMI,
     ID_ANIME_DELETE,
+
+    // One entry per folder-icon recipe follows this id.
+    ID_ICON_TEMPLATE_FIRST = 3000,
 };
