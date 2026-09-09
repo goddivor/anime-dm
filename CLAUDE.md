@@ -196,6 +196,10 @@ de l'utilisateur est la **session 2**. Conséquences :
   dégrade proprement s'ils disparaissent.
 - **Les en-têtes GDI+ utilisent `min` et `max`** que `NOMINMAX` supprime : déclarer
   `using std::min; using std::max;` avant de les inclure.
+- **Explorer garde l'icône d'un dossier en cache par chemin du `.ico`** : un nouveau fichier
+  sous l'ancien nom laisse l'ancienne image, parfois des minutes. D'où un nom par recette et
+  par affiche, puis `SHChangeNotify` par PIDL (attributs, élément, dossier parent) et enfin
+  `SHCNE_ASSOCCHANGED`, seul événement qui invalide le cache d'icônes.
 
 ## Ce qui manque encore
 

@@ -1,6 +1,7 @@
 #include "core/FolderIcon.h"
 
 #include <windows.h>
+#include <objbase.h>
 #include <shlobj.h>
 
 #include <filesystem>
@@ -379,6 +380,48 @@ void RemoveOldIcons(const std::wstring& folder) {
     FindClose(search);
 }
 
+// Bumps the modification time of a folder, which Explorer compares before it
+// trusts what it remembers of it.
+void TouchFolder(const std::wstring& folder) {
+    HANDLE handle = CreateFileW(folder.c_str(), FILE_WRITE_ATTRIBUTES,
+                                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+    if (handle == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    FILETIME now = {};
+    GetSystemTimeAsFileTime(&now);
+    SetFileTime(handle, nullptr, nullptr, &now);
+    CloseHandle(handle);
+}
+
+// Tells Explorer the folder changed, in every way it listens to: the item
+// and its attributes by identifier, the parent folder, then the icon cache
+// itself, which only SHCNE_ASSOCCHANGED invalidates. Path notifications
+// alone leave an open window showing the old picture for minutes.
+void NotifyShell(const std::wstring& folder) {
+    HRESULT com = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    PIDLIST_ABSOLUTE pidl = nullptr;
+    if (SUCCEEDED(SHParseDisplayName(folder.c_str(), nullptr, &pidl, 0, nullptr))) {
+        SHChangeNotify(SHCNE_ATTRIBUTES, SHCNF_IDLIST | SHCNF_FLUSH, pidl, nullptr);
+        SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_IDLIST | SHCNF_FLUSH, pidl, nullptr);
+        PIDLIST_ABSOLUTE parent = ILClone(pidl);
+        if (parent != nullptr) {
+            if (ILRemoveLastID(parent)) {
+                SHChangeNotify(SHCNE_UPDATEDIR, SHCNF_IDLIST | SHCNF_FLUSH, parent, nullptr);
+            }
+            ILFree(parent);
+        }
+        ILFree(pidl);
+    } else {
+        SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSH, folder.c_str(), nullptr);
+    }
+    SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST | SHCNF_FLUSH, nullptr, nullptr);
+    if (SUCCEEDED(com)) {
+        CoUninitialize();
+    }
+}
+
 // Points Explorer at the icon: desktop.ini, hidden files, read-only folder.
 // The icon carries its key in its name: Explorer caches a folder icon by
 // path, so a new file at the old name would keep showing the old picture.
@@ -413,8 +456,8 @@ bool Place(const std::wstring& cached, const std::wstring& folder, const std::ws
     if (folderAttributes != INVALID_FILE_ATTRIBUTES) {
         SetFileAttributesW(folder.c_str(), folderAttributes | FILE_ATTRIBUTE_READONLY);
     }
-    SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSH, folder.c_str(), nullptr);
-    SHChangeNotify(SHCNE_UPDATEDIR, SHCNF_PATHW | SHCNF_FLUSH, folder.c_str(), nullptr);
+    TouchFolder(folder);
+    NotifyShell(folder);
     return true;
 }
 
