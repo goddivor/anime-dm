@@ -62,6 +62,48 @@ bool SystemPrefersDark() {
 
 // A themed header keeps its dark background but draws its captions with the
 // light-mode text colour, so the colour is forced through custom draw.
+// Draws the rule under the header and the dividers between its columns, in
+// the colour of the palette, once the header painted itself.
+void RuleHeader(HWND header, HDC dc) {
+    RECT client = {};
+    GetClientRect(header, &client);
+    HPEN pen = CreatePen(PS_SOLID, 1, ActiveTheme().Colors().line);
+    HPEN previous = static_cast<HPEN>(SelectObject(dc, pen));
+
+    MoveToEx(dc, client.left, client.bottom - 1, nullptr);
+    LineTo(dc, client.right, client.bottom - 1);
+
+    int columns = Header_GetItemCount(header);
+    for (int column = 0; column < columns; ++column) {
+        RECT item = {};
+        if (Header_GetItemRect(header, column, &item)) {
+            MoveToEx(dc, item.right - 1, item.top, nullptr);
+            LineTo(dc, item.right - 1, item.bottom);
+        }
+    }
+    SelectObject(dc, previous);
+    DeleteObject(pen);
+}
+
+// Paints the one-pixel frame of a bordered list in the colour of the palette,
+// over whatever the system drew for the non-client area.
+void FrameList(HWND list) {
+    if ((GetWindowLongPtrW(list, GWL_STYLE) & WS_BORDER) == 0) {
+        return;
+    }
+    HDC dc = GetWindowDC(list);
+    if (dc == nullptr) {
+        return;
+    }
+    RECT frame = {};
+    GetWindowRect(list, &frame);
+    OffsetRect(&frame, -frame.left, -frame.top);
+    HBRUSH brush = CreateSolidBrush(ActiveTheme().Colors().line);
+    FrameRect(dc, &frame, brush);
+    DeleteObject(brush);
+    ReleaseDC(list, dc);
+}
+
 LRESULT CALLBACK ListSubclass(HWND window, UINT msg, WPARAM wParam, LPARAM lParam,
                               UINT_PTR id, DWORD_PTR data) {
     if (msg == WM_NOTIFY) {
@@ -69,13 +111,22 @@ LRESULT CALLBACK ListSubclass(HWND window, UINT msg, WPARAM wParam, LPARAM lPara
         if (notify->code == NM_CUSTOMDRAW) {
             auto* draw = reinterpret_cast<NMCUSTOMDRAW*>(lParam);
             if (draw->dwDrawStage == CDDS_PREPAINT) {
-                return CDRF_NOTIFYITEMDRAW;
+                return CDRF_NOTIFYITEMDRAW | CDRF_NOTIFYPOSTPAINT;
             }
             if (draw->dwDrawStage == CDDS_ITEMPREPAINT) {
                 SetTextColor(draw->hdc, static_cast<COLORREF>(data));
                 return CDRF_NEWFONT;
             }
+            if (draw->dwDrawStage == CDDS_POSTPAINT) {
+                RuleHeader(notify->hwndFrom, draw->hdc);
+                return CDRF_DODEFAULT;
+            }
         }
+    }
+    if (msg == WM_NCPAINT) {
+        LRESULT result = DefSubclassProc(window, msg, wParam, lParam);
+        FrameList(window);
+        return result;
     }
     if (msg == WM_NCDESTROY) {
         RemoveWindowSubclass(window, ListSubclass, id);
@@ -157,17 +208,14 @@ void Theme::ApplyToList(HWND list) const {
     ListView_SetTextBkColor(list, colors_.window);
     ListView_SetTextColor(list, colors_.text);
 
-    // The grid lines are drawn with a fixed light colour that glares on a dark
-    // background, so they only stay on in the light palette.
+    // The built-in grid lines only come in a fixed light colour: the window
+    // draws its own, in the colour of the palette, at the post-paint stage.
     DWORD style = ListView_GetExtendedListViewStyle(list);
-    if (colors_.dark) {
-        style &= ~static_cast<DWORD>(LVS_EX_GRIDLINES);
-    } else {
-        style |= LVS_EX_GRIDLINES;
-    }
+    style &= ~static_cast<DWORD>(LVS_EX_GRIDLINES);
     ListView_SetExtendedListViewStyle(list, style);
 
     InvalidateRect(list, nullptr, TRUE);
+    RedrawWindow(list, nullptr, nullptr, RDW_FRAME | RDW_INVALIDATE);
 }
 
 // Pushes the palette onto a tree view.

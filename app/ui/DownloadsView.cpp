@@ -124,7 +124,7 @@ std::wstring StatusText(const DownloadItem& item) {
 bool DownloadsView::Create(HWND parent, HINSTANCE instance) {
     hwnd_ = CreateWindowExW(
         0, WC_LISTVIEWW, L"",
-        WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_SHOWSELALWAYS,
+        WS_CHILD | WS_VISIBLE | WS_BORDER | LVS_REPORT | LVS_SHOWSELALWAYS,
         0, 0, 0, 0,
         parent, nullptr, instance, nullptr);
     if (hwnd_ == nullptr) {
