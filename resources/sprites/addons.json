@@ -1,0 +1,20 @@
+{
+  "name": "sprite",
+  "frameWidth": 128,
+  "frameHeight": 128,
+  "frameCount": 3,
+  "frames": [
+    "start",
+    "middle",
+    "end"
+  ],
+  "durationMs": 120,
+  "colourKey": "#C0C0C0",
+  "palette": "rgb24",
+  "files": {
+    "bmp": "sprite.bmp",
+    "png": "sprite.png"
+  },
+  "generator": "sprite-animator",
+  "note": "BMP is 24-bit; call Bitmap.MakeTransparent(colourKey) or set ImageList.TransparentColor."
+}
