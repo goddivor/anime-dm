@@ -19,8 +19,8 @@ public:
     int DurationMs() const { return durationMs_; }
 
     // Renders one frame fitted into a cell, centred, the colour key made
-    // clear. The caller owns the bitmap.
-    HBITMAP Render(int frame, int width, int height) const;
+    // clear; `disabled` greys it out and fades it. The caller owns the bitmap.
+    HBITMAP Render(int frame, int width, int height, bool disabled = false) const;
 
 private:
     std::vector<std::vector<uint32_t>> frames_;  // straight ARGB, row after row
@@ -29,6 +29,3 @@ private:
     int durationMs_ = 120;
 };
 
-// The path of a sprite shipped in `resources\sprites`, next to the executable
-// or one level up for a development build; empty when there is none.
-std::wstring FindSprite(const wchar_t* fileName);

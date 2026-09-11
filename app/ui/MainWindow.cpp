@@ -35,6 +35,7 @@ constexpr int kSplitterWidth = 5;
 constexpr int kMargin = 6;  // breathing room between the panels and the frame
 constexpr int kMinSidebarWidth = 140;
 constexpr int kMinListWidth = 240;
+constexpr char kFluentSkin[] = "fluent";  // the settings value naming the icon font
 constexpr UINT kDownloadEvent = WM_APP + 20;
 constexpr UINT kPosterEvent = WM_APP + 21;
 constexpr UINT kIconEvent = WM_APP + 22;
@@ -1398,8 +1399,13 @@ void MainWindow::OpenSelected(bool folder) {
 
 // The index of the skin the settings name, or -1 for the icon font.
 int MainWindow::ChosenSkin() const {
+    if (settings_.toolbarSkin == kFluentSkin) {
+        return -1;
+    }
     for (size_t i = 0; i < skins_.size(); ++i) {
-        if (Narrow(skins_[i].name) == settings_.toolbarSkin) {
+        bool named = !settings_.toolbarSkin.empty() && Narrow(skins_[i].name) == settings_.toolbarSkin;
+        bool fallback = settings_.toolbarSkin.empty() && skins_[i].isDefault;
+        if (named || fallback) {
             return static_cast<int>(i);
         }
     }
@@ -1413,7 +1419,7 @@ void MainWindow::ChooseSkin(int index) {
                                                                : nullptr;
     toolbar_.SetSkin(skin, ActiveTheme());
     menuBar_.SetToolbarSkin(skin != nullptr ? index : -1);
-    settings_.toolbarSkin = skin != nullptr ? Narrow(skin->name) : std::string();
+    settings_.toolbarSkin = skin != nullptr ? Narrow(skin->name) : std::string(kFluentSkin);
     settings::Save(settings_);
     Relayout();
 }

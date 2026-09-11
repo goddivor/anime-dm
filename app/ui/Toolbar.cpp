@@ -12,7 +12,7 @@
 
 namespace {
 constexpr UINT_PTR kSpriteTimer = 1;
-constexpr int kIconSize = 24;
+constexpr int kCellSize = 42;  // the picture of a button, as tall as the IDM skins
 constexpr int kPaddingX = 18;
 constexpr int kPaddingY = 10;
 
@@ -45,6 +45,28 @@ double ScaleOf(HWND window) {
     int dpi = GetDeviceCaps(dc, LOGPIXELSX);
     ReleaseDC(window, dc);
     return dpi <= 0 ? 1.0 : static_cast<double>(dpi) / 96.0;
+}
+
+// Whether a file exists.
+bool Exists(const std::wstring& path) {
+    DWORD attributes = GetFileAttributesW(path.c_str());
+    return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+
+// Builds a list of font glyphs laid out in cells of any size.
+HIMAGELIST GlyphList(int cell, COLORREF colour) {
+    HIMAGELIST list = ImageList_Create(cell, cell, ILC_COLOR32, ICON_COUNT, 0);
+    if (list == nullptr) {
+        return nullptr;
+    }
+    for (int icon = 0; icon < ICON_COUNT; ++icon) {
+        HBITMAP glyph = CreateToolbarGlyph(static_cast<ToolbarIcon>(icon), cell, cell, colour);
+        if (glyph != nullptr) {
+            ImageList_Add(list, glyph, nullptr);
+            DeleteObject(glyph);
+        }
+    }
+    return list;
 }
 
 // Drives the sprites of the buttons from the timer of the toolbar.
@@ -82,14 +104,6 @@ bool Toolbar::Create(HWND parent, HINSTANCE instance) {
     SendMessageW(hwnd_, TB_SETEXTENDEDSTYLE, 0, TBSTYLE_EX_MIXEDBUTTONS);
     SendMessageW(hwnd_, TB_SETPADDING, 0, MAKELPARAM(kPaddingX, kPaddingY));
 
-    for (const ButtonSpec& spec : kButtons) {
-        auto button = std::make_unique<ButtonSprite>();
-        button->command = spec.command;
-        button->icon = spec.icon;
-        if (button->sprite.Load(FindSprite(spec.sprite))) {
-            sprites_.push_back(std::move(button));
-        }
-    }
     SetWindowSubclass(hwnd_, SpriteSubclass, 1, reinterpret_cast<DWORD_PTR>(this));
 
     RebuildImages(ActiveTheme());
@@ -110,13 +124,44 @@ void Toolbar::DropLists() {
     skins::Release(&strips_);
 }
 
+// Finds the sprite of every button: in the active sprite pack first, then,
+// for Addons and Search, which IDM skins lack, in the default pack.
+void Toolbar::LoadSprites() {
+    KillTimer(hwnd_, kSpriteTimer);
+    DropSpriteFrames();
+    sprites_.clear();
+
+    std::wstring active = skin_ != nullptr && skin_->kind == ToolbarSkin::Kind::Sprites
+                              ? skin_->folder
+                              : std::wstring();
+    std::wstring fallback = skins::DefaultPackFolder();
+    for (const ButtonSpec& spec : kButtons) {
+        std::wstring path;
+        if (!active.empty() && Exists(active + L"\\" + spec.sprite)) {
+            path = active + L"\\" + spec.sprite;
+        } else if ((spec.icon == ICON_ADDONS || spec.icon == ICON_SEARCH) && !fallback.empty() &&
+                   Exists(fallback + L"\\" + spec.sprite)) {
+            path = fallback + L"\\" + spec.sprite;
+        }
+        auto button = std::make_unique<ButtonSprite>();
+        button->command = spec.command;
+        button->icon = spec.icon;
+        if (!path.empty() && button->sprite.Load(path)) {
+            sprites_.push_back(std::move(button));
+        }
+    }
+}
+
 // Builds the pictures of the buttons for the active palette: the strips of
-// the skin when one is chosen and readable, the icon font otherwise.
+// an IDM skin when one is chosen and readable, font glyphs otherwise, and the
+// sprites over both. Glyphs and sprites share one cell size whatever the
+// skin, so a sprite keeps its size when the rest of the toolbar changes.
 void Toolbar::RebuildImages(const Theme& theme) {
     const ThemeColors& colors = theme.Colors();
     DropLists();
+    LoadSprites();
 
-    if (skin_ != nullptr &&
+    if (skin_ != nullptr && skin_->kind == ToolbarSkin::Kind::Idm &&
         skins::Load(*skin_, ScaleOf(hwnd_), colors.text, colors.muted, &strips_)) {
         SendMessageW(hwnd_, TB_SETBITMAPSIZE, 0, MAKELPARAM(strips_.width, strips_.height));
         SendMessageW(hwnd_, TB_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(strips_.normal));
@@ -127,13 +172,14 @@ void Toolbar::RebuildImages(const Theme& theme) {
         return;
     }
 
-    imageList_ = CreateToolbarImageList(colors.text);
-    disabledList_ = CreateToolbarImageList(colors.muted);
-    SendMessageW(hwnd_, TB_SETBITMAPSIZE, 0, MAKELPARAM(kIconSize, kIconSize));
+    int cell = static_cast<int>(kCellSize * ScaleOf(hwnd_) + 0.5);
+    imageList_ = GlyphList(cell, colors.text);
+    disabledList_ = GlyphList(cell, colors.muted);
+    SendMessageW(hwnd_, TB_SETBITMAPSIZE, 0, MAKELPARAM(cell, cell));
     SendMessageW(hwnd_, TB_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(imageList_));
     SendMessageW(hwnd_, TB_SETHOTIMAGELIST, 0, 0);
     SendMessageW(hwnd_, TB_SETDISABLEDIMAGELIST, 0, reinterpret_cast<LPARAM>(disabledList_));
-    RenderSprites(kIconSize, kIconSize);
+    RenderSprites(cell, cell);
 }
 
 // Frees the rendered frames of every sprite.
@@ -143,6 +189,10 @@ void Toolbar::DropSpriteFrames() {
             DeleteObject(frame);
         }
         button->frames.clear();
+        if (button->disabled != nullptr) {
+            DeleteObject(button->disabled);
+            button->disabled = nullptr;
+        }
     }
 }
 
@@ -154,6 +204,7 @@ void Toolbar::RenderSprites(int width, int height) {
         for (int frame = 0; frame < button->sprite.FrameCount(); ++frame) {
             button->frames.push_back(button->sprite.Render(frame, width, height));
         }
+        button->disabled = button->sprite.Render(0, width, height, true);
         ShowSpriteFrame(*button);
     }
 }
@@ -164,10 +215,14 @@ void Toolbar::ShowSpriteFrame(const ButtonSprite& button) {
         return;
     }
     HBITMAP frame = button.frames[static_cast<size_t>(button.frame)];
-    for (HIMAGELIST list : {imageList_, disabledList_, strips_.normal, strips_.hot,
-                            strips_.disabled}) {
+    for (HIMAGELIST list : {imageList_, strips_.normal, strips_.hot}) {
         if (list != nullptr && frame != nullptr) {
             ImageList_Replace(list, button.icon, frame, nullptr);
+        }
+    }
+    for (HIMAGELIST list : {disabledList_, strips_.disabled}) {
+        if (list != nullptr && button.disabled != nullptr) {
+            ImageList_Replace(list, button.icon, button.disabled, nullptr);
         }
     }
     RECT rect = {};

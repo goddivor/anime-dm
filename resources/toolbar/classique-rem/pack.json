@@ -1,0 +1,5 @@
+{
+  "name": "Classique Rem",
+  "default": true,
+  "buttons": ["add", "resume", "stop", "stop-all", "remove", "remove-all", "options", "schedule", "addons", "search"]
+}

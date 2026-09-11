@@ -147,11 +147,14 @@ configuration ; l'application les stocke dans `config.json` et les réinjecte au
   les **peaux d'IDM** (`.tbi` + bandes BMP de douze boutons) déposées dans
   `%APPDATA%\anime-dm\toolbar` ou `resources\toolbar`, choisies par Affichage › Barre
   d'outils (`ToolbarSkin.cpp`) ; Addons et Rechercher, qu'IDM n'a pas, gardent un glyphe.
-  Enfin, un bouton peut porter un **sprite animé** (`SpriteIcon.cpp`) : une planche BMP 24 bits
-  de l'outil maison sprite-animator, avec son JSON, déposée dans `resources\sprites` sous le nom
-  du bouton (`add`, `resume`, `stop`, `stop-all`, `remove`, `remove-all`, `options`,
-  `schedule`, `addons`, `search`). Il remplace le glyphe comme la peau, et joue vers sa
-  dernière image au survol. Exporter en bords **hard** : le mode matte laisse un liseré gris.
+  Enfin, les **packs de sprites** : un sous-dossier de `resources\toolbar` avec un `pack.json`
+  (nom, `default`) et, par bouton, une planche BMP 24 bits de l'outil maison sprite-animator avec
+  son JSON, nommée d'après le bouton (`add`, `resume`, `stop`, `stop-all`, `remove`,
+  `remove-all`, `options`, `schedule`, `addons`, `search`). Chaque sprite joue vers sa dernière
+  image au survol et se grise quand le bouton est désactivé. Le pack **Classique Rem** est celui
+  par défaut ; il prête ses sprites Addons et Rechercher à tout autre choix (peaux IDM, police),
+  et un bouton qu'il n'a pas encore garde son glyphe. Glyphes et sprites partagent une case de
+  42 pixels. Exporter en bords **hard** : le mode matte laisse un liseré gris.
 - **Commentaires** : code auto-documenté ; un commentaire **uniquement sur une fonction**,
   court et précis. Pas de `//` en fin de ligne.
 - **Traduction** : tout texte visible passe par `Str(STR_…)`. La table vit dans

@@ -47,10 +47,12 @@ private:
         int icon = 0;
         Sprite sprite;
         std::vector<HBITMAP> frames;
+        HBITMAP disabled = nullptr;
         int frame = 0;
         int target = 0;
     };
 
+    void LoadSprites();
     void RenderSprites(int width, int height);
     void ShowSpriteFrame(const ButtonSprite& button);
     void DropSpriteFrames();
