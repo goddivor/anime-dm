@@ -3,6 +3,8 @@
 #include <commctrl.h>
 #include <uxtheme.h>
 
+#include <algorithm>
+
 #include "ui/Commands.h"
 #include "ui/IconFactory.h"
 #include "ui/Strings.h"
@@ -10,7 +12,7 @@
 
 namespace {
 constexpr UINT_PTR kSpriteTimer = 1;
-constexpr int kIconSize = 24;
+constexpr int kCellSize = 36;  // the picture of a button, a little under the IDM skins
 constexpr int kPaddingX = 18;
 constexpr int kPaddingY = 10;
 
@@ -18,19 +20,20 @@ struct ButtonSpec {
     int command;
     int icon;
     StringId text;
+    const wchar_t* sprite;  // file name looked up in resources\sprites
 };
 
 constexpr ButtonSpec kButtons[] = {
-    {ID_TASK_ADD, ICON_ADD_URL, STR_TB_ADD},
-    {ID_FILE_START, ICON_RESUME, STR_TB_RESUME},
-    {ID_FILE_STOP, ICON_STOP, STR_TB_STOP},
-    {ID_DOWNLOAD_STOP_ALL, ICON_STOP_ALL, STR_TB_STOP_ALL},
-    {ID_FILE_REMOVE, ICON_REMOVE, STR_TB_REMOVE},
-    {ID_DOWNLOAD_DELETE_ALL, ICON_REMOVE_ALL, STR_TB_REMOVE_ALL},
-    {ID_VIEW_SETTINGS, ICON_OPTIONS, STR_TB_OPTIONS},
-    {ID_DOWNLOAD_SCHEDULE, ICON_SCHEDULE, STR_TB_SCHEDULE},
-    {ID_VIEW_ADDONS, ICON_ADDONS, STR_TB_ADDONS},
-    {ID_DOWNLOAD_SEARCH, ICON_SEARCH, STR_TB_SEARCH},
+    {ID_TASK_ADD, ICON_ADD_URL, STR_TB_ADD, L"add.bmp"},
+    {ID_FILE_START, ICON_RESUME, STR_TB_RESUME, L"resume.bmp"},
+    {ID_FILE_STOP, ICON_STOP, STR_TB_STOP, L"stop.bmp"},
+    {ID_DOWNLOAD_STOP_ALL, ICON_STOP_ALL, STR_TB_STOP_ALL, L"stop-all.bmp"},
+    {ID_FILE_REMOVE, ICON_REMOVE, STR_TB_REMOVE, L"remove.bmp"},
+    {ID_DOWNLOAD_DELETE_ALL, ICON_REMOVE_ALL, STR_TB_REMOVE_ALL, L"remove-all.bmp"},
+    {ID_VIEW_SETTINGS, ICON_OPTIONS, STR_TB_OPTIONS, L"options.bmp"},
+    {ID_DOWNLOAD_SCHEDULE, ICON_SCHEDULE, STR_TB_SCHEDULE, L"schedule.bmp"},
+    {ID_VIEW_ADDONS, ICON_ADDONS, STR_TB_ADDONS, L"addons.bmp"},
+    {ID_DOWNLOAD_SEARCH, ICON_SEARCH, STR_TB_SEARCH, L"search.bmp"},
 };
 
 // The scale of the display the toolbar is on, 1.0 at 96 dpi.
@@ -44,7 +47,29 @@ double ScaleOf(HWND window) {
     return dpi <= 0 ? 1.0 : static_cast<double>(dpi) / 96.0;
 }
 
-// Drives the sprite of the Addons button from the timer of the toolbar.
+// Whether a file exists.
+bool Exists(const std::wstring& path) {
+    DWORD attributes = GetFileAttributesW(path.c_str());
+    return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+
+// Builds a list of font glyphs laid out in cells of any size.
+HIMAGELIST GlyphList(int cell, COLORREF colour) {
+    HIMAGELIST list = ImageList_Create(cell, cell, ILC_COLOR32, ICON_COUNT, 0);
+    if (list == nullptr) {
+        return nullptr;
+    }
+    for (int icon = 0; icon < ICON_COUNT; ++icon) {
+        HBITMAP glyph = CreateToolbarGlyph(static_cast<ToolbarIcon>(icon), cell, cell, colour);
+        if (glyph != nullptr) {
+            ImageList_Add(list, glyph, nullptr);
+            DeleteObject(glyph);
+        }
+    }
+    return list;
+}
+
+// Drives the sprites of the buttons from the timer of the toolbar.
 LRESULT CALLBACK SpriteSubclass(HWND window, UINT msg, WPARAM wParam, LPARAM lParam,
                                 UINT_PTR id, DWORD_PTR data) {
     if (msg == WM_TIMER && wParam == kSpriteTimer) {
@@ -79,7 +104,6 @@ bool Toolbar::Create(HWND parent, HINSTANCE instance) {
     SendMessageW(hwnd_, TB_SETEXTENDEDSTYLE, 0, TBSTYLE_EX_MIXEDBUTTONS);
     SendMessageW(hwnd_, TB_SETPADDING, 0, MAKELPARAM(kPaddingX, kPaddingY));
 
-    sprite_.Load(FindSprite(L"addons.bmp"));
     SetWindowSubclass(hwnd_, SpriteSubclass, 1, reinterpret_cast<DWORD_PTR>(this));
 
     RebuildImages(ActiveTheme());
@@ -100,93 +124,148 @@ void Toolbar::DropLists() {
     skins::Release(&strips_);
 }
 
+// Finds the sprite of every button: in the active sprite pack first, then,
+// for Addons and Search, which IDM skins lack, in the default pack.
+void Toolbar::LoadSprites() {
+    KillTimer(hwnd_, kSpriteTimer);
+    DropSpriteFrames();
+    sprites_.clear();
+
+    std::wstring active = skin_ != nullptr && skin_->kind == ToolbarSkin::Kind::Sprites
+                              ? skin_->folder
+                              : std::wstring();
+    std::wstring fallback = skins::DefaultPackFolder();
+    for (const ButtonSpec& spec : kButtons) {
+        std::wstring path;
+        if (!active.empty() && Exists(active + L"\\" + spec.sprite)) {
+            path = active + L"\\" + spec.sprite;
+        } else if ((spec.icon == ICON_ADDONS || spec.icon == ICON_SEARCH) && !fallback.empty() &&
+                   Exists(fallback + L"\\" + spec.sprite)) {
+            path = fallback + L"\\" + spec.sprite;
+        }
+        auto button = std::make_unique<ButtonSprite>();
+        button->command = spec.command;
+        button->icon = spec.icon;
+        if (!path.empty() && button->sprite.Load(path)) {
+            sprites_.push_back(std::move(button));
+        }
+    }
+}
+
 // Builds the pictures of the buttons for the active palette: the strips of
-// the skin when one is chosen and readable, the icon font otherwise.
+// an IDM skin when one is chosen and readable, font glyphs otherwise, and the
+// sprites over both. Glyphs and sprites share one cell size whatever the
+// skin, so a sprite keeps its size when the rest of the toolbar changes.
 void Toolbar::RebuildImages(const Theme& theme) {
     const ThemeColors& colors = theme.Colors();
     DropLists();
+    LoadSprites();
 
-    if (skin_ != nullptr &&
+    if (skin_ != nullptr && skin_->kind == ToolbarSkin::Kind::Idm &&
         skins::Load(*skin_, ScaleOf(hwnd_), colors.text, colors.muted, &strips_)) {
         SendMessageW(hwnd_, TB_SETBITMAPSIZE, 0, MAKELPARAM(strips_.width, strips_.height));
         SendMessageW(hwnd_, TB_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(strips_.normal));
         SendMessageW(hwnd_, TB_SETHOTIMAGELIST, 0, reinterpret_cast<LPARAM>(strips_.hot));
         SendMessageW(hwnd_, TB_SETDISABLEDIMAGELIST, 0,
                      reinterpret_cast<LPARAM>(strips_.disabled));
-        RenderSprite(strips_.width, strips_.height);
+        RenderSprites(strips_.width, strips_.height);
         return;
     }
 
-    imageList_ = CreateToolbarImageList(colors.text);
-    disabledList_ = CreateToolbarImageList(colors.muted);
-    SendMessageW(hwnd_, TB_SETBITMAPSIZE, 0, MAKELPARAM(kIconSize, kIconSize));
+    int cell = static_cast<int>(kCellSize * ScaleOf(hwnd_) + 0.5);
+    imageList_ = GlyphList(cell, colors.text);
+    disabledList_ = GlyphList(cell, colors.muted);
+    SendMessageW(hwnd_, TB_SETBITMAPSIZE, 0, MAKELPARAM(cell, cell));
     SendMessageW(hwnd_, TB_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(imageList_));
     SendMessageW(hwnd_, TB_SETHOTIMAGELIST, 0, 0);
     SendMessageW(hwnd_, TB_SETDISABLEDIMAGELIST, 0, reinterpret_cast<LPARAM>(disabledList_));
-    RenderSprite(kIconSize, kIconSize);
+    RenderSprites(cell, cell);
 }
 
-// Frees the rendered frames of the sprite.
+// Frees the rendered frames of every sprite.
 void Toolbar::DropSpriteFrames() {
-    for (HBITMAP frame : spriteFrames_) {
-        DeleteObject(frame);
-    }
-    spriteFrames_.clear();
-}
-
-// Renders every frame of the sprite at the size of a button picture, then
-// puts the current one in place of the Addons glyph.
-void Toolbar::RenderSprite(int width, int height) {
-    DropSpriteFrames();
-    if (!sprite_.Loaded()) {
-        return;
-    }
-    for (int frame = 0; frame < sprite_.FrameCount(); ++frame) {
-        spriteFrames_.push_back(sprite_.Render(frame, width, height));
-    }
-    ShowSpriteFrame();
-}
-
-// Swaps the Addons picture of every list for the current frame.
-void Toolbar::ShowSpriteFrame() {
-    if (spriteFrames_.empty()) {
-        return;
-    }
-    HBITMAP frame = spriteFrames_[static_cast<size_t>(spriteFrame_)];
-    for (HIMAGELIST list : {imageList_, disabledList_, strips_.normal, strips_.hot,
-                            strips_.disabled}) {
-        if (list != nullptr && frame != nullptr) {
-            ImageList_Replace(list, ICON_ADDONS, frame, nullptr);
+    for (const std::unique_ptr<ButtonSprite>& button : sprites_) {
+        for (HBITMAP frame : button->frames) {
+            DeleteObject(frame);
+        }
+        button->frames.clear();
+        if (button->disabled != nullptr) {
+            DeleteObject(button->disabled);
+            button->disabled = nullptr;
         }
     }
-    RECT button = {};
-    if (SendMessageW(hwnd_, TB_GETRECT, ID_VIEW_ADDONS, reinterpret_cast<LPARAM>(&button))) {
-        InvalidateRect(hwnd_, &button, TRUE);
+}
+
+// Renders every frame of every sprite at the size of a button picture, then
+// puts the current frame of each in place of its glyph.
+void Toolbar::RenderSprites(int width, int height) {
+    DropSpriteFrames();
+    for (const std::unique_ptr<ButtonSprite>& button : sprites_) {
+        for (int frame = 0; frame < button->sprite.FrameCount(); ++frame) {
+            button->frames.push_back(button->sprite.Render(frame, width, height));
+        }
+        button->disabled = button->sprite.Render(0, width, height, true);
+        ShowSpriteFrame(*button);
     }
 }
 
-// Heads the sprite for its last frame while the pointer rests on Addons,
-// back to its first frame otherwise.
+// Swaps the picture of a button, in every list, for its current frame.
+void Toolbar::ShowSpriteFrame(const ButtonSprite& button) {
+    if (button.frames.empty()) {
+        return;
+    }
+    HBITMAP frame = button.frames[static_cast<size_t>(button.frame)];
+    for (HIMAGELIST list : {imageList_, strips_.normal, strips_.hot}) {
+        if (list != nullptr && frame != nullptr) {
+            ImageList_Replace(list, button.icon, frame, nullptr);
+        }
+    }
+    for (HIMAGELIST list : {disabledList_, strips_.disabled}) {
+        if (list != nullptr && button.disabled != nullptr) {
+            ImageList_Replace(list, button.icon, button.disabled, nullptr);
+        }
+    }
+    RECT rect = {};
+    if (SendMessageW(hwnd_, TB_GETRECT, button.command, reinterpret_cast<LPARAM>(&rect))) {
+        InvalidateRect(hwnd_, &rect, TRUE);
+    }
+}
+
+// Heads the sprite under the pointer for its last frame and every other one
+// back to its first.
 void Toolbar::OnHotItem(const NMTBHOTITEM* hot) {
-    if (spriteFrames_.empty()) {
-        return;
+    int hovered = (hot->dwFlags & HICF_LEAVING) == 0 ? hot->idNew : -1;
+    bool moving = false;
+    UINT interval = 0;
+    for (const std::unique_ptr<ButtonSprite>& button : sprites_) {
+        if (button->frames.empty()) {
+            continue;
+        }
+        button->target =
+            button->command == hovered ? static_cast<int>(button->frames.size()) - 1 : 0;
+        if (button->target != button->frame) {
+            moving = true;
+            UINT duration = static_cast<UINT>(button->sprite.DurationMs());
+            interval = interval == 0 ? duration : std::min(interval, duration);
+        }
     }
-    bool onAddons = (hot->dwFlags & HICF_LEAVING) == 0 && hot->idNew == ID_VIEW_ADDONS;
-    spriteTarget_ = onAddons ? static_cast<int>(spriteFrames_.size()) - 1 : 0;
-    if (spriteTarget_ != spriteFrame_) {
-        SetTimer(hwnd_, kSpriteTimer, static_cast<UINT>(sprite_.DurationMs()), nullptr);
+    if (moving) {
+        SetTimer(hwnd_, kSpriteTimer, interval, nullptr);
     }
 }
 
-// Moves the sprite one frame toward where it is heading.
+// Moves every sprite one frame toward where it is heading.
 void Toolbar::StepSprite() {
-    if (spriteFrame_ == spriteTarget_ || spriteFrames_.empty()) {
-        KillTimer(hwnd_, kSpriteTimer);
-        return;
+    bool moving = false;
+    for (const std::unique_ptr<ButtonSprite>& button : sprites_) {
+        if (button->frames.empty() || button->frame == button->target) {
+            continue;
+        }
+        button->frame += button->target > button->frame ? 1 : -1;
+        ShowSpriteFrame(*button);
+        moving = moving || button->frame != button->target;
     }
-    spriteFrame_ += spriteTarget_ > spriteFrame_ ? 1 : -1;
-    ShowSpriteFrame();
-    if (spriteFrame_ == spriteTarget_) {
+    if (!moving) {
         KillTimer(hwnd_, kSpriteTimer);
     }
 }

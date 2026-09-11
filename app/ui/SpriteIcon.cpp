@@ -16,15 +16,6 @@ using std::min;
 
 namespace {
 
-// The folder of the executable.
-std::wstring ExeDir() {
-    wchar_t path[MAX_PATH] = {};
-    GetModuleFileNameW(nullptr, path, MAX_PATH);
-    std::wstring file(path);
-    size_t cut = file.find_last_of(L"\\/");
-    return cut == std::wstring::npos ? std::wstring() : file.substr(0, cut);
-}
-
 // Reads `#RRGGBB` into 0xRRGGBB; false when the text is not a colour.
 bool ParseColour(const std::string& text, uint32_t* colour) {
     if (text.size() != 7 || text[0] != '#') {
@@ -107,7 +98,7 @@ bool Sprite::Load(const std::wstring& bmpPath) {
 }
 
 // Renders one frame fitted into a cell, centred, the colour key made clear.
-HBITMAP Sprite::Render(int frame, int width, int height) const {
+HBITMAP Sprite::Render(int frame, int width, int height, bool disabled) const {
     if (frames_.empty() || width <= 0 || height <= 0) {
         return nullptr;
     }
@@ -146,19 +137,18 @@ HBITMAP Sprite::Render(int frame, int width, int height) const {
                                                (static_cast<float>(height) - drawnHeight) / 2.0f,
                                                drawnWidth, drawnHeight));
     graphics.Flush();
-    return bitmap;
-}
 
-// The path of a sprite shipped in `resources\sprites`.
-std::wstring FindSprite(const wchar_t* fileName) {
-    std::wstring exe = ExeDir();
-    for (const std::wstring& base : {exe, exe + L"\\.."}) {
-        std::wstring path = base + L"\\resources\\sprites\\" + fileName;
-        DWORD attributes = GetFileAttributesW(path.c_str());
-        if (attributes != INVALID_FILE_ATTRIBUTES &&
-            (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
-            return path;
+    if (disabled) {
+        auto* pixels = static_cast<uint32_t*>(bits);
+        for (size_t i = 0; i < static_cast<size_t>(width) * height; ++i) {
+            uint32_t p = pixels[i];
+            uint32_t a = (p >> 24) & 0xFF;
+            uint32_t luma = (((p >> 16) & 0xFF) * 299 + ((p >> 8) & 0xFF) * 587 + (p & 0xFF) * 114) /
+                            1000;
+            a = a * 2 / 5;
+            luma = luma * 2 / 5;
+            pixels[i] = (a << 24) | (luma << 16) | (luma << 8) | luma;
         }
     }
-    return std::wstring();
+    return bitmap;
 }

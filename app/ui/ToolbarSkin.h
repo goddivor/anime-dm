@@ -12,7 +12,14 @@
 // pixel of a strip standing for its transparent colour. Any skin made for IDM
 // drops into `%APPDATA%\anime-dm\toolbar` and shows up in the View menu.
 struct ToolbarSkin {
+    // An IDM skin gives strips of twelve buttons; a sprite pack gives one
+    // animated sprite per button, named after it, in its own folder.
+    enum class Kind { Idm, Sprites };
+
+    Kind kind = Kind::Idm;
     std::wstring name;
+    std::wstring folder;     // the folder of a sprite pack
+    bool isDefault = false;  // the pack the toolbar wears out of the box
     std::wstring large;
     std::wstring largeHot;
     std::wstring largeDisabled;
@@ -32,9 +39,14 @@ struct ToolbarStrips {
 
 namespace skins {
 
-// The skins found next to the executable and in the user's data folder, by
-// name.
+// The skins found next to the executable, one level above it for a
+// development build, and in the user's data folder, by name. A sprite pack is
+// a subfolder holding a `pack.json` with its name.
 std::vector<ToolbarSkin> Discover();
+
+// The folder of the default sprite pack, which lends its Addons and Search
+// sprites to every other skin; empty when there is none.
+std::wstring DefaultPackFolder();
 
 // Reads the strips of a skin into image lists laid out for this toolbar; the
 // buttons IDM does not have get a glyph of the icon font in `glyph`.

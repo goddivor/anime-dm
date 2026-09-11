@@ -16,6 +16,7 @@ using std::min;
 
 #include "core/Paths.h"
 #include "core/Text.h"
+#include "third_party/json.hpp"
 #include "ui/IconFactory.h"
 
 namespace {
@@ -53,6 +54,26 @@ std::wstring Beside(const std::filesystem::path& descriptor, const std::string& 
     std::wstring wide = Widen(relative);
     std::replace(wide.begin(), wide.end(), L'/', L'\\');
     return (descriptor.parent_path() / wide).wstring();
+}
+
+// Reads the `pack.json` of a sprite pack folder; false when there is none.
+bool ReadPack(const std::filesystem::path& folder, ToolbarSkin* skin) {
+    std::ifstream in(folder / L"pack.json", std::ios::binary);
+    if (!in) {
+        return false;
+    }
+    nlohmann::json meta = nlohmann::json::parse(in, nullptr, false);
+    if (!meta.is_object()) {
+        return false;
+    }
+    skin->kind = ToolbarSkin::Kind::Sprites;
+    skin->name = Widen(meta.value("name", std::string()));
+    if (skin->name.empty()) {
+        skin->name = folder.filename().wstring();
+    }
+    skin->folder = folder.wstring();
+    skin->isDefault = meta.value("default", false);
+    return true;
 }
 
 // Reads one `.tbi` descriptor; nothing when it names no large strip.
@@ -186,13 +207,22 @@ namespace skins {
 std::vector<ToolbarSkin> Discover() {
     std::vector<ToolbarSkin> found;
     std::wstring data = paths::DataDir();
-    std::vector<std::wstring> folders = {ExeDir() + L"\\resources\\toolbar"};
+    std::wstring exe = ExeDir();
+    std::vector<std::wstring> folders = {exe + L"\\resources\\toolbar",
+                                         exe + L"\\..\\resources\\toolbar"};
     if (!data.empty()) {
         folders.push_back(data + L"\\toolbar");
     }
     for (const std::wstring& folder : folders) {
         std::error_code ignored;
         for (const auto& entry : std::filesystem::directory_iterator(folder, ignored)) {
+            if (entry.is_directory(ignored)) {
+                ToolbarSkin pack;
+                if (ReadPack(entry.path(), &pack)) {
+                    found.push_back(std::move(pack));
+                }
+                continue;
+            }
             if (!entry.is_regular_file(ignored)) {
                 continue;
             }
@@ -208,9 +238,28 @@ std::vector<ToolbarSkin> Discover() {
         }
     }
     std::sort(found.begin(), found.end(), [](const ToolbarSkin& a, const ToolbarSkin& b) {
+        if (a.kind != b.kind) {
+            return a.kind == ToolbarSkin::Kind::Sprites;
+        }
         return lstrcmpiW(a.name.c_str(), b.name.c_str()) < 0;
     });
+    // The same pack seen twice, next to the executable and above it, counts once.
+    found.erase(std::unique(found.begin(), found.end(),
+                            [](const ToolbarSkin& a, const ToolbarSkin& b) {
+                                return a.kind == b.kind && a.name == b.name;
+                            }),
+                found.end());
     return found;
+}
+
+// The folder of the default sprite pack.
+std::wstring DefaultPackFolder() {
+    for (const ToolbarSkin& skin : Discover()) {
+        if (skin.kind == ToolbarSkin::Kind::Sprites && skin.isDefault) {
+            return skin.folder;
+        }
+    }
+    return std::wstring();
 }
 
 // Reads the strips of a skin into image lists laid out for this toolbar.
