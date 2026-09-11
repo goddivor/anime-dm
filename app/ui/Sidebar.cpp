@@ -205,6 +205,25 @@ bool Same(const SidebarNode& a, const SidebarNode& b) {
     return a.kind == b.kind && a.animeUrl == b.animeUrl && a.itemId == b.itemId;
 }
 
+// Repaints the whole tree whenever its content slides sideways. To scroll,
+// the tree shifts the pixels already on screen and paints only the strip it
+// uncovers; the anime rows and the rule are laid out against the right edge
+// of the visible area, so a shifted copy of them would pile up beside the
+// fresh one.
+LRESULT CALLBACK RepaintOnScroll(HWND tree, UINT msg, WPARAM wParam, LPARAM lParam,
+                                 UINT_PTR id, DWORD_PTR) {
+    if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(tree, RepaintOnScroll, id);
+        return DefSubclassProc(tree, msg, wParam, lParam);
+    }
+    int before = GetScrollPos(tree, SB_HORZ);
+    LRESULT result = DefSubclassProc(tree, msg, wParam, lParam);
+    if (GetScrollPos(tree, SB_HORZ) != before) {
+        InvalidateRect(tree, nullptr, FALSE);
+    }
+    return result;
+}
+
 // Paints a bitmap with its alpha channel onto a device context.
 void BlendBitmap(HDC dc, HBITMAP bitmap, int x, int y, int width, int height) {
     HDC memory = CreateCompatibleDC(dc);
@@ -255,6 +274,7 @@ bool Sidebar::Create(HWND parent, HINSTANCE instance) {
     // Painted off screen first, so a resize swaps one finished picture for
     // another instead of showing every row being drawn.
     TreeView_SetExtendedStyle(tree_, TVS_EX_DOUBLEBUFFER, TVS_EX_DOUBLEBUFFER);
+    SetWindowSubclass(tree_, RepaintOnScroll, 2, 0);
 
     RebuildIcons(ActiveTheme());
     Rebuild({}, {});
