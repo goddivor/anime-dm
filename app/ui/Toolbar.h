@@ -27,11 +27,11 @@ public:
     // Dresses the buttons with a skin, or with the icon font when null.
     void SetSkin(const ToolbarSkin* skin, const Theme& theme);
 
-    // Plays the sprite of the Addons button forward when the pointer comes
-    // onto it, backward when it leaves.
+    // Plays the sprite of the button under the pointer forward, and the
+    // sprites of the others back to their first frame.
     void OnHotItem(const NMTBHOTITEM* hot);
 
-    // Moves the sprite one frame toward where it is heading.
+    // Moves every sprite one frame toward where it is heading.
     void StepSprite();
 
     int Height() const;
@@ -41,8 +41,18 @@ private:
     void RebuildImages(const Theme& theme);
     void RebuildButtons();
     void DropLists();
-    void RenderSprite(int width, int height);
-    void ShowSpriteFrame();
+    // A button whose picture comes from a sprite rather than the glyphs.
+    struct ButtonSprite {
+        int command = 0;
+        int icon = 0;
+        Sprite sprite;
+        std::vector<HBITMAP> frames;
+        int frame = 0;
+        int target = 0;
+    };
+
+    void RenderSprites(int width, int height);
+    void ShowSpriteFrame(const ButtonSprite& button);
     void DropSpriteFrames();
 
     HWND hwnd_ = nullptr;
@@ -50,8 +60,5 @@ private:
     HIMAGELIST disabledList_ = nullptr;
     ToolbarStrips strips_;
     std::unique_ptr<ToolbarSkin> skin_;
-    Sprite sprite_;
-    std::vector<HBITMAP> spriteFrames_;
-    int spriteFrame_ = 0;
-    int spriteTarget_ = 0;
+    std::vector<std::unique_ptr<ButtonSprite>> sprites_;
 };
