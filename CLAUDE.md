@@ -154,7 +154,7 @@ configuration ; l'application les stocke dans `config.json` et les réinjecte au
   image au survol et se grise quand le bouton est désactivé. Le pack **Classique Rem** est celui
   par défaut ; il prête ses sprites Addons et Rechercher à tout autre choix (peaux IDM, police),
   et un bouton qu'il n'a pas encore garde son glyphe. Glyphes et sprites partagent une case de
-  42 pixels. Exporter en bords **hard** : le mode matte laisse un liseré gris.
+  36 pixels. Exporter en bords **hard** : le mode matte laisse un liseré gris.
 - **Commentaires** : code auto-documenté ; un commentaire **uniquement sur une fonction**,
   court et précis. Pas de `//` en fin de ligne.
 - **Traduction** : tout texte visible passe par `Str(STR_…)`. La table vit dans

@@ -12,7 +12,7 @@
 
 namespace {
 constexpr UINT_PTR kSpriteTimer = 1;
-constexpr int kCellSize = 42;  // the picture of a button, as tall as the IDM skins
+constexpr int kCellSize = 36;  // the picture of a button, a little under the IDM skins
 constexpr int kPaddingX = 18;
 constexpr int kPaddingY = 10;
 
