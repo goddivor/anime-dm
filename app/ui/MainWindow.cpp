@@ -223,6 +223,10 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         break;
     case WM_NOTIFY: {
         auto* notify = reinterpret_cast<NMHDR*>(lParam);
+        if (notify->hwndFrom == toolbar_.Handle() && notify->code == TBN_HOTITEMCHANGE) {
+            toolbar_.OnHotItem(reinterpret_cast<NMTBHOTITEM*>(lParam));
+            return 0;
+        }
         if (notify->code == NM_CUSTOMDRAW) {
             if (notify->hwndFrom == toolbar_.Handle()) {
                 return OnToolbarCustomDraw(reinterpret_cast<NMTBCUSTOMDRAW*>(lParam));

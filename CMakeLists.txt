@@ -33,6 +33,7 @@ add_executable(anime-dm WIN32
     app/ui/MenuBar.cpp
     app/ui/Paint.cpp
     app/ui/PosterDialog.cpp
+    app/ui/SpriteIcon.cpp
     app/ui/Toolbar.cpp
     app/ui/ToolbarSkin.cpp
     app/ui/IconFactory.cpp

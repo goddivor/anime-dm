@@ -9,6 +9,7 @@
 #include "ui/Theme.h"
 
 namespace {
+constexpr UINT_PTR kSpriteTimer = 1;
 constexpr int kIconSize = 24;
 constexpr int kPaddingX = 18;
 constexpr int kPaddingY = 10;
@@ -42,11 +43,26 @@ double ScaleOf(HWND window) {
     ReleaseDC(window, dc);
     return dpi <= 0 ? 1.0 : static_cast<double>(dpi) / 96.0;
 }
+
+// Drives the sprite of the Addons button from the timer of the toolbar.
+LRESULT CALLBACK SpriteSubclass(HWND window, UINT msg, WPARAM wParam, LPARAM lParam,
+                                UINT_PTR id, DWORD_PTR data) {
+    if (msg == WM_TIMER && wParam == kSpriteTimer) {
+        reinterpret_cast<Toolbar*>(data)->StepSprite();
+        return 0;
+    }
+    if (msg == WM_NCDESTROY) {
+        KillTimer(window, kSpriteTimer);
+        RemoveWindowSubclass(window, SpriteSubclass, id);
+    }
+    return DefSubclassProc(window, msg, wParam, lParam);
+}
 }  // namespace
 
 // Releases the image lists owned by the toolbar.
 Toolbar::~Toolbar() {
     DropLists();
+    DropSpriteFrames();
 }
 
 // Creates a flat toolbar of captioned icons pinned to the top of the parent.
@@ -62,6 +78,9 @@ bool Toolbar::Create(HWND parent, HINSTANCE instance) {
     SendMessageW(hwnd_, TB_BUTTONSTRUCTSIZE, sizeof(TBBUTTON), 0);
     SendMessageW(hwnd_, TB_SETEXTENDEDSTYLE, 0, TBSTYLE_EX_MIXEDBUTTONS);
     SendMessageW(hwnd_, TB_SETPADDING, 0, MAKELPARAM(kPaddingX, kPaddingY));
+
+    sprite_.Load(FindSprite(L"addons.bmp"));
+    SetWindowSubclass(hwnd_, SpriteSubclass, 1, reinterpret_cast<DWORD_PTR>(this));
 
     RebuildImages(ActiveTheme());
     RebuildButtons();
@@ -94,6 +113,7 @@ void Toolbar::RebuildImages(const Theme& theme) {
         SendMessageW(hwnd_, TB_SETHOTIMAGELIST, 0, reinterpret_cast<LPARAM>(strips_.hot));
         SendMessageW(hwnd_, TB_SETDISABLEDIMAGELIST, 0,
                      reinterpret_cast<LPARAM>(strips_.disabled));
+        RenderSprite(strips_.width, strips_.height);
         return;
     }
 
@@ -103,6 +123,72 @@ void Toolbar::RebuildImages(const Theme& theme) {
     SendMessageW(hwnd_, TB_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(imageList_));
     SendMessageW(hwnd_, TB_SETHOTIMAGELIST, 0, 0);
     SendMessageW(hwnd_, TB_SETDISABLEDIMAGELIST, 0, reinterpret_cast<LPARAM>(disabledList_));
+    RenderSprite(kIconSize, kIconSize);
+}
+
+// Frees the rendered frames of the sprite.
+void Toolbar::DropSpriteFrames() {
+    for (HBITMAP frame : spriteFrames_) {
+        DeleteObject(frame);
+    }
+    spriteFrames_.clear();
+}
+
+// Renders every frame of the sprite at the size of a button picture, then
+// puts the current one in place of the Addons glyph.
+void Toolbar::RenderSprite(int width, int height) {
+    DropSpriteFrames();
+    if (!sprite_.Loaded()) {
+        return;
+    }
+    for (int frame = 0; frame < sprite_.FrameCount(); ++frame) {
+        spriteFrames_.push_back(sprite_.Render(frame, width, height));
+    }
+    ShowSpriteFrame();
+}
+
+// Swaps the Addons picture of every list for the current frame.
+void Toolbar::ShowSpriteFrame() {
+    if (spriteFrames_.empty()) {
+        return;
+    }
+    HBITMAP frame = spriteFrames_[static_cast<size_t>(spriteFrame_)];
+    for (HIMAGELIST list : {imageList_, disabledList_, strips_.normal, strips_.hot,
+                            strips_.disabled}) {
+        if (list != nullptr && frame != nullptr) {
+            ImageList_Replace(list, ICON_ADDONS, frame, nullptr);
+        }
+    }
+    RECT button = {};
+    if (SendMessageW(hwnd_, TB_GETRECT, ID_VIEW_ADDONS, reinterpret_cast<LPARAM>(&button))) {
+        InvalidateRect(hwnd_, &button, TRUE);
+    }
+}
+
+// Heads the sprite for its last frame while the pointer rests on Addons,
+// back to its first frame otherwise.
+void Toolbar::OnHotItem(const NMTBHOTITEM* hot) {
+    if (spriteFrames_.empty()) {
+        return;
+    }
+    bool onAddons = (hot->dwFlags & HICF_LEAVING) == 0 && hot->idNew == ID_VIEW_ADDONS;
+    spriteTarget_ = onAddons ? static_cast<int>(spriteFrames_.size()) - 1 : 0;
+    if (spriteTarget_ != spriteFrame_) {
+        SetTimer(hwnd_, kSpriteTimer, static_cast<UINT>(sprite_.DurationMs()), nullptr);
+    }
+}
+
+// Moves the sprite one frame toward where it is heading.
+void Toolbar::StepSprite() {
+    if (spriteFrame_ == spriteTarget_ || spriteFrames_.empty()) {
+        KillTimer(hwnd_, kSpriteTimer);
+        return;
+    }
+    spriteFrame_ += spriteTarget_ > spriteFrame_ ? 1 : -1;
+    ShowSpriteFrame();
+    if (spriteFrame_ == spriteTarget_) {
+        KillTimer(hwnd_, kSpriteTimer);
+    }
 }
 
 // Recreates the buttons, which is what makes the toolbar take a new picture
