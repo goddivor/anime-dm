@@ -403,9 +403,8 @@ LRESULT MainWindow::OnListCustomDraw(NMLVCUSTOMDRAW* draw) {
     case CDDS_PREPAINT:
         return CDRF_NOTIFYITEMDRAW | CDRF_NOTIFYPOSTPAINT;
     case CDDS_ITEMPREPAINT:
-        return CDRF_NOTIFYSUBITEMDRAW;
-    case CDDS_ITEMPREPAINT | CDDS_SUBITEM:
-        return DrawProgressCell(draw) ? CDRF_SKIPDEFAULT : CDRF_DODEFAULT;
+        DrawRow(draw);
+        return CDRF_SKIPDEFAULT;
     case CDDS_POSTPAINT:
         break;
     default:
@@ -451,26 +450,77 @@ LRESULT MainWindow::OnListCustomDraw(NMLVCUSTOMDRAW* draw) {
     return CDRF_DODEFAULT;
 }
 
-// Paints the status cell of a running download as a bar with its percentage.
-// False when the cell is not a running download, which the list draws itself.
-bool MainWindow::DrawProgressCell(NMLVCUSTOMDRAW* draw) {
-    if (draw->iSubItem != kStatusColumn) {
-        return false;
+// Paints one row of the list the way IDM paints its own: the flat highlight
+// of the system behind a chosen row, white captions on it, and every cell
+// clipped to the column its header describes.
+void MainWindow::DrawRow(NMLVCUSTOMDRAW* draw) {
+    HWND list = draw->nmcd.hdr.hwndFrom;
+    HWND header = ListView_GetHeader(list);
+    int row = static_cast<int>(draw->nmcd.dwItemSpec);
+    RECT bounds = {};
+    if (header == nullptr || !ListView_GetItemRect(list, row, &bounds, LVIR_BOUNDS)) {
+        return;
     }
-    const DownloadItem* item = Find(static_cast<uint64_t>(draw->nmcd.lItemlParam));
+
+    const ThemeColors& colors = ActiveTheme().Colors();
+    bool selected = (ListView_GetItemState(list, row, LVIS_SELECTED) & LVIS_SELECTED) != 0;
+    HDC dc = draw->nmcd.hdc;
+
+    RECT client = {};
+    GetClientRect(list, &client);
+    RECT blank = {client.left, bounds.top, client.right, bounds.bottom};
+    HBRUSH background = CreateSolidBrush(colors.window);
+    FillRect(dc, &blank, background);
+    DeleteObject(background);
+    if (selected) {
+        HBRUSH highlight = CreateSolidBrush(colors.accent);
+        FillRect(dc, &bounds, highlight);
+        DeleteObject(highlight);
+    }
+
+    HFONT font = reinterpret_cast<HFONT>(SendMessageW(list, WM_GETFONT, 0, 0));
+    HFONT previous = font != nullptr ? static_cast<HFONT>(SelectObject(dc, font)) : nullptr;
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, selected ? colors.accentText : colors.text);
+
+    uint64_t id = static_cast<uint64_t>(draw->nmcd.lItemlParam);
+    int columns = Header_GetItemCount(header);
+    for (int column = 0; column < columns; ++column) {
+        RECT item = {};
+        if (!Header_GetItemRect(header, column, &item)) {
+            continue;
+        }
+        RECT cell = {item.left, bounds.top, item.right, bounds.bottom};
+        if (cell.right <= client.left || cell.left >= client.right) {
+            continue;
+        }
+        if (column == kStatusColumn && DrawProgressCell(dc, cell, id, selected)) {
+            continue;
+        }
+        wchar_t text[512] = {};
+        ListView_GetItemText(list, row, column, text, ARRAYSIZE(text));
+        RECT label = cell;
+        label.left += 6;
+        label.right -= 6;
+        if (label.right > label.left) {
+            DrawTextW(dc, text, -1, &label,
+                      DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
+        }
+    }
+    if (previous != nullptr) {
+        SelectObject(dc, previous);
+    }
+}
+
+// Paints the status cell of a running download as a bar with its percentage.
+// False when the cell is not a running download, whose caption the row writes.
+bool MainWindow::DrawProgressCell(HDC dc, const RECT& cell, uint64_t id, bool selected) {
+    const DownloadItem* item = Find(id);
     if (item == nullptr || item->status != DownloadStatus::Downloading || item->fraction < 0.0) {
         return false;
     }
 
-    HWND list = draw->nmcd.hdr.hwndFrom;
-    int row = static_cast<int>(draw->nmcd.dwItemSpec);
-    RECT cell = {};
-    ListView_GetSubItemRect(list, row, kStatusColumn, LVIR_BOUNDS, &cell);
-
     const ThemeColors& colors = ActiveTheme().Colors();
-    bool selected = ListView_GetItemState(list, row, LVIS_SELECTED) == LVIS_SELECTED;
-    HDC dc = draw->nmcd.hdc;
-
     RECT track = cell;
     track.left += 6;
     track.right -= 6;
