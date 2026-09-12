@@ -10,6 +10,9 @@ struct Settings {
     std::string theme = "system";         // "dark", "light" or "system"
     std::string language = "fr";          // "fr" or "en"
     std::string toolbarSkin;              // a skin name, "fluent" for the icon font, empty for the default pack
+    bool clipboardUrl = true;             // paste the link of the clipboard into the add window
+    bool rememberPath = false;            // reuse the folder below for the next downloads
+    std::string savePath;                 // that folder, in UTF-8
 };
 
 namespace settings {

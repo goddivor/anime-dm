@@ -785,7 +785,16 @@ void MainWindow::OnAddDownload() {
         item.addedAt = std::time(nullptr);
         items_.push_back(item);
         Refresh(item);
-        downloader_.Start(TaskOf(item));
+        // Later leaves the episode in the queue: Resume hands it to the engine.
+        if (!request.later) {
+            downloader_.Start(TaskOf(item));
+        }
+    }
+    if (request.rememberPath != settings_.rememberPath ||
+        (request.rememberPath && Narrow(request.destination) != settings_.savePath)) {
+        settings_.rememberPath = request.rememberPath;
+        settings_.savePath = request.rememberPath ? Narrow(request.destination) : std::string();
+        settings::Save(settings_);
     }
     if (!request.posterBytes.empty()) {
         DecorateFolder(request.animeUrl, request.folderTemplate);

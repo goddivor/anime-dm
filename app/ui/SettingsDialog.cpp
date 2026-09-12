@@ -33,6 +33,8 @@ void Retranslate(HWND dialog) {
     SetDialogText(dialog, IDC_SET_LBL_TEMPLATE, STR_DLG_SET_TEMPLATE);
     SetDialogText(dialog, IDC_SET_LBL_ANIYOMI, STR_DLG_SET_ANIYOMI);
     SetDialogText(dialog, IDC_SET_ANIYOMI, STR_DLG_SET_ANIYOMI_DESC);
+    SetDialogText(dialog, IDC_SET_LBL_CLIPBOARD, STR_SET_CLIPBOARD_TITLE);
+    SetDialogText(dialog, IDC_SET_CLIPBOARD, STR_SET_CLIPBOARD);
     SetDialogText(dialog, IDOK, STR_DLG_DONE);
 }
 
@@ -43,6 +45,8 @@ void InitControls(HWND dialog, Screen& screen) {
     CheckDlgButton(dialog, IDC_SET_FOLDER_ICONS,
                    settings.folderIcons ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(dialog, IDC_SET_ANIYOMI, settings.aniyomi ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(dialog, IDC_SET_CLIPBOARD,
+                   settings.clipboardUrl ? BST_CHECKED : BST_UNCHECKED);
 
     screen.templates = foldericon::TemplateIds();
     int chosen = 0;
@@ -62,6 +66,7 @@ void ReadControls(HWND dialog, Screen& screen) {
     Settings& settings = *screen.settings;
     settings.folderIcons = IsDlgButtonChecked(dialog, IDC_SET_FOLDER_ICONS) == BST_CHECKED;
     settings.aniyomi = IsDlgButtonChecked(dialog, IDC_SET_ANIYOMI) == BST_CHECKED;
+    settings.clipboardUrl = IsDlgButtonChecked(dialog, IDC_SET_CLIPBOARD) == BST_CHECKED;
     int chosen = static_cast<int>(SendDlgItemMessageW(dialog, IDC_SET_TEMPLATE, CB_GETCURSEL, 0, 0));
     if (chosen >= 0 && static_cast<size_t>(chosen) < screen.templates.size()) {
         settings.folderTemplate = screen.templates[static_cast<size_t>(chosen)];
@@ -108,7 +113,7 @@ INT_PTR CALLBACK SettingsDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM
 // Whether two settings differ in what the dialog edits.
 bool Differs(const Settings& a, const Settings& b) {
     return a.folderIcons != b.folderIcons || a.folderTemplate != b.folderTemplate ||
-           a.aniyomi != b.aniyomi;
+           a.aniyomi != b.aniyomi || a.clipboardUrl != b.clipboardUrl;
 }
 
 }  // namespace

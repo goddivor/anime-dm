@@ -31,6 +31,9 @@ Settings Load() {
     settings.theme = root.value("theme", settings.theme);
     settings.language = root.value("lang", settings.language);
     settings.toolbarSkin = root.value("toolbarSkin", settings.toolbarSkin);
+    settings.clipboardUrl = root.value("clipboardUrl", settings.clipboardUrl);
+    settings.rememberPath = root.value("rememberPath", settings.rememberPath);
+    settings.savePath = root.value("savePath", settings.savePath);
     if (settings.folderTemplate.empty()) {
         settings.folderTemplate = "none";
     }
@@ -50,6 +53,9 @@ void Save(const Settings& settings) {
         {"theme", settings.theme},
         {"lang", settings.language},
         {"toolbarSkin", settings.toolbarSkin},
+        {"clipboardUrl", settings.clipboardUrl},
+        {"rememberPath", settings.rememberPath},
+        {"savePath", settings.savePath},
     };
     std::wstring temp = path + L".tmp";
     {
