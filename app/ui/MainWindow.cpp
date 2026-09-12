@@ -22,6 +22,7 @@
 #include "ui/Commands.h"
 #include "ui/ConfirmDialog.h"
 #include "ui/ContextMenu.h"
+#include "ui/FileIcons.h"
 #include "ui/HelpDialogs.h"
 #include "ui/NoticeDialog.h"
 #include "ui/Resource.h"
@@ -39,7 +40,9 @@ constexpr char kFluentSkin[] = "fluent";  // the settings value naming the icon 
 constexpr UINT kDownloadEvent = WM_APP + 20;
 constexpr UINT kPosterEvent = WM_APP + 21;
 constexpr UINT kIconEvent = WM_APP + 22;
+constexpr int kNameColumn = 0;
 constexpr int kStatusColumn = 2;
+constexpr int kIconGap = 4;  // around the picture of a file type
 
 // The bytes of an image, on their way from a worker thread to the panel.
 struct PosterPayloadData {
@@ -472,10 +475,21 @@ void MainWindow::DrawRow(NMLVCUSTOMDRAW* draw) {
     HBRUSH background = CreateSolidBrush(colors.window);
     FillRect(dc, &blank, background);
     DeleteObject(background);
+
+    uint64_t id = static_cast<uint64_t>(draw->nmcd.lItemlParam);
+    const DownloadItem* item = Find(id);
+    int icon = item != nullptr ? fileicons::IndexOf(item->outPath) : -1;
+    int iconSize = icon >= 0 ? fileicons::Size() : 0;
+    // The highlight leaves the picture of the file type outside, the way a
+    // list of Windows does and IDM after it.
     if (selected) {
-        HBRUSH highlight = CreateSolidBrush(colors.accent);
-        FillRect(dc, &bounds, highlight);
-        DeleteObject(highlight);
+        RECT highlight = bounds;
+        if (icon >= 0) {
+            highlight.left = std::min<LONG>(bounds.right, bounds.left + kIconGap * 2 + iconSize);
+        }
+        HBRUSH fill = CreateSolidBrush(colors.accent);
+        FillRect(dc, &highlight, fill);
+        DeleteObject(fill);
     }
 
     HFONT font = reinterpret_cast<HFONT>(SendMessageW(list, WM_GETFONT, 0, 0));
@@ -483,14 +497,13 @@ void MainWindow::DrawRow(NMLVCUSTOMDRAW* draw) {
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, selected ? colors.accentText : colors.text);
 
-    uint64_t id = static_cast<uint64_t>(draw->nmcd.lItemlParam);
     int columns = Header_GetItemCount(header);
     for (int column = 0; column < columns; ++column) {
-        RECT item = {};
-        if (!Header_GetItemRect(header, column, &item)) {
+        RECT span = {};
+        if (!Header_GetItemRect(header, column, &span)) {
             continue;
         }
-        RECT cell = {item.left, bounds.top, item.right, bounds.bottom};
+        RECT cell = {span.left, bounds.top, span.right, bounds.bottom};
         if (cell.right <= client.left || cell.left >= client.right) {
             continue;
         }
@@ -502,6 +515,11 @@ void MainWindow::DrawRow(NMLVCUSTOMDRAW* draw) {
         RECT label = cell;
         label.left += 6;
         label.right -= 6;
+        if (column == kNameColumn && icon >= 0) {
+            ImageList_Draw(fileicons::SmallList(), icon, dc, cell.left + kIconGap,
+                           (cell.top + cell.bottom - iconSize) / 2, ILD_TRANSPARENT);
+            label.left = cell.left + kIconGap * 2 + iconSize;
+        }
         if (label.right > label.left) {
             DrawTextW(dc, text, -1, &label,
                       DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
