@@ -60,7 +60,7 @@ build\download-smoke.exe --url <url vidéo> <sortie> [referer]    # le transfert
 - **`app/ui/`** : `MainWindow`, `MenuBar`, `Toolbar`, `Sidebar`, `DownloadsView`, les dialogues
   (`AddDialog`, `AddonsDialog`, `AddonConfigDialog`, `PosterDialog`, `SearchDialog`,
   `SettingsDialog`, `NoticeDialog`, `ConfirmDialog`, `HelpDialogs`), plus `Theme`, `Strings`,
-  `Paint`, `Format`, `IconFactory`, `AddSelection`.
+  `Paint`, `Format`, `IconFactory`, `FileIcons`, `AddSelection`.
 - **`tools/addon_smoke.cpp`** : éprouve l'ABI sans lancer l'application.
 - **`tools/download_smoke.cpp`** : éprouve le moteur de téléchargement, avec ou sans source.
 
@@ -105,11 +105,25 @@ et `.nomedia`. Tout cela tourne hors du fil d'interface et remonte par `PostMess
 
 Un `TreeView` dont les lignes d'animé sont **dessinées à la main** (`Sidebar::DrawAnimeRow`,
 sur `CDRF_SKIPDEFAULT`) : chevron, affiche 34 × 48 aux coins arrondis, titre, nombre
-d'épisodes. Les autres lignes restent au dessin du contrôle, avec un glyphe d'état coloré
-par épisode. Le panneau est **reconstruit depuis le modèle** à chaque changement de
+d'épisodes. Les autres lignes sont dessinées de même (`DrawSimpleRow`), une ligne d'épisode
+portant l'icône que Windows donne à son type de fichier. Le panneau est **reconstruit depuis le modèle** à chaque changement de
 structure ou d'état (jamais sur une simple progression) ; la sélection survit à la
 reconstruction et `Busy()` fait taire les notifications qu'elle déclenche. Cliquer une ligne
 filtre la liste ; le clic droit sur un animé ouvre, ouvre le dossier ou supprime l'animé.
+
+## La liste des fichiers
+
+Une `ListView` en mode rapport dont les lignes sont **peintes à la main**
+(`MainWindow::DrawRow`, sur `CDRF_SKIPDEFAULT`) : le style visuel imposait sinon son bleu
+pâle sur la ligne choisie. Chaque cellule est découpée sur la colonne que décrit l'en-tête,
+la cellule d'état d'un transfert en cours devient une barre de progression, et le nom du
+fichier est précédé de l'icône de son type. Le surlignage démarre après cette icône, comme
+dans une liste de Windows. Les traits de grille sont tracés au post-dessin, par-dessus.
+
+Les icônes de type viennent de la **liste d'images du shell** (`FileIcons`), celle
+d'Explorer : `SHGetFileInfoW` avec `SHGFI_USEFILEATTRIBUTES | SHGFI_SYSICONINDEX`, donc
+l'extension suffit et le fichier n'a pas besoin d'exister. Cette liste appartient au shell,
+elle ne se détruit pas ; les index sont mis en cache par extension.
 
 ## Le modèle d'addons
 
@@ -164,9 +178,10 @@ configuration ; l'application les stocke dans `config.json` et les réinjecte au
   `window`, `panel`, `menu`, `surface`, `text`, `line`, `accent`, `accentText`, `hover`,
   `muted`, `ok`, `bad`, `header`, `frame`, `panelFrame`. **Chaque valeur est relevée sur une capture d'IDM
   6.43**, au pixel : sombre `window` et `surface` `#393939`, `panel` et `menu` `#202020`,
-  `header` `#191919`, `line` `#565656`, sélection `#33414D`, contour de liste `#7A7E86`,
-  contour du panneau `#CBCBCB` ;
+  `header` `#191919`, `line` `#565656`, contour de liste `#7A7E86`, contour du panneau
+  `#CBCBCB`, survol `#384858` ;
   clair `window`, `panel`, `menu` et `header` `#FFFFFF`, `surface` `#F0F0F0`, `line` `#D8D8D8`.
+  La sélection vaut `#0078D7` sur texte blanc dans les deux thèmes.
   Ne pas inventer une teinte : la mesurer sur IDM.
 - **Réseau** : jamais sur le fil d'interface. Fil séparé, résultat renvoyé par `PostMessage`,
   boutons grisés pendant l'opération.
