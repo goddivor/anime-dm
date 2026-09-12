@@ -575,7 +575,20 @@ LRESULT MainWindow::OnToolbarCustomDraw(NMTBCUSTOMDRAW* draw) {
         const ThemeColors& colors = ActiveTheme().Colors();
         bool disabled = (draw->nmcd.uItemState & CDIS_DISABLED) != 0;
         draw->clrText = disabled ? colors.muted : colors.text;
-        return TBCDRF_USECDCOLORS | TBCDRF_NOETCHEDEFFECT;
+        if (!ActiveTheme().IsDark()) {
+            return TBCDRF_USECDCOLORS | TBCDRF_NOETCHEDEFFECT;
+        }
+        // The dark palette runs without a visual style, which would paint over
+        // it; the button under the pointer then wears a raised classic frame
+        // instead of a highlight. It gets the quiet fill of IDM in its place,
+        // and the frame is asked to stay away.
+        if (!disabled && (draw->nmcd.uItemState & (CDIS_HOT | CDIS_SELECTED)) != 0) {
+            HBRUSH fill = CreateSolidBrush(colors.hover);
+            FillRect(draw->nmcd.hdc, &draw->nmcd.rc, fill);
+            DeleteObject(fill);
+        }
+        return TBCDRF_USECDCOLORS | TBCDRF_NOETCHEDEFFECT | TBCDRF_NOEDGES | TBCDRF_NOOFFSET |
+               TBCDRF_NOBACKGROUND;
     }
     default:
         return CDRF_DODEFAULT;
