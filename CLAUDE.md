@@ -161,8 +161,12 @@ configuration ; l'application les stocke dans `config.json` et les réinjecte au
   `Strings.h` / `Strings.cpp` ; **le nombre d'identifiants et le nombre d'entrées doivent
   toujours concorder** (le vérifier après chaque ajout). Français et anglais restent synchrones.
 - **Couleurs** : toujours `ActiveTheme().Colors()`, jamais de valeur en dur. La palette porte
-  `window`, `surface`, `text`, `line`, `accent`, `accentText`, `hover`, `muted`, `ok`, `bad`,
-  `header`, `frame`.
+  `window`, `panel`, `menu`, `surface`, `text`, `line`, `accent`, `accentText`, `hover`,
+  `muted`, `ok`, `bad`, `header`, `frame`. **Chaque valeur est relevée sur une capture d'IDM
+  6.43**, au pixel : sombre `window` et `surface` `#393939`, `panel` et `menu` `#202020`,
+  `header` `#191919`, `line` `#565656`, sélection `#33414D`, contour de liste `#7A7E86` ;
+  clair `window`, `panel`, `menu` et `header` `#FFFFFF`, `surface` `#F0F0F0`, `line` `#D8D8D8`.
+  Ne pas inventer une teinte : la mesurer sur IDM.
 - **Réseau** : jamais sur le fil d'interface. Fil séparé, résultat renvoyé par `PostMessage`,
   boutons grisés pendant l'opération.
 - **Captures d'écran** : les prendre soi-même via le MCP (voir plus bas), ou laisser

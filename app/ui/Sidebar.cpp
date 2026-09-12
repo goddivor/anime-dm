@@ -474,7 +474,7 @@ void Sidebar::DrawAnimeRow(NMTVCUSTOMDRAW* draw, const Node& node) {
     const ThemeColors& colors = ActiveTheme().Colors();
     bool selected = (draw->nmcd.uItemState & CDIS_SELECTED) != 0;
     bool focused = GetFocus() == tree_;
-    COLORREF background = selected ? (focused ? colors.accent : colors.hover) : colors.window;
+    COLORREF background = selected ? (focused ? colors.accent : colors.hover) : colors.panel;
     COLORREF text = selected && focused ? colors.accentText : colors.text;
     COLORREF faint = selected && focused ? colors.accentText : colors.muted;
 
@@ -541,7 +541,7 @@ void Sidebar::DrawSeparator(NMTVCUSTOMDRAW* draw) {
     TreeView_GetItemRect(tree_, reinterpret_cast<HTREEITEM>(draw->nmcd.dwItemSpec), &row, FALSE);
 
     const ThemeColors& colors = ActiveTheme().Colors();
-    HBRUSH brush = CreateSolidBrush(colors.window);
+    HBRUSH brush = CreateSolidBrush(colors.panel);
     FillRect(dc, &row, brush);
     DeleteObject(brush);
 
