@@ -19,7 +19,5 @@ std::wstring Duration(double seconds);
 // "2026-09-08 14:05"; a dash when zero.
 std::wstring Date(std::time_t when);
 
-// What a cell shows when it has nothing to say.
-const wchar_t* Dash();
 
 }  // namespace format

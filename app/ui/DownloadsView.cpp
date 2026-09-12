@@ -182,8 +182,11 @@ void DownloadsView::Fill(int row, const DownloadItem& item) {
             remaining = (estimated - static_cast<double>(item.done)) / item.speed;
         }
     }
-    SetCell(hwnd_, row, COL_TIME_LEFT, format::Duration(remaining));
-    SetCell(hwnd_, row, COL_SPEED, downloading ? format::Speed(item.speed) : format::Dash());
+    // Nothing is left to say about the time and the rate of a transfer that
+    // is not running: the cells stay empty rather than holding a dash.
+    SetCell(hwnd_, row, COL_TIME_LEFT, remaining < 0.0 ? L"" : format::Duration(remaining));
+    SetCell(hwnd_, row, COL_SPEED,
+            downloading && item.speed > 0.0 ? format::Speed(item.speed) : L"");
     SetCell(hwnd_, row, COL_LAST_TRY, format::Date(item.lastTry));
     SetCell(hwnd_, row, COL_ADDED, format::Date(item.addedAt));
 }
