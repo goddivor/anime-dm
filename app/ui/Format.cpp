@@ -41,11 +41,6 @@ std::wstring Scaled(double bytes, const wchar_t* suffix) {
 
 namespace format {
 
-// What a cell shows when it has nothing to say.
-const wchar_t* Dash() {
-    return kDash;
-}
-
 // "12,3 MB"; a dash when zero.
 std::wstring Size(uint64_t bytes) {
     return bytes == 0 ? kDash : Scaled(static_cast<double>(bytes), L"");
