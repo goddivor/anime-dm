@@ -28,6 +28,8 @@ struct AddRequest {
     std::vector<uint8_t> posterBytes;  // what the dialog already fetched, if anything
     std::string folderTemplate;        // a recipe id; empty means the default one
     std::wstring destination;
+    bool rememberPath = false;  // keep the destination as the default of the next adds
+    bool later = false;         // queued without being handed to the engine
     std::vector<AddRequestEpisode> episodes;
 };
 

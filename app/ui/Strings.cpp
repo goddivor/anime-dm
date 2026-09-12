@@ -259,6 +259,23 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"BeOrigin (style macOS)", L"BeOrigin (macOS style)"},
     {L"Disque", L"Disc"},
     {L"Double onglet vertical", L"Vertical dual tab"},
+    {L"Adresse", L"Address"},
+    {L"Source", L"Source"},
+    {L"Info sur le téléchargement", L"Download information"},
+    {L"Épisodes à télécharger", L"Episodes to download"},
+    {L"URL", L"URL"},
+    {L"Enregistrer sous", L"Save to"},
+    {L"Rappeler ce chemin", L"Remember this path"},
+    {L"Plus tard", L"Later"},
+    {L"Démarrer", L"Start"},
+    {L"%d épisode(s) sur %d", L"%d of %d episode(s)"},
+    {L"Saisissez l'adresse d'un animé.", L"Enter the address of an anime."},
+    {L"Cette adresse ne semble pas venir de la source choisie. Continuer quand même ?",
+     L"This address does not seem to come from the chosen source. Continue anyway?"},
+    {L"Presse-papiers", L"Clipboard"},
+    {L"Reprendre le lien du presse-papiers à l'ouverture de la fenêtre d'ajout",
+     L"Take the link from the clipboard when the add window opens"},
+    {L"Sélection :", L"Selection:"},
 };
 
 Language g_language = Language::French;
