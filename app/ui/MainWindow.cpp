@@ -509,13 +509,16 @@ LRESULT MainWindow::OnToolbarCustomDraw(NMTBCUSTOMDRAW* draw) {
     switch (draw->nmcd.dwDrawStage) {
     case CDDS_PREPAINT: {
         FillRect(draw->nmcd.hdc, &draw->nmcd.rc, ActiveTheme().SurfaceBrush());
-        // The rule IDM draws under its menu bar: the toolbar starts right
-        // below it, so its own top edge carries the line.
-        RECT rule = draw->nmcd.rc;
-        rule.bottom = rule.top + 1;
-        HBRUSH line = CreateSolidBrush(ActiveTheme().Colors().line);
-        FillRect(draw->nmcd.hdc, &rule, line);
-        DeleteObject(line);
+        // The rule under the menu bar, which the toolbar carries on its top
+        // edge. In the dark palette the system already draws one there, as it
+        // does under the menu bar of IDM.
+        if (!ActiveTheme().IsDark()) {
+            RECT rule = draw->nmcd.rc;
+            rule.bottom = rule.top + 1;
+            HBRUSH line = CreateSolidBrush(ActiveTheme().Colors().line);
+            FillRect(draw->nmcd.hdc, &rule, line);
+            DeleteObject(line);
+        }
         return CDRF_NOTIFYITEMDRAW;
     }
     case CDDS_ITEMPREPAINT: {
