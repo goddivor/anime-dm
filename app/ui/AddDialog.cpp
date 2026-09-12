@@ -36,6 +36,7 @@ constexpr UINT kLoaded = WM_APP + 1;
 constexpr UINT kHosters = WM_APP + 2;
 constexpr UINT kHosts = WM_APP + 3;
 constexpr float kRadius = 5.0f;
+constexpr int kColumns = 5;  // how many episodes a row of the grid holds
 constexpr wchar_t kAuto[] = L"Auto";
 
 // One episode as the source described it.
@@ -90,7 +91,6 @@ struct Flow {
     std::map<int, std::string> playerByEpisode;
     std::set<int> picked;
 
-    bool listMode = true;
     bool busy = false;
     bool filling = false;  // the rows are being written, their state means nothing
 };
@@ -255,18 +255,6 @@ void DrawPlayer(const DRAWITEMSTRUCT& draw, const Flow& flow) {
     SelectObject(draw.hDC, old);
 }
 
-// Draws one half of the mode switch, the active one filled.
-void DrawSegment(const DRAWITEMSTRUCT& draw, bool active, StringId label) {
-    const ThemeColors& colours = ActiveTheme().Colors();
-    paint::RoundedRect(draw.hDC, draw.rcItem, kRadius, active ? colours.accent : colours.surface,
-                       active ? colours.accent : colours.line);
-
-    HFONT old = static_cast<HFONT>(SelectObject(draw.hDC, FontOf(draw.hwndItem)));
-    paint::Label(draw.hDC, draw.rcItem, Str(label), active ? colours.accentText : colours.text,
-                 DT_CENTER | DT_VCENTER);
-    SelectObject(draw.hDC, old);
-}
-
 // Draws the cover, which a click opens at full size.
 void DrawPoster(const DRAWITEMSTRUCT& draw, const Flow& flow) {
     const ThemeColors& colours = ActiveTheme().Colors();
@@ -292,33 +280,45 @@ void DrawPoster(const DRAWITEMSTRUCT& draw, const Flow& flow) {
 
 namespace {
 
-// One column, no header: only the episode matters here.
+// The episodes are laid out as a grid, each cell with its tick box.
 void InitEpisodeList(HWND dialog) {
     HWND list = GetDlgItem(dialog, IDC_ADD_EPISODES);
-    ListView_SetExtendedListViewStyle(
-        list, LVS_EX_CHECKBOXES | LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
-
-    RECT bounds = {};
-    GetClientRect(list, &bounds);
-
-    LVCOLUMNW column = {};
-    column.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
-    column.iSubItem = 0;
-    column.cx = bounds.right - 4;
-    column.pszText = const_cast<wchar_t*>(Str(STR_DLG_ADD_EPISODES));
-    ListView_InsertColumn(list, 0, &column);
+    ListView_SetExtendedListViewStyle(list, LVS_EX_CHECKBOXES | LVS_EX_DOUBLEBUFFER);
+    SendDlgItemMessageW(dialog, IDC_ADD_SELECTION, EM_SETCUEBANNER, TRUE,
+                        reinterpret_cast<LPARAM>(Str(STR_ADD_SELECTION_HINT)));
 }
 
-// The label of a row: the episode, and its own player when it has one.
-std::wstring RowLabel(const Flow& flow, size_t index) {
-    wchar_t text[128] = {};
-    auto tuned = flow.playerByEpisode.find(static_cast<int>(index));
-    if (tuned != flow.playerByEpisode.end()) {
-        wsprintfW(text, L"Ep %03d   ·   %s", RoundNumber(flow.episodes[index].number),
-                  Widen(tuned->second).c_str());
-    } else {
-        wsprintfW(text, L"Ep %03d", RoundNumber(flow.episodes[index].number));
+// Places the episodes in a grid five wide. The control clamps the spacing it
+// is asked for to the width it thinks a cell needs, so the cells are laid out
+// by hand instead, which its own arrangement would otherwise undo.
+void LayOutGrid(HWND dialog) {
+    HWND list = GetDlgItem(dialog, IDC_ADD_EPISODES);
+    int count = ListView_GetItemCount(list);
+    if (count == 0) {
+        return;
     }
+    RECT bounds = {};
+    GetClientRect(list, &bounds);
+    int room = bounds.right - bounds.left - GetSystemMetrics(SM_CXVSCROLL) - 4;
+    int cell = room / kColumns;
+    RECT first = {};
+    ListView_GetItemRect(list, 0, &first, LVIR_BOUNDS);
+    int height = first.bottom - first.top;
+    if (cell <= 0 || height <= 0) {
+        return;
+    }
+    for (int index = 0; index < count; ++index) {
+        ListView_SetItemPosition(list, index, (index % kColumns) * cell,
+                                 (index / kColumns) * height);
+    }
+}
+
+// The label of a cell: the episode, with a dot when it carries its own player.
+std::wstring RowLabel(const Flow& flow, size_t index) {
+    wchar_t text[64] = {};
+    bool tuned = flow.playerByEpisode.count(static_cast<int>(index)) > 0;
+    wsprintfW(text, tuned ? L"Ep %03d \u2022" : L"Ep %03d",
+              RoundNumber(flow.episodes[index].number));
     return text;
 }
 
@@ -458,19 +458,13 @@ namespace {
 
 // Matches every control of the episodes window to the state.
 void RefreshEpisodes(HWND dialog, const Flow& flow) {
-    ShowWindow(GetDlgItem(dialog, IDC_ADD_SELECTION), flow.listMode ? SW_HIDE : SW_SHOW);
-    ShowWindow(GetDlgItem(dialog, IDC_ADD_EPISODES), flow.listMode ? SW_SHOW : SW_HIDE);
-    ShowWindow(GetDlgItem(dialog, IDC_ADD_HINT), flow.listMode ? SW_SHOW : SW_HIDE);
     ShowWindow(GetDlgItem(dialog, IDC_ADD_PLAYER),
                flow.playerOptions.empty() ? SW_HIDE : SW_SHOW);
-
     SetDlgItemTextW(dialog, IDC_ADD_COUNTER,
                     Format(STR_ADD_PICKED, static_cast<int>(flow.picked.size()),
                            static_cast<int>(flow.episodes.size()))
                         .c_str());
-    for (int control : {IDC_ADD_PLAYER, IDC_ADD_MODE_TEXT, IDC_ADD_MODE_LIST}) {
-        InvalidateRect(GetDlgItem(dialog, control), nullptr, TRUE);
-    }
+    InvalidateRect(GetDlgItem(dialog, IDC_ADD_PLAYER), nullptr, TRUE);
     EnableWindow(GetDlgItem(dialog, IDOK), !flow.picked.empty());
 }
 
@@ -488,6 +482,7 @@ INT_PTR CALLBACK EpisodesProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lPara
 
         SetDialogTitle(dialog, STR_DLG_ADD_EPISODES_TITLE);
         SetDialogText(dialog, IDC_ADD_LBL_EPISODES, STR_DLG_ADD_EPISODES);
+        SetDialogText(dialog, IDC_ADD_LBL_SELECTION, STR_ADD_SELECTION_LABEL);
         SetDialogText(dialog, IDC_ADD_HINT, STR_ADD_PLAYER_HINT);
         SetDialogText(dialog, IDCANCEL, STR_DLG_CANCEL);
 
@@ -497,6 +492,7 @@ INT_PTR CALLBACK EpisodesProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lPara
         ActiveTheme().ApplyToDialog(dialog);
         flow->filling = true;
         FillEpisodeList(dialog, *flow);
+        LayOutGrid(dialog);
         ApplyChecks(dialog, *flow);
         flow->filling = false;
         WriteTyped(dialog, *flow);
@@ -511,14 +507,6 @@ INT_PTR CALLBACK EpisodesProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lPara
         }
         if (draw->CtlID == IDC_ADD_PLAYER) {
             DrawPlayer(*draw, *flow);
-            return TRUE;
-        }
-        if (draw->CtlID == IDC_ADD_MODE_TEXT) {
-            DrawSegment(*draw, !flow->listMode, STR_ADD_MODE_TEXT);
-            return TRUE;
-        }
-        if (draw->CtlID == IDC_ADD_MODE_LIST) {
-            DrawSegment(*draw, flow->listMode, STR_ADD_MODE_LIST);
             return TRUE;
         }
         return FALSE;
@@ -548,7 +536,12 @@ INT_PTR CALLBACK EpisodesProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lPara
             auto* changed = reinterpret_cast<NMLISTVIEW*>(lParam);
             if ((changed->uChanged & LVIF_STATE) != 0 &&
                 ((changed->uOldState ^ changed->uNewState) & LVIS_STATEIMAGEMASK) != 0) {
+                // The ticks and the ranges say the same thing: each writes the
+                // other, the flag keeping the two from calling each other back.
+                flow->filling = true;
                 ReadChecks(dialog, *flow);
+                WriteTyped(dialog, *flow);
+                flow->filling = false;
                 RefreshEpisodes(dialog, *flow);
             }
         } else if (notify->code == NM_RCLICK) {
@@ -580,36 +573,16 @@ INT_PTR CALLBACK EpisodesProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lPara
             }
             return TRUE;
         }
-        case IDC_ADD_MODE_TEXT:
-            if (flow->listMode) {
-                ReadChecks(dialog, *flow);
-                WriteTyped(dialog, *flow);
-                flow->listMode = false;
-                RefreshEpisodes(dialog, *flow);
-            }
-            return TRUE;
-        case IDC_ADD_MODE_LIST:
-            if (!flow->listMode) {
-                ReadTyped(dialog, *flow);
+        case IDC_ADD_SELECTION:
+            if (HIWORD(wParam) == EN_CHANGE && !flow->filling) {
                 flow->filling = true;
+                ReadTyped(dialog, *flow);
                 ApplyChecks(dialog, *flow);
                 flow->filling = false;
-                flow->listMode = true;
-                RefreshEpisodes(dialog, *flow);
-            }
-            return TRUE;
-        case IDC_ADD_SELECTION:
-            if (HIWORD(wParam) == EN_CHANGE && !flow->listMode) {
-                ReadTyped(dialog, *flow);
                 RefreshEpisodes(dialog, *flow);
             }
             return TRUE;
         case IDOK:
-            if (flow->listMode) {
-                ReadChecks(dialog, *flow);
-            } else {
-                ReadTyped(dialog, *flow);
-            }
             EndDialog(dialog, IDOK);
             return TRUE;
         case IDCANCEL:
@@ -655,12 +628,6 @@ void FillTemplates(HWND dialog, Flow& flow) {
 
 // Matches every control of the information window to the state.
 void RefreshInfo(HWND dialog, const Flow& flow) {
-    bool remember = IsDlgButtonChecked(dialog, IDC_ADD_REMEMBER) == BST_CHECKED;
-    EnableWindow(GetDlgItem(dialog, IDC_ADD_REMEMBER_PATH), remember);
-    if (remember) {
-        SetDlgItemTextW(dialog, IDC_ADD_REMEMBER_PATH, ReadText(dialog, IDC_ADD_DEST).c_str());
-    }
-
     SetDlgItemTextW(dialog, IDC_ADD_PICK,
                     Format(STR_ADD_PICKED, static_cast<int>(flow.picked.size()),
                            static_cast<int>(flow.episodes.size()))
@@ -789,10 +756,6 @@ INT_PTR CALLBACK InfoProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
             RefreshInfo(dialog, *flow);
             return TRUE;
         }
-        case IDC_ADD_REMEMBER:
-        case IDC_ADD_DEST:
-            RefreshInfo(dialog, *flow);
-            return TRUE;
         case IDC_ADD_PICK:
             DialogBoxParamW(instance, MAKEINTRESOURCEW(IDD_ADD_EPISODES), dialog, EpisodesProc,
                             reinterpret_cast<LPARAM>(flow));
@@ -913,7 +876,9 @@ void StartLoad(HWND dialog, Flow& flow) {
     for (int control : {IDOK, IDCANCEL, IDC_ADD_URL, IDC_ADD_SOURCE}) {
         EnableWindow(GetDlgItem(dialog, control), FALSE);
     }
-    SetDialogText(dialog, IDOK, STR_ADD_RESOLVING);
+    // The button is narrow: while the page is being read it says no more
+    // than an ellipsis.
+    SetDlgItemTextW(dialog, IDOK, L"\u2026");
 
     const std::string& id = flow.sources[static_cast<size_t>(index)].id;
     std::wstring library = flow.store->LibraryPath(id);

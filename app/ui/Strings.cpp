@@ -272,10 +272,10 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Saisissez l'adresse d'un animé.", L"Enter the address of an anime."},
     {L"Cette adresse ne semble pas venir de la source choisie. Continuer quand même ?",
      L"This address does not seem to come from the chosen source. Continue anyway?"},
-    {L"Lecture de la page…", L"Reading the page…"},
     {L"Presse-papiers", L"Clipboard"},
     {L"Reprendre le lien du presse-papiers à l'ouverture de la fenêtre d'ajout",
      L"Take the link from the clipboard when the add window opens"},
+    {L"Sélection :", L"Selection:"},
 };
 
 Language g_language = Language::French;
