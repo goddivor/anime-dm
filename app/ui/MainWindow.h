@@ -52,7 +52,8 @@ private:
     void Retranslate();
     LRESULT OnToolbarCustomDraw(NMTBCUSTOMDRAW* draw);
     LRESULT OnListCustomDraw(NMLVCUSTOMDRAW* draw);
-    bool DrawProgressCell(NMLVCUSTOMDRAW* draw);
+    void DrawRow(NMLVCUSTOMDRAW* draw);
+    bool DrawProgressCell(HDC dc, const RECT& cell, uint64_t id, bool selected);
     void OnContextMenu(HWND target, int x, int y);
     void Relayout();
     RECT SplitterRect() const;
