@@ -225,20 +225,47 @@ void Theme::Refresh() {
     bool dark = mode_ == ThemeMode::Dark ||
                 (mode_ == ThemeMode::System && SystemPrefersDark());
 
+    // Every value below was read off a screenshot of IDM 6.43, dark and light,
+    // pixel by pixel: the port wears the same colours as the application it
+    // reproduces.
     if (dark) {
-        colors_ = {RGB(0x1E, 0x1F, 0x22), RGB(0x26, 0x28, 0x2C), RGB(0xE6, 0xE6, 0xE6),
-                   RGB(0x3A, 0x3D, 0x41), RGB(0x3B, 0x82, 0xF6), RGB(0xFF, 0xFF, 0xFF),
-                   RGB(0x32, 0x35, 0x3A), RGB(0x80, 0x82, 0x86), RGB(0x4A, 0xDE, 0x80),
-                   RGB(0xF8, 0x71, 0x71), RGB(0x18, 0x19, 0x1B), RGB(0x5E, 0x62, 0x68),
-                   true};
+        colors_ = {
+            RGB(0x39, 0x39, 0x39),  // window: the list and the gutters
+            RGB(0x20, 0x20, 0x20),  // panel: the categories tree
+            RGB(0x20, 0x20, 0x20),  // menu
+            RGB(0x39, 0x39, 0x39),  // surface: toolbar, caption bars, dialogs
+            RGB(0xD6, 0xD6, 0xD6),  // text
+            RGB(0x56, 0x56, 0x56),  // line: grid and separators
+            RGB(0x33, 0x41, 0x4D),  // accent: a chosen row
+            RGB(0xFF, 0xFF, 0xFF),  // accentText
+            RGB(0x2C, 0x36, 0x3F),  // hover
+            RGB(0x8C, 0x8C, 0x8C),  // muted
+            RGB(0x4A, 0xDE, 0x80),  // ok
+            RGB(0xF8, 0x71, 0x71),  // bad
+            RGB(0x19, 0x19, 0x19),  // header: the caption row of the list
+            RGB(0x7A, 0x7E, 0x86),  // frame: the outline of the list
+            RGB(0xCB, 0xCB, 0xCB),  // panelFrame
+            true,
+        };
     } else {
-        colors_ = {GetSysColor(COLOR_WINDOW),     GetSysColor(COLOR_BTNFACE),
-                   GetSysColor(COLOR_WINDOWTEXT), GetSysColor(COLOR_BTNSHADOW),
-                   RGB(0x1D, 0x6F, 0xD6),         RGB(0xFF, 0xFF, 0xFF),
-                   RGB(0xE4, 0xEC, 0xF7),         GetSysColor(COLOR_GRAYTEXT),
-                   RGB(0x16, 0xA3, 0x4A),         RGB(0xDC, 0x26, 0x26),
-                   RGB(0xF0, 0xF0, 0xF0),         GetSysColor(COLOR_BTNSHADOW),
-                   false};
+        colors_ = {
+            RGB(0xFF, 0xFF, 0xFF),  // window
+            RGB(0xFF, 0xFF, 0xFF),  // panel
+            RGB(0xFF, 0xFF, 0xFF),  // menu
+            RGB(0xF0, 0xF0, 0xF0),  // surface
+            RGB(0x20, 0x20, 0x20),  // text
+            RGB(0xD8, 0xD8, 0xD8),  // line
+            RGB(0xCC, 0xE4, 0xF7),  // accent
+            RGB(0x20, 0x20, 0x20),  // accentText
+            RGB(0xE8, 0xF2, 0xFC),  // hover
+            RGB(0x6D, 0x6D, 0x6D),  // muted
+            RGB(0x16, 0xA3, 0x4A),  // ok
+            RGB(0xDC, 0x26, 0x26),  // bad
+            RGB(0xFF, 0xFF, 0xFF),  // header
+            RGB(0x82, 0x87, 0x90),  // frame
+            RGB(0xDE, 0xDE, 0xDE),  // panelFrame
+            false,
+        };
     }
 
     if (window_ != nullptr) {
@@ -290,13 +317,15 @@ void Theme::ApplyToList(HWND list) const {
 
 // Pushes the palette onto a tree view.
 void Theme::ApplyToTree(HWND tree) const {
+    // The tree keeps the Explorer theme for its scroll bars, which follow the
+    // palette; the panel draws the classic boxes and dotted lines itself.
     SetWindowTheme(tree, colors_.dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
-    TreeView_SetBkColor(tree, colors_.window);
+    TreeView_SetBkColor(tree, colors_.panel);
     TreeView_SetTextColor(tree, colors_.text);
     TreeView_SetLineColor(tree, colors_.line);
-    // The categories panel is outlined in the text colour, the way IDM
-    // frames its own, the caption bar above the tree drawing the upper edge.
-    SetWindowSubclass(tree, TreeSubclass, 1, static_cast<DWORD_PTR>(colors_.text));
+    // The categories panel is outlined the way IDM outlines its own, the
+    // caption bar above the tree drawing the upper edge.
+    SetWindowSubclass(tree, TreeSubclass, 1, static_cast<DWORD_PTR>(colors_.panelFrame));
     InvalidateRect(tree, nullptr, TRUE);
     RedrawWindow(tree, nullptr, nullptr, RDW_FRAME | RDW_INVALIDATE);
 }

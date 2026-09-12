@@ -272,14 +272,14 @@ void MenuBar::SetToolbarSkin(int chosen) {
 void MenuBar::ApplyTheme(const Theme& theme, HWND window) {
     const ThemeColors& colors = theme.Colors();
     dark_ = colors.dark;
-    surface_ = colors.surface;
+    surface_ = colors.menu;
     text_ = colors.text;
     highlight_ = colors.line;
 
     if (background_ != nullptr) {
         DeleteObject(background_);
     }
-    background_ = CreateSolidBrush(colors.surface);
+    background_ = CreateSolidBrush(colors.menu);
 
     Rebuild(window);
 }

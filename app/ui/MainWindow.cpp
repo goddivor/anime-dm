@@ -203,7 +203,8 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         OnContextMenu(reinterpret_cast<HWND>(wParam), GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
         return 0;
     case WM_ERASEBKGND: {
-        HBRUSH brush = ActiveTheme().WindowBrush();
+        // What shows between the panels is the colour of the toolbar, as in IDM.
+        HBRUSH brush = ActiveTheme().SurfaceBrush();
         if (brush == nullptr) {
             break;
         }
@@ -506,9 +507,20 @@ bool MainWindow::DrawProgressCell(NMLVCUSTOMDRAW* draw) {
 // Paints the toolbar background and captions with the active palette.
 LRESULT MainWindow::OnToolbarCustomDraw(NMTBCUSTOMDRAW* draw) {
     switch (draw->nmcd.dwDrawStage) {
-    case CDDS_PREPAINT:
+    case CDDS_PREPAINT: {
         FillRect(draw->nmcd.hdc, &draw->nmcd.rc, ActiveTheme().SurfaceBrush());
+        // The rule under the menu bar, which the toolbar carries on its top
+        // edge. In the dark palette the system already draws one there, as it
+        // does under the menu bar of IDM.
+        if (!ActiveTheme().IsDark()) {
+            RECT rule = draw->nmcd.rc;
+            rule.bottom = rule.top + 1;
+            HBRUSH line = CreateSolidBrush(ActiveTheme().Colors().line);
+            FillRect(draw->nmcd.hdc, &rule, line);
+            DeleteObject(line);
+        }
         return CDRF_NOTIFYITEMDRAW;
+    }
     case CDDS_ITEMPREPAINT: {
         const ThemeColors& colors = ActiveTheme().Colors();
         bool disabled = (draw->nmcd.uItemState & CDIS_DISABLED) != 0;

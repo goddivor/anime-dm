@@ -74,6 +74,9 @@ public:
     // Paints the anime rows, which the tree cannot draw itself.
     LRESULT OnCustomDraw(NMTVCUSTOMDRAW* draw);
 
+    // Folds a row when the press lands on its box; true when it did.
+    bool OnTreePress(POINT point);
+
     // Whether the rows are being rebuilt, in which case the selection
     // notifications the tree sends mean nothing.
     bool Busy() const { return busy_; }
@@ -85,13 +88,17 @@ private:
     struct Node : SidebarNode {
         HTREEITEM handle = nullptr;
         std::wstring title;
+        int icon = 0;
         int count = 0;
     };
 
     HTREEITEM Insert(HTREEITEM parent, const wchar_t* text, int icon, Node* node, int integral);
     Node* Add(SidebarNodeKind kind, const std::string& animeUrl, uint64_t itemId);
     void DrawAnimeRow(NMTVCUSTOMDRAW* draw, const Node& node);
+    void DrawSimpleRow(NMTVCUSTOMDRAW* draw, const Node& node);
     void DrawSeparator(NMTVCUSTOMDRAW* draw);
+    void DrawTies(HDC dc, HTREEITEM item, const RECT& row, int level, bool expander);
+    POINT ExpanderCentre(const RECT& row, int level) const;
     void RebuildIcons(const Theme& theme);
 
     HWND header_ = nullptr;

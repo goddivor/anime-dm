@@ -11,7 +11,9 @@ enum class ThemeMode {
 
 // Palette resolved from the active mode.
 struct ThemeColors {
-    COLORREF window;
+    COLORREF window;   // the list and what shows between the panels
+    COLORREF panel;    // the categories tree, a shade under the list
+    COLORREF menu;     // the strip of the menu bar
     COLORREF surface;
     COLORREF text;
     COLORREF line;
@@ -23,6 +25,7 @@ struct ThemeColors {
     COLORREF bad;         // what failed
     COLORREF header;      // the caption row of a list, a shade under the rows
     COLORREF frame;       // the outline of a list, a shade over the rules
+    COLORREF panelFrame;  // the outline of the categories panel, lighter still
     bool dark;
 };
 

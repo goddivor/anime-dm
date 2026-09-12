@@ -22,6 +22,7 @@ constexpr int kPosterWidth = 34;
 constexpr int kPosterHeight = 48;
 constexpr int kPosterRadius = 3;
 constexpr int kGlyph = 16;
+constexpr int kBox = 9;  // the classic plus and minus box of a tree
 
 // Returns the square that holds the header close button.
 RECT CloseBoxRect(HWND header) {
@@ -211,10 +212,16 @@ bool Same(const SidebarNode& a, const SidebarNode& b) {
 // of the visible area, so a shifted copy of them would pile up beside the
 // fresh one.
 LRESULT CALLBACK RepaintOnScroll(HWND tree, UINT msg, WPARAM wParam, LPARAM lParam,
-                                 UINT_PTR id, DWORD_PTR) {
+                                 UINT_PTR id, DWORD_PTR data) {
     if (msg == WM_NCDESTROY) {
         RemoveWindowSubclass(tree, RepaintOnScroll, id);
         return DefSubclassProc(tree, msg, wParam, lParam);
+    }
+    if (msg == WM_LBUTTONDOWN && data != 0) {
+        POINT point = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        if (reinterpret_cast<Sidebar*>(data)->OnTreePress(point)) {
+            return 0;
+        }
     }
     int before = GetScrollPos(tree, SB_HORZ);
     LRESULT result = DefSubclassProc(tree, msg, wParam, lParam);
@@ -254,7 +261,7 @@ bool Sidebar::Create(HWND parent, HINSTANCE instance) {
     headerState_.surface = GetSysColor(COLOR_BTNFACE);
     headerState_.text = GetSysColor(COLOR_BTNTEXT);
     headerState_.line = GetSysColor(COLOR_BTNSHADOW);
-    headerState_.frame = GetSysColor(COLOR_BTNTEXT);
+    headerState_.frame = GetSysColor(COLOR_BTNSHADOW);
     headerState_.hover = GetSysColor(COLOR_BTNHIGHLIGHT);
 
     header_ = CreateWindowExW(
@@ -264,8 +271,7 @@ bool Sidebar::Create(HWND parent, HINSTANCE instance) {
 
     tree_ = CreateWindowExW(
         0, WC_TREEVIEWW, L"",
-        WS_CHILD | WS_VISIBLE | WS_BORDER | TVS_HASBUTTONS | TVS_LINESATROOT |
-            TVS_FULLROWSELECT | TVS_NONEVENHEIGHT,
+        WS_CHILD | WS_VISIBLE | WS_BORDER | TVS_FULLROWSELECT | TVS_NONEVENHEIGHT,
         0, 0, 0, 0, parent, nullptr, instance, nullptr);
     if (tree_ == nullptr) {
         return false;
@@ -274,7 +280,7 @@ bool Sidebar::Create(HWND parent, HINSTANCE instance) {
     // Painted off screen first, so a resize swaps one finished picture for
     // another instead of showing every row being drawn.
     TreeView_SetExtendedStyle(tree_, TVS_EX_DOUBLEBUFFER, TVS_EX_DOUBLEBUFFER);
-    SetWindowSubclass(tree_, RepaintOnScroll, 2, 0);
+    SetWindowSubclass(tree_, RepaintOnScroll, 2, reinterpret_cast<DWORD_PTR>(this));
 
     RebuildIcons(ActiveTheme());
     Rebuild({}, {});
@@ -315,6 +321,10 @@ HTREEITEM Sidebar::Insert(HTREEITEM parent, const wchar_t* text, int icon, Node*
     insert.itemex.iSelectedImage = icon;
     insert.itemex.lParam = reinterpret_cast<LPARAM>(node);
     insert.itemex.iIntegral = integral;
+    node->icon = icon;
+    if (node->title.empty()) {
+        node->title = text;
+    }
     auto handle = reinterpret_cast<HTREEITEM>(
         SendMessageW(tree_, TVM_INSERTITEMW, 0, reinterpret_cast<LPARAM>(&insert)));
     node->handle = handle;
@@ -457,11 +467,140 @@ LRESULT Sidebar::OnCustomDraw(NMTVCUSTOMDRAW* draw) {
             DrawSeparator(draw);
             return CDRF_SKIPDEFAULT;
         }
+        if (node != nullptr) {
+            DrawSimpleRow(draw, *static_cast<const Node*>(node));
+            return CDRF_SKIPDEFAULT;
+        }
         return CDRF_DODEFAULT;
     }
     default:
         return CDRF_DODEFAULT;
     }
+}
+
+// Where the box that folds a row sits, in client coordinates.
+POINT Sidebar::ExpanderCentre(const RECT& row, int level) const {
+    int indent = static_cast<int>(TreeView_GetIndent(tree_));
+    return {row.left + indent * level + indent / 2, (row.top + row.bottom) / 2};
+}
+
+// The dotted ties of a row: the trunk of every ancestor that has a sibling
+// below, the elbow of the row itself, and its box when it has children.
+void Sidebar::DrawTies(HDC dc, HTREEITEM item, const RECT& row, int level, bool expander) {
+    const ThemeColors& colors = ActiveTheme().Colors();
+    int indent = static_cast<int>(TreeView_GetIndent(tree_));
+    POINT centre = ExpanderCentre(row, level);
+
+    LOGBRUSH pattern = {BS_SOLID, colors.line, 0};
+    HPEN dotted = ExtCreatePen(PS_COSMETIC | PS_ALTERNATE, 1, &pattern, 0, nullptr);
+    HPEN previous = static_cast<HPEN>(SelectObject(dc, dotted));
+
+    bool last = TreeView_GetNextSibling(tree_, item) == nullptr;
+    MoveToEx(dc, centre.x, row.top, nullptr);
+    LineTo(dc, centre.x, last ? centre.y : row.bottom);
+    MoveToEx(dc, centre.x, centre.y, nullptr);
+    LineTo(dc, centre.x + indent, centre.y);
+
+    HTREEITEM ancestor = TreeView_GetParent(tree_, item);
+    for (int up = level - 1; ancestor != nullptr && up >= 0; --up) {
+        if (TreeView_GetNextSibling(tree_, ancestor) != nullptr) {
+            int x = row.left + indent * up + indent / 2;
+            MoveToEx(dc, x, row.top, nullptr);
+            LineTo(dc, x, row.bottom);
+        }
+        ancestor = TreeView_GetParent(tree_, ancestor);
+    }
+    SelectObject(dc, previous);
+    DeleteObject(dotted);
+
+    if (!expander) {
+        return;
+    }
+    bool open = (TreeView_GetItemState(tree_, item, TVIS_EXPANDED) & TVIS_EXPANDED) != 0;
+    RECT box = {centre.x - kBox / 2, centre.y - kBox / 2, centre.x + kBox / 2 + 1,
+                centre.y + kBox / 2 + 1};
+    HBRUSH fill = CreateSolidBrush(colors.panel);
+    FillRect(dc, &box, fill);
+    DeleteObject(fill);
+    HBRUSH edge = CreateSolidBrush(colors.muted);
+    FrameRect(dc, &box, edge);
+    DeleteObject(edge);
+
+    HPEN sign = CreatePen(PS_SOLID, 1, colors.text);
+    previous = static_cast<HPEN>(SelectObject(dc, sign));
+    MoveToEx(dc, box.left + 2, centre.y, nullptr);
+    LineTo(dc, box.right - 2, centre.y);
+    if (!open) {
+        MoveToEx(dc, centre.x, box.top + 2, nullptr);
+        LineTo(dc, centre.x, box.bottom - 2);
+    }
+    SelectObject(dc, previous);
+    DeleteObject(sign);
+}
+
+// Paints a plain row: ties, glyph and caption.
+void Sidebar::DrawSimpleRow(NMTVCUSTOMDRAW* draw, const Node& node) {
+    HDC dc = draw->nmcd.hdc;
+    auto item = reinterpret_cast<HTREEITEM>(draw->nmcd.dwItemSpec);
+    RECT row = {};
+    TreeView_GetItemRect(tree_, item, &row, FALSE);
+
+    const ThemeColors& colors = ActiveTheme().Colors();
+    bool selected = (draw->nmcd.uItemState & CDIS_SELECTED) != 0;
+    bool focused = GetFocus() == tree_;
+    COLORREF background = selected ? (focused ? colors.accent : colors.hover) : colors.panel;
+    COLORREF text = selected && focused ? colors.accentText : colors.text;
+
+    HBRUSH brush = CreateSolidBrush(background);
+    FillRect(dc, &row, brush);
+    DeleteObject(brush);
+
+    int indent = static_cast<int>(TreeView_GetIndent(tree_));
+    int level = 0;
+    for (HTREEITEM up = TreeView_GetParent(tree_, item); up != nullptr;
+         up = TreeView_GetParent(tree_, up)) {
+        ++level;
+    }
+    DrawTies(dc, item, row, level, TreeView_GetChild(tree_, item) != nullptr);
+
+    POINT centre = ExpanderCentre(row, level);
+    ImageList_Draw(icons_, node.icon, dc, centre.x + indent - kGlyph / 2, centre.y - kGlyph / 2,
+                   ILD_TRANSPARENT);
+
+    HFONT font = reinterpret_cast<HFONT>(SendMessageW(tree_, WM_GETFONT, 0, 0));
+    HFONT previousFont = font != nullptr ? static_cast<HFONT>(SelectObject(dc, font)) : nullptr;
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, text);
+    RECT caption = {centre.x + indent + kGlyph, row.top, row.right - 4, row.bottom};
+    DrawTextW(dc, node.title.c_str(), -1, &caption,
+              DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+    if (previousFont != nullptr) {
+        SelectObject(dc, previousFont);
+    }
+}
+
+// Folds a row when the press lands on its box.
+bool Sidebar::OnTreePress(POINT point) {
+    TVHITTESTINFO hit = {};
+    hit.pt = point;
+    HTREEITEM item = TreeView_HitTest(tree_, &hit);
+    if (item == nullptr || TreeView_GetChild(tree_, item) == nullptr) {
+        return false;
+    }
+    RECT row = {};
+    TreeView_GetItemRect(tree_, item, &row, FALSE);
+    int level = 0;
+    for (HTREEITEM up = TreeView_GetParent(tree_, item); up != nullptr;
+         up = TreeView_GetParent(tree_, up)) {
+        ++level;
+    }
+    POINT centre = ExpanderCentre(row, level);
+    RECT box = {centre.x - kBox, centre.y - kBox, centre.x + kBox, centre.y + kBox};
+    if (!PtInRect(&box, point)) {
+        return false;
+    }
+    TreeView_Expand(tree_, item, TVE_TOGGLE);
+    return true;
 }
 
 // Paints one anime row: chevron, poster, title and episode count.
@@ -474,7 +613,7 @@ void Sidebar::DrawAnimeRow(NMTVCUSTOMDRAW* draw, const Node& node) {
     const ThemeColors& colors = ActiveTheme().Colors();
     bool selected = (draw->nmcd.uItemState & CDIS_SELECTED) != 0;
     bool focused = GetFocus() == tree_;
-    COLORREF background = selected ? (focused ? colors.accent : colors.hover) : colors.window;
+    COLORREF background = selected ? (focused ? colors.accent : colors.hover) : colors.panel;
     COLORREF text = selected && focused ? colors.accentText : colors.text;
     COLORREF faint = selected && focused ? colors.accentText : colors.muted;
 
@@ -490,9 +629,7 @@ void Sidebar::DrawAnimeRow(NMTVCUSTOMDRAW* draw, const Node& node) {
     }
     int left = row.left + indent * level;
     int middle = (row.top + row.bottom) / 2;
-    bool expanded = (TreeView_GetItemState(tree_, item, TVIS_EXPANDED) & TVIS_EXPANDED) != 0;
-    ImageList_Draw(icons_, expanded ? CAT_CHEVRON_DOWN : CAT_CHEVRON_RIGHT, dc,
-                   left + (indent - kGlyph) / 2, middle - kGlyph / 2, ILD_TRANSPARENT);
+    DrawTies(dc, item, row, level, true);
 
     RECT box = {left + indent + 2, middle - kPosterHeight / 2, 0, 0};
     box.right = box.left + kPosterWidth;
@@ -541,7 +678,7 @@ void Sidebar::DrawSeparator(NMTVCUSTOMDRAW* draw) {
     TreeView_GetItemRect(tree_, reinterpret_cast<HTREEITEM>(draw->nmcd.dwItemSpec), &row, FALSE);
 
     const ThemeColors& colors = ActiveTheme().Colors();
-    HBRUSH brush = CreateSolidBrush(colors.window);
+    HBRUSH brush = CreateSolidBrush(colors.panel);
     FillRect(dc, &row, brush);
     DeleteObject(brush);
 
@@ -566,7 +703,7 @@ void Sidebar::ApplyTheme(const Theme& theme) {
     headerState_.surface = colors.surface;
     headerState_.text = colors.text;
     headerState_.line = colors.line;
-    headerState_.frame = colors.text;
+    headerState_.frame = colors.panelFrame;
     headerState_.hover = colors.hover;
     InvalidateRect(header_, nullptr, TRUE);
 
