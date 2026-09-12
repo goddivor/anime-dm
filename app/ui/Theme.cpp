@@ -244,6 +244,7 @@ void Theme::Refresh() {
             RGB(0xF8, 0x71, 0x71),  // bad
             RGB(0x19, 0x19, 0x19),  // header: the caption row of the list
             RGB(0x7A, 0x7E, 0x86),  // frame: the outline of the list
+            RGB(0xCB, 0xCB, 0xCB),  // panelFrame
             true,
         };
     } else {
@@ -262,6 +263,7 @@ void Theme::Refresh() {
             RGB(0xDC, 0x26, 0x26),  // bad
             RGB(0xFF, 0xFF, 0xFF),  // header
             RGB(0x82, 0x87, 0x90),  // frame
+            RGB(0xDE, 0xDE, 0xDE),  // panelFrame
             false,
         };
     }
@@ -319,9 +321,9 @@ void Theme::ApplyToTree(HWND tree) const {
     TreeView_SetBkColor(tree, colors_.panel);
     TreeView_SetTextColor(tree, colors_.text);
     TreeView_SetLineColor(tree, colors_.line);
-    // The categories panel is outlined in the text colour, the way IDM
-    // frames its own, the caption bar above the tree drawing the upper edge.
-    SetWindowSubclass(tree, TreeSubclass, 1, static_cast<DWORD_PTR>(colors_.text));
+    // The categories panel is outlined the way IDM outlines its own, the
+    // caption bar above the tree drawing the upper edge.
+    SetWindowSubclass(tree, TreeSubclass, 1, static_cast<DWORD_PTR>(colors_.panelFrame));
     InvalidateRect(tree, nullptr, TRUE);
     RedrawWindow(tree, nullptr, nullptr, RDW_FRAME | RDW_INVALIDATE);
 }

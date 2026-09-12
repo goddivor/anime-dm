@@ -25,6 +25,7 @@ struct ThemeColors {
     COLORREF bad;         // what failed
     COLORREF header;      // the caption row of a list, a shade under the rows
     COLORREF frame;       // the outline of a list, a shade over the rules
+    COLORREF panelFrame;  // the outline of the categories panel, lighter still
     bool dark;
 };
 

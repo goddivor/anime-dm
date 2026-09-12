@@ -203,7 +203,8 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         OnContextMenu(reinterpret_cast<HWND>(wParam), GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
         return 0;
     case WM_ERASEBKGND: {
-        HBRUSH brush = ActiveTheme().WindowBrush();
+        // What shows between the panels is the colour of the toolbar, as in IDM.
+        HBRUSH brush = ActiveTheme().SurfaceBrush();
         if (brush == nullptr) {
             break;
         }

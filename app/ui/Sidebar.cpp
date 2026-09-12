@@ -254,7 +254,7 @@ bool Sidebar::Create(HWND parent, HINSTANCE instance) {
     headerState_.surface = GetSysColor(COLOR_BTNFACE);
     headerState_.text = GetSysColor(COLOR_BTNTEXT);
     headerState_.line = GetSysColor(COLOR_BTNSHADOW);
-    headerState_.frame = GetSysColor(COLOR_BTNTEXT);
+    headerState_.frame = GetSysColor(COLOR_BTNSHADOW);
     headerState_.hover = GetSysColor(COLOR_BTNHIGHLIGHT);
 
     header_ = CreateWindowExW(
@@ -566,7 +566,7 @@ void Sidebar::ApplyTheme(const Theme& theme) {
     headerState_.surface = colors.surface;
     headerState_.text = colors.text;
     headerState_.line = colors.line;
-    headerState_.frame = colors.text;
+    headerState_.frame = colors.panelFrame;
     headerState_.hover = colors.hover;
     InvalidateRect(header_, nullptr, TRUE);
 
