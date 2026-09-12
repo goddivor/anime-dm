@@ -8,6 +8,7 @@
 #include "core/Image.h"
 #include "core/Text.h"
 #include "ui/Commands.h"
+#include "ui/FileIcons.h"
 #include "ui/IconFactory.h"
 #include "ui/Strings.h"
 #include "ui/Theme.h"
@@ -374,6 +375,7 @@ void Sidebar::Rebuild(const std::vector<AnimeGroup>& groups,
         for (const DownloadItem* item : episodes) {
             Node* episode = Add(SidebarNodeKind::Episode, group.url, item->id);
             episode->title = EpisodeCaption(*item);
+            episode->fileIcon = fileicons::IndexOf(item->outPath);
             Insert(parent, episode->title.c_str(), StatusGlyph(item->status), episode, 1);
         }
         if (group.expanded) {
@@ -563,15 +565,19 @@ void Sidebar::DrawSimpleRow(NMTVCUSTOMDRAW* draw, const Node& node) {
     }
     DrawTies(dc, item, row, level, TreeView_GetChild(tree_, item) != nullptr);
 
+    // An episode wears the picture Windows gives its file type, as in IDM;
+    // the other rows keep the glyph of the palette.
     POINT centre = ExpanderCentre(row, level);
-    ImageList_Draw(icons_, node.icon, dc, centre.x + indent - kGlyph / 2, centre.y - kGlyph / 2,
-                   ILD_TRANSPARENT);
+    int glyph = node.fileIcon >= 0 ? fileicons::Size() : kGlyph;
+    HIMAGELIST source = node.fileIcon >= 0 ? fileicons::SmallList() : icons_;
+    ImageList_Draw(source, node.fileIcon >= 0 ? node.fileIcon : node.icon, dc,
+                   centre.x + indent - glyph / 2, centre.y - glyph / 2, ILD_TRANSPARENT);
 
     HFONT font = reinterpret_cast<HFONT>(SendMessageW(tree_, WM_GETFONT, 0, 0));
     HFONT previousFont = font != nullptr ? static_cast<HFONT>(SelectObject(dc, font)) : nullptr;
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, text);
-    RECT caption = {centre.x + indent + kGlyph, row.top, row.right - 4, row.bottom};
+    RECT caption = {centre.x + indent + glyph, row.top, row.right - 4, row.bottom};
     DrawTextW(dc, node.title.c_str(), -1, &caption,
               DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
     if (previousFont != nullptr) {

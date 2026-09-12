@@ -89,6 +89,7 @@ private:
         HTREEITEM handle = nullptr;
         std::wstring title;
         int icon = 0;
+        int fileIcon = -1;  // the picture of the file type, for an episode
         int count = 0;
     };
 
