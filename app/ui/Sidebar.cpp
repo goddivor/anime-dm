@@ -22,6 +22,7 @@ constexpr int kPosterWidth = 34;
 constexpr int kPosterHeight = 48;
 constexpr int kPosterRadius = 3;
 constexpr int kGlyph = 16;
+constexpr int kBox = 9;  // the classic plus and minus box of a tree
 
 // Returns the square that holds the header close button.
 RECT CloseBoxRect(HWND header) {
@@ -224,6 +225,39 @@ LRESULT CALLBACK RepaintOnScroll(HWND tree, UINT msg, WPARAM wParam, LPARAM lPar
     return result;
 }
 
+// Draws what the tree draws on the rows it paints itself: the dotted line
+// that joins a row to its parent, and the boxed plus or minus that folds it.
+void DrawExpander(HDC dc, int x, int y, bool expanded, const ThemeColors& colors) {
+    LOGBRUSH pattern = {BS_SOLID, colors.line, 0};
+    HPEN dotted = ExtCreatePen(PS_COSMETIC | PS_ALTERNATE, 1, &pattern, 0, nullptr);
+    HPEN previous = static_cast<HPEN>(SelectObject(dc, dotted));
+    MoveToEx(dc, x, y - kRowHeight * kAnimeIntegral / 2, nullptr);
+    LineTo(dc, x, y + kRowHeight * kAnimeIntegral / 2);
+    MoveToEx(dc, x, y, nullptr);
+    LineTo(dc, x + kBox, y);
+    SelectObject(dc, previous);
+    DeleteObject(dotted);
+
+    RECT box = {x - kBox / 2, y - kBox / 2, x + kBox / 2 + 1, y + kBox / 2 + 1};
+    HBRUSH fill = CreateSolidBrush(colors.panel);
+    FillRect(dc, &box, fill);
+    DeleteObject(fill);
+    HBRUSH edge = CreateSolidBrush(colors.muted);
+    FrameRect(dc, &box, edge);
+    DeleteObject(edge);
+
+    HPEN sign = CreatePen(PS_SOLID, 1, colors.text);
+    previous = static_cast<HPEN>(SelectObject(dc, sign));
+    MoveToEx(dc, box.left + 2, y, nullptr);
+    LineTo(dc, box.right - 2, y);
+    if (!expanded) {
+        MoveToEx(dc, x, box.top + 2, nullptr);
+        LineTo(dc, x, box.bottom - 2);
+    }
+    SelectObject(dc, previous);
+    DeleteObject(sign);
+}
+
 // Paints a bitmap with its alpha channel onto a device context.
 void BlendBitmap(HDC dc, HBITMAP bitmap, int x, int y, int width, int height) {
     HDC memory = CreateCompatibleDC(dc);
@@ -264,8 +298,8 @@ bool Sidebar::Create(HWND parent, HINSTANCE instance) {
 
     tree_ = CreateWindowExW(
         0, WC_TREEVIEWW, L"",
-        WS_CHILD | WS_VISIBLE | WS_BORDER | TVS_HASBUTTONS | TVS_LINESATROOT |
-            TVS_FULLROWSELECT | TVS_NONEVENHEIGHT,
+        WS_CHILD | WS_VISIBLE | WS_BORDER | TVS_HASBUTTONS | TVS_HASLINES |
+            TVS_LINESATROOT | TVS_FULLROWSELECT | TVS_NONEVENHEIGHT,
         0, 0, 0, 0, parent, nullptr, instance, nullptr);
     if (tree_ == nullptr) {
         return false;
@@ -491,8 +525,7 @@ void Sidebar::DrawAnimeRow(NMTVCUSTOMDRAW* draw, const Node& node) {
     int left = row.left + indent * level;
     int middle = (row.top + row.bottom) / 2;
     bool expanded = (TreeView_GetItemState(tree_, item, TVIS_EXPANDED) & TVIS_EXPANDED) != 0;
-    ImageList_Draw(icons_, expanded ? CAT_CHEVRON_DOWN : CAT_CHEVRON_RIGHT, dc,
-                   left + (indent - kGlyph) / 2, middle - kGlyph / 2, ILD_TRANSPARENT);
+    DrawExpander(dc, left + indent / 2, middle, expanded, colors);
 
     RECT box = {left + indent + 2, middle - kPosterHeight / 2, 0, 0};
     box.right = box.left + kPosterWidth;

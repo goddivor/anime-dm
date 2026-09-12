@@ -317,7 +317,9 @@ void Theme::ApplyToList(HWND list) const {
 
 // Pushes the palette onto a tree view.
 void Theme::ApplyToTree(HWND tree) const {
-    SetWindowTheme(tree, colors_.dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
+    // No visual style on the tree: IDM shows the classic boxed plus and minus
+    // with dotted connectors, which the Explorer theme replaces with chevrons.
+    SetWindowTheme(tree, L"", L"");
     TreeView_SetBkColor(tree, colors_.panel);
     TreeView_SetTextColor(tree, colors_.text);
     TreeView_SetLineColor(tree, colors_.line);

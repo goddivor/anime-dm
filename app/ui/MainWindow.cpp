@@ -507,9 +507,17 @@ bool MainWindow::DrawProgressCell(NMLVCUSTOMDRAW* draw) {
 // Paints the toolbar background and captions with the active palette.
 LRESULT MainWindow::OnToolbarCustomDraw(NMTBCUSTOMDRAW* draw) {
     switch (draw->nmcd.dwDrawStage) {
-    case CDDS_PREPAINT:
+    case CDDS_PREPAINT: {
         FillRect(draw->nmcd.hdc, &draw->nmcd.rc, ActiveTheme().SurfaceBrush());
+        // The rule IDM draws under its menu bar: the toolbar starts right
+        // below it, so its own top edge carries the line.
+        RECT rule = draw->nmcd.rc;
+        rule.bottom = rule.top + 1;
+        HBRUSH line = CreateSolidBrush(ActiveTheme().Colors().line);
+        FillRect(draw->nmcd.hdc, &rule, line);
+        DeleteObject(line);
         return CDRF_NOTIFYITEMDRAW;
+    }
     case CDDS_ITEMPREPAINT: {
         const ThemeColors& colors = ActiveTheme().Colors();
         bool disabled = (draw->nmcd.uItemState & CDIS_DISABLED) != 0;
