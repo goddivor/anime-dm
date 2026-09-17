@@ -260,6 +260,8 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
                 UpdateActions();
             } else if (notify->code == NM_DBLCLK) {
                 OpenSelected(false);
+            } else if (notify->code == LVN_COLUMNCLICK) {
+                OnColumnClick(reinterpret_cast<NMLISTVIEW*>(lParam)->iSubItem);
             }
         }
         if (notify->hwndFrom == sidebar_.Handle()) {
@@ -470,6 +472,73 @@ LRESULT MainWindow::OnListCustomDraw(NMLVCUSTOMDRAW* draw) {
     SelectObject(dc, previous);
     DeleteObject(pen);
     return CDRF_DODEFAULT;
+}
+
+// A click on a column sorts the rows by it; a second click turns the order
+// round, the way IDM does.
+void MainWindow::OnColumnClick(int column) {
+    if (column == sortColumn_) {
+        sortAscending_ = !sortAscending_;
+    } else {
+        sortColumn_ = column;
+        sortAscending_ = true;
+    }
+    downloads_.SetSortMark(sortColumn_, sortAscending_);
+    ApplySort();
+}
+
+namespace {
+// The seconds a running transfer still needs, or -1 when nothing says.
+double TimeLeft(const DownloadItem& item) {
+    if (item.status != DownloadStatus::Downloading || item.speed <= 0.0) {
+        return -1.0;
+    }
+    if (item.total > item.done) {
+        return static_cast<double>(item.total - item.done) / item.speed;
+    }
+    if (item.fraction > 0.0 && item.done > 0) {
+        return (static_cast<double>(item.done) / item.fraction - static_cast<double>(item.done)) /
+               item.speed;
+    }
+    return -1.0;
+}
+}  // namespace
+
+// Reorders the rows by the chosen column, when one is chosen.
+void MainWindow::ApplySort() {
+    if (sortColumn_ < 0) {
+        return;
+    }
+    int column = sortColumn_;
+    bool ascending = sortAscending_;
+    downloads_.Sort([this, column, ascending](uint64_t first, uint64_t second) {
+        const DownloadItem* a = Find(first);
+        const DownloadItem* b = Find(second);
+        if (a == nullptr || b == nullptr) {
+            return false;
+        }
+        const DownloadItem& lower = ascending ? *a : *b;
+        const DownloadItem& upper = ascending ? *b : *a;
+        switch (column) {
+        case 0:
+            return lstrcmpiW(FileNameOf(lower.outPath).c_str(),
+                             FileNameOf(upper.outPath).c_str()) < 0;
+        case 1:
+            return (lower.total > 0 ? lower.total : lower.done) <
+                   (upper.total > 0 ? upper.total : upper.done);
+        case 2:
+            return lower.status != upper.status ? lower.status < upper.status
+                                                : lower.fraction < upper.fraction;
+        case 3:
+            return TimeLeft(lower) < TimeLeft(upper);
+        case 4:
+            return lower.speed < upper.speed;
+        case 5:
+            return lower.lastTry < upper.lastTry;
+        default:
+            return lower.addedAt < upper.addedAt;
+        }
+    });
 }
 
 // Paints one row of the list the way IDM paints its own: the flat highlight
@@ -819,6 +888,7 @@ void MainWindow::OnAddDownload() {
     if (!request.posterBytes.empty()) {
         DecorateFolder(request.animeUrl, request.folderTemplate);
     }
+    ApplySort();
     Persist();
     RebuildSidebar();
     UpdateActions();

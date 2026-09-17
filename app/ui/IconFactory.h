@@ -71,6 +71,10 @@ HBITMAP CreateToolbarGlyph(ToolbarIcon icon, int width, int height, COLORREF str
 // outlines are drawn instead.
 const wchar_t* GlyphFontName();
 
+// Draws the mark IDM puts beside the caption of the column the list is
+// sorted by: a hooked arrow, pointing up or down, fitted into `box`.
+void DrawSortMark(HDC dc, const RECT& box, bool ascending, COLORREF colour);
+
 // Builds a 16x16 alpha-blended image list with the category tree glyphs.
 // The caller owns the returned list and must ImageList_Destroy it.
 HIMAGELIST CreateCategoryImageList(const CategoryPalette& palette);
