@@ -68,8 +68,9 @@ HWND CreateField(HWND dialog, const AddonPreference& preference, const std::stri
     return edit;
 }
 
-// Lays the form out inside the reserved area, one row per preference.
-void BuildForm(HWND dialog, Session& session) {
+// Lays the form out inside the reserved area, one row per preference, and
+// answers where the content ends, in client coordinates.
+int BuildForm(HWND dialog, Session& session) {
     HWND area = GetDlgItem(dialog, IDC_CONFIG_AREA);
     RECT bounds = {};
     GetWindowRect(area, &bounds);
@@ -84,7 +85,7 @@ void BuildForm(HWND dialog, Session& session) {
                                      bounds.left, bounds.top, bounds.right - bounds.left, 20,
                                      dialog, nullptr, instance, nullptr);
         SendMessageW(empty, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
-        return;
+        return bounds.top + 20;
     }
 
     int fieldWidth = bounds.right - bounds.left - kLabelWidth - kGap;
@@ -109,6 +110,40 @@ void BuildForm(HWND dialog, Session& session) {
         y += kRowHeight;
         ++id;
     }
+    return y;
+}
+
+// Brings the buttons up under the last row and shrinks the window to fit:
+// the template reserves room for a long form, and a source rarely declares
+// more than a few settings.
+void FitToForm(HWND dialog, int contentBottom) {
+    RECT ok = {};
+    GetWindowRect(GetDlgItem(dialog, IDOK), &ok);
+    MapWindowPoints(nullptr, dialog, reinterpret_cast<POINT*>(&ok), 2);
+    int shift = (contentBottom + kRowHeight / 2) - ok.top;
+    if (shift >= 0) {
+        return;
+    }
+    for (int control : {IDOK, IDCANCEL}) {
+        RECT bounds = {};
+        GetWindowRect(GetDlgItem(dialog, control), &bounds);
+        MapWindowPoints(nullptr, dialog, reinterpret_cast<POINT*>(&bounds), 2);
+        SetWindowPos(GetDlgItem(dialog, control), nullptr, bounds.left, bounds.top + shift, 0,
+                     0, SWP_NOSIZE | SWP_NOZORDER);
+    }
+    RECT frame = {};
+    GetWindowRect(dialog, &frame);
+    int width = frame.right - frame.left;
+    int height = frame.bottom - frame.top + shift;
+    // Centred again on its owner, since the dialog was centred at full size.
+    RECT owner = {};
+    HWND parent = GetWindow(dialog, GW_OWNER);
+    if (parent == nullptr || !GetWindowRect(parent, &owner)) {
+        SetWindowPos(dialog, nullptr, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER);
+        return;
+    }
+    SetWindowPos(dialog, nullptr, (owner.left + owner.right - width) / 2,
+                 (owner.top + owner.bottom - height) / 2, width, height, SWP_NOZORDER);
 }
 
 // Reads the form back and writes it next to the addon.
@@ -150,7 +185,7 @@ INT_PTR CALLBACK ConfigDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM l
         SetDialogTitle(dialog, STR_CONFIG_TITLE);
         SetDialogText(dialog, IDOK, STR_DLG_OK);
         SetDialogText(dialog, IDCANCEL, STR_DLG_CANCEL);
-        BuildForm(dialog, *session);
+        FitToForm(dialog, BuildForm(dialog, *session));
         ActiveTheme().ApplyToDialog(dialog);
         return TRUE;
     }
