@@ -331,6 +331,17 @@ const Shape kArrowDown[] = {ADM_PATH("M12 5v14"), ADM_PATH("m19 12-7 7-7-7")};
 const Shape kCheck[] = {ADM_PATH("M20 6 9 17l-5-5")};
 const Shape kCross[] = {ADM_PATH("M18 6 6 18"), ADM_PATH("m6 6 12 12")};
 const Shape kSquare[] = {ADM_RRECT(3, 3, 18, 18, 2)};
+const Shape kRefresh[] = {
+    ADM_PATH("M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"),
+    ADM_PATH("M21 3v5h-5"),
+    ADM_PATH("M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"),
+    ADM_PATH("M8 16H3v5"),
+};
+const Shape kDownload[] = {
+    ADM_PATH("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"),
+    ADM_PATH("m7 10 5 5 5-5"),
+    ADM_PATH("M12 15V3"),
+};
 
 #undef ADM_PATH
 #undef ADM_CIRCLE
@@ -349,6 +360,10 @@ const IconDef kToolbarIcons[ICON_COUNT] = {
     ADM_ICON(kPlus),  ADM_ICON(kPlay),     ADM_ICON(kCircleStop), ADM_ICON(kOctagonX),
     ADM_ICON(kTrash), ADM_ICON(kListX),    ADM_ICON(kSettings),   ADM_ICON(kTimer),
     ADM_ICON(kPuzzle), ADM_ICON(kSearch),
+};
+
+const IconDef kActionIcons[ACTION_COUNT] = {
+    ADM_ICON(kRefresh), ADM_ICON(kDownload), ADM_ICON(kTrash), ADM_ICON(kSettings),
 };
 
 const IconDef kCategoryIcons[CAT_COUNT] = {
@@ -393,6 +408,13 @@ const wchar_t* const kToolbarGlyphs[ICON_COUNT] = {
     L"\xE823",  // Recent
     L"\xEA86",  // Puzzle
     L"\xE721",  // Search
+};
+
+const wchar_t* const kActionGlyphs[ACTION_COUNT] = {
+    L"\xE72C",  // Refresh
+    L"\xE896",  // Download
+    L"\xE74D",  // Delete
+    L"\xE713",  // Setting
 };
 
 const wchar_t* const kCategoryGlyphs[CAT_COUNT] = {
@@ -449,6 +471,15 @@ void DrawToolbarGlyph(Graphics& graphics, int icon) {
         return;
     }
     DrawShapes(graphics, kToolbarIcons[icon].shapes, kToolbarIcons[icon].count);
+}
+
+// Renders one action glyph, from the font or from the outline.
+void DrawActionGlyph(Graphics& graphics, int icon) {
+    if (GlyphFamily() != nullptr) {
+        DrawGlyph(graphics, kActionGlyphs[icon]);
+        return;
+    }
+    DrawShapes(graphics, kActionIcons[icon].shapes, kActionIcons[icon].count);
 }
 
 // Renders one category glyph in its own colour.
@@ -580,6 +611,32 @@ const wchar_t* GlyphFontName() {
 HIMAGELIST CreateCategoryImageList(const CategoryPalette& palette) {
     g_palette = palette;
     return BuildImageList(kCategorySize, CAT_COUNT, DrawCategoryGlyph);
+}
+
+// Renders one action glyph into a square cell, turned about its centre.
+HBITMAP CreateActionGlyph(ActionIcon icon, int size, COLORREF stroke, float angle) {
+    g_stroke = stroke;
+    void* bits = nullptr;
+    HBITMAP bitmap = CreateArgbSurface(size, &bits);
+    if (bitmap == nullptr) {
+        return nullptr;
+    }
+    Gdiplus::Bitmap surface(size, size, size * 4, PixelFormat32bppPARGB,
+                            static_cast<BYTE*>(bits));
+    Graphics graphics(&surface);
+    graphics.Clear(Color(0, 0, 0, 0));
+    graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+    graphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+    float half = static_cast<float>(size) / 2.0f;
+    float side = static_cast<float>(size) * 0.56f;
+    graphics.TranslateTransform(half, half);
+    graphics.RotateTransform(angle);
+    graphics.TranslateTransform(-side / 2.0f, -side / 2.0f);
+    float scale = side / kGrid;
+    graphics.ScaleTransform(scale, scale);
+    DrawActionGlyph(graphics, icon);
+    graphics.Flush();
+    return bitmap;
 }
 
 // Draws the hooked arrow of a sorted column: a stem with its head at one end

@@ -18,6 +18,15 @@ enum ToolbarIcon {
     ICON_COUNT,
 };
 
+// The actions of a dialog drawn as icon buttons; the order matches the tables.
+enum ActionIcon {
+    ACTION_REFRESH,
+    ACTION_INSTALL,
+    ACTION_REMOVE,
+    ACTION_CONFIGURE,
+    ACTION_COUNT,
+};
+
 // Category tree glyph indices; the order matches the image list built below.
 // The first four name the categories, the next two fold and unfold an anime,
 // the last five tell the state of an episode.
@@ -65,6 +74,10 @@ HIMAGELIST CreateToolbarImageList(COLORREF stroke);
 // Renders one toolbar glyph into a cell of any size, for a toolbar skin that
 // has no picture for it. The caller owns the bitmap.
 HBITMAP CreateToolbarGlyph(ToolbarIcon icon, int width, int height, COLORREF stroke);
+
+// Renders one action glyph into a square cell, turned by `angle` degrees
+// (the refresh arrows spin while a fetch runs). The caller owns the bitmap.
+HBITMAP CreateActionGlyph(ActionIcon icon, int size, COLORREF stroke, float angle);
 
 // The name of the system icon font the glyphs come from, empty when neither
 // Segoe Fluent Icons nor Segoe MDL2 Assets is installed and the lucide

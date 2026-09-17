@@ -1,7 +1,10 @@
 #include "ui/AddonsDialog.h"
 
 #include <commctrl.h>
+#include <windowsx.h>
 
+#include <algorithm>
+#include <iterator>
 #include <memory>
 #include <string>
 #include <thread>
@@ -12,6 +15,8 @@
 #include "core/Image.h"
 #include "core/Text.h"
 #include "ui/AddonConfigDialog.h"
+#include "ui/IconFactory.h"
+#include "ui/Paint.h"
 #include "ui/Resource.h"
 #include "ui/Strings.h"
 #include "ui/Theme.h"
@@ -20,24 +25,28 @@ namespace {
 
 constexpr UINT kFetched = WM_APP + 1;
 constexpr UINT kInstalled = WM_APP + 2;
-constexpr int kIconSize = 20;
-
-struct Column {
-    StringId title;
-    int width;
-};
-
-constexpr Column kColumns[] = {
-    {STR_EXT_NAME, 200},
-    {STR_EXT_LANG, 70},
-    {STR_EXT_VERSION, 80},
-    {STR_EXT_STATUS, 160},
-};
+constexpr UINT_PTR kSpinTimer = 1;
+constexpr int kIconSize = 36;    // the picture of a source, on a row twice as tall as text
+constexpr int kRowPadding = 8;   // above and below the picture
+constexpr float kRadius = 5.0f;
 
 // What a fetch brings back: the index, and the icon of each entry.
 struct Catalogue {
     std::vector<StoreEntry> entries;
     std::vector<std::vector<uint8_t>> icons;
+};
+
+// One icon button of the top row: which glyph, and its picture per state.
+struct Action {
+    int control;
+    ActionIcon icon;
+};
+
+constexpr Action kActions[] = {
+    {IDC_ADDONS_REFRESH, ACTION_REFRESH},
+    {IDC_ADDONS_INSTALL, ACTION_INSTALL},
+    {IDC_ADDONS_REMOVE, ACTION_REMOVE},
+    {IDC_ADDONS_CONFIGURE, ACTION_CONFIGURE},
 };
 
 // What the window keeps for the whole of its life.
@@ -46,28 +55,45 @@ struct Screen {
     Http* http = nullptr;
     std::vector<StoreEntry> entries;
     HIMAGELIST icons = nullptr;
+    HFONT bold = nullptr;   // the name of a source
+    HFONT small = nullptr;  // its language and version
     bool busy = false;
+    float spin = 0.0f;      // the angle of the refresh arrows while a fetch runs
 };
 
 // Turns the downloaded icons into the image list the rows draw from.
 void AdoptIcons(HWND dialog, Screen& screen, const std::vector<std::vector<uint8_t>>& icons) {
     HIMAGELIST previous = screen.icons;
-    screen.icons = ImageList_Create(kIconSize, kIconSize, ILC_COLOR32, 
+    screen.icons = ImageList_Create(kIconSize, kIconSize + kRowPadding, ILC_COLOR32,
                                     static_cast<int>(icons.size()), 0);
     if (screen.icons == nullptr) {
         return;
     }
 
     for (const std::vector<uint8_t>& bytes : icons) {
+        // The pictures sit on a cell taller than themselves, which sets the
+        // height of the rows; a source without one keeps the indices in step.
         HBITMAP bitmap = image::DecodeSquare(bytes, kIconSize);
+        HBITMAP cell = image::Transparent(kIconSize + kRowPadding);
+        if (bitmap != nullptr && cell != nullptr) {
+            HDC target = CreateCompatibleDC(nullptr);
+            HDC source = CreateCompatibleDC(nullptr);
+            HBITMAP oldTarget = static_cast<HBITMAP>(SelectObject(target, cell));
+            HBITMAP oldSource = static_cast<HBITMAP>(SelectObject(source, bitmap));
+            BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
+            AlphaBlend(target, 0, kRowPadding / 2, kIconSize, kIconSize, source, 0, 0, kIconSize,
+                       kIconSize, blend);
+            SelectObject(source, oldSource);
+            SelectObject(target, oldTarget);
+            DeleteDC(source);
+            DeleteDC(target);
+        }
+        if (cell != nullptr) {
+            ImageList_Add(screen.icons, cell, nullptr);
+            DeleteObject(cell);
+        }
         if (bitmap != nullptr) {
-            ImageList_Add(screen.icons, bitmap, nullptr);
             DeleteObject(bitmap);
-        } else {
-            // Keeps the indices in step with the rows when a source has none.
-            HBITMAP blank = image::Transparent(kIconSize);
-            ImageList_Add(screen.icons, blank, nullptr);
-            DeleteObject(blank);
         }
     }
 
@@ -114,28 +140,31 @@ void SetStatus(HWND dialog, StringId message) {
     SetDlgItemTextW(dialog, IDC_ADDONS_STATUS, Str(message));
 }
 
-// Greys the actions out while a job runs, and matches them to the selection.
-void SyncButtons(HWND dialog, const Screen& screen) {
+// The entry under the selection, or null.
+const StoreEntry* Chosen(HWND dialog, const Screen& screen) {
     int selected = ListView_GetNextItem(GetDlgItem(dialog, IDC_ADDONS_LIST), -1, LVNI_SELECTED);
     bool has = selected >= 0 && static_cast<size_t>(selected) < screen.entries.size();
-    const StoreEntry* entry = has ? &screen.entries[static_cast<size_t>(selected)] : nullptr;
+    return has ? &screen.entries[static_cast<size_t>(selected)] : nullptr;
+}
 
+// Greys the actions out while a job runs, and matches them to the selection.
+void SyncButtons(HWND dialog, const Screen& screen) {
+    const StoreEntry* entry = Chosen(dialog, screen);
     bool idle = !screen.busy;
     EnableWindow(GetDlgItem(dialog, IDC_ADDONS_REFRESH), idle);
-    EnableWindow(GetDlgItem(dialog, IDCANCEL), idle);
     EnableWindow(GetDlgItem(dialog, IDC_ADDONS_INSTALL),
                  idle && entry != nullptr && (!entry->installed || Outdated(*entry)));
     EnableWindow(GetDlgItem(dialog, IDC_ADDONS_REMOVE),
                  idle && entry != nullptr && entry->installed);
     EnableWindow(GetDlgItem(dialog, IDC_ADDONS_CONFIGURE),
                  idle && entry != nullptr && entry->installed);
-
-    SetDlgItemTextW(dialog, IDC_ADDONS_INSTALL,
-                    Str(entry != nullptr && Outdated(*entry) ? STR_ADDONS_UPDATE
-                                                             : STR_ADDONS_INSTALL));
+    for (const Action& action : kActions) {
+        InvalidateRect(GetDlgItem(dialog, action.control), nullptr, TRUE);
+    }
 }
 
-// Fills the list from what the store answered.
+// Fills the list from what the store answered; the rows are painted by the
+// window, the text of the items only serves the keyboard.
 void FillList(HWND dialog, const Screen& screen) {
     HWND list = GetDlgItem(dialog, IDC_ADDONS_LIST);
     ListView_DeleteAllItems(list);
@@ -149,19 +178,6 @@ void FillList(HWND dialog, const Screen& screen) {
         item.iImage = row;
         item.pszText = name.data();
         ListView_InsertItem(list, &item);
-
-        std::wstring lang = Widen(entry.lang);
-        std::wstring version = Widen(entry.version);
-        ListView_SetItemText(list, row, 1, lang.data());
-        ListView_SetItemText(list, row, 2, version.data());
-
-        StringId state = STR_ADDONS_STATE_AVAILABLE;
-        if (Outdated(entry)) {
-            state = STR_ADDONS_STATE_OUTDATED;
-        } else if (entry.installed) {
-            state = STR_ADDONS_STATE_INSTALLED;
-        }
-        ListView_SetItemText(list, row, 3, const_cast<wchar_t*>(Str(state)));
         ++row;
     }
 
@@ -171,9 +187,125 @@ void FillList(HWND dialog, const Screen& screen) {
     }
 }
 
+// What a row says of its entry on the right: the state, in its colour.
+std::pair<StringId, COLORREF> StateOf(const StoreEntry& entry) {
+    const ThemeColors& colours = ActiveTheme().Colors();
+    if (Outdated(entry)) {
+        return {STR_ADDONS_STATE_OUTDATED, colours.accent};
+    }
+    if (entry.installed) {
+        return {STR_ADDONS_STATE_INSTALLED, colours.ok};
+    }
+    return {STR_ADDONS_STATE_AVAILABLE, colours.muted};
+}
+
+// Paints one row: the picture of the source, its name above its language and
+// version, and its state against the right edge.
+void DrawRow(HWND dialog, const Screen& screen, NMLVCUSTOMDRAW* draw) {
+    HWND list = draw->nmcd.hdr.hwndFrom;
+    int row = static_cast<int>(draw->nmcd.dwItemSpec);
+    if (row < 0 || static_cast<size_t>(row) >= screen.entries.size()) {
+        return;
+    }
+    const StoreEntry& entry = screen.entries[static_cast<size_t>(row)];
+    const ThemeColors& colours = ActiveTheme().Colors();
+    HDC dc = draw->nmcd.hdc;
+
+    RECT bounds = {};
+    ListView_GetItemRect(list, row, &bounds, LVIR_BOUNDS);
+    RECT client = {};
+    GetClientRect(list, &client);
+    bounds.left = client.left;
+    bounds.right = client.right;
+
+    bool selected = (ListView_GetItemState(list, row, LVIS_SELECTED) & LVIS_SELECTED) != 0;
+    HBRUSH fill = CreateSolidBrush(selected ? colours.accent : colours.window);
+    FillRect(dc, &bounds, fill);
+    DeleteObject(fill);
+
+    int x = bounds.left + kRowPadding;
+    int y = (bounds.top + bounds.bottom - kIconSize - kRowPadding) / 2;
+    if (screen.icons != nullptr) {
+        ImageList_Draw(screen.icons, row, dc, x, y, ILD_TRANSPARENT);
+    }
+    x += kIconSize + kRowPadding + 2;
+
+    SetBkMode(dc, TRANSPARENT);
+    auto [stateId, stateColour] = StateOf(entry);
+    std::wstring state = Str(stateId);
+    HFONT previous = static_cast<HFONT>(SelectObject(dc, screen.small));
+    RECT stateBox = {x, bounds.top, bounds.right - kRowPadding - 2, bounds.bottom};
+    SetTextColor(dc, selected ? colours.accentText : stateColour);
+    DrawTextW(dc, state.c_str(), -1, &stateBox,
+              DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    RECT stateExtent = stateBox;
+    DrawTextW(dc, state.c_str(), -1, &stateExtent, DT_SINGLELINE | DT_CALCRECT | DT_NOPREFIX);
+    int textRight = stateBox.right - (stateExtent.right - stateExtent.left) - kRowPadding * 2;
+
+    int middle = (bounds.top + bounds.bottom) / 2;
+    SelectObject(dc, screen.bold);
+    SetTextColor(dc, selected ? colours.accentText : colours.text);
+    RECT nameBox = {x, bounds.top + kRowPadding / 2, textRight, middle};
+    DrawTextW(dc, Widen(entry.name).c_str(), -1, &nameBox,
+              DT_LEFT | DT_BOTTOM | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+
+    SelectObject(dc, screen.small);
+    SetTextColor(dc, selected ? colours.accentText : colours.muted);
+    std::wstring detail = Widen(entry.lang);
+    std::transform(detail.begin(), detail.end(), detail.begin(), towupper);
+    detail += L"  \u00B7  " + Widen(entry.version);
+    if (entry.installed && Outdated(entry)) {
+        detail += L"  (" + Widen(entry.installedVersion) + L")";
+    }
+    RECT detailBox = {x, middle, textRight, bounds.bottom - kRowPadding / 2};
+    DrawTextW(dc, detail.c_str(), -1, &detailBox,
+              DT_LEFT | DT_TOP | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+    SelectObject(dc, previous);
+}
+
+// Paints one icon button: bare on the surface, a quiet rounded plate while
+// pressed, its glyph in the colour of the text, or muted when the action is
+// out of reach.
+void DrawAction(const DRAWITEMSTRUCT& draw, const Screen& screen) {
+    const ThemeColors& colours = ActiveTheme().Colors();
+    bool disabled = (draw.itemState & ODS_DISABLED) != 0;
+    bool pressed = (draw.itemState & ODS_SELECTED) != 0;
+
+    HBRUSH back = CreateSolidBrush(colours.surface);
+    FillRect(draw.hDC, &draw.rcItem, back);
+    DeleteObject(back);
+    if (pressed) {
+        paint::RoundedRect(draw.hDC, draw.rcItem, kRadius, colours.hover, colours.line);
+    }
+
+    ActionIcon icon = ACTION_REFRESH;
+    for (const Action& action : kActions) {
+        if (action.control == static_cast<int>(draw.CtlID)) {
+            icon = action.icon;
+        }
+    }
+    float angle = icon == ACTION_REFRESH && screen.busy ? screen.spin : 0.0f;
+    int side = std::min(draw.rcItem.right - draw.rcItem.left, draw.rcItem.bottom - draw.rcItem.top);
+    HBITMAP glyph = CreateActionGlyph(icon, side, disabled ? colours.muted : colours.text, angle);
+    if (glyph == nullptr) {
+        return;
+    }
+    HDC memory = CreateCompatibleDC(draw.hDC);
+    HBITMAP old = static_cast<HBITMAP>(SelectObject(memory, glyph));
+    BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
+    int left = (draw.rcItem.left + draw.rcItem.right - side) / 2;
+    int top = (draw.rcItem.top + draw.rcItem.bottom - side) / 2;
+    AlphaBlend(draw.hDC, left, top, side, side, memory, 0, 0, side, side, blend);
+    SelectObject(memory, old);
+    DeleteDC(memory);
+    DeleteObject(glyph);
+}
+
 // Asks the store for its index, off the interface thread.
 void StartFetch(HWND dialog, Screen& screen) {
     screen.busy = true;
+    screen.spin = 0.0f;
+    SetTimer(dialog, kSpinTimer, 40, nullptr);
     SetStatus(dialog, STR_ADDONS_LOADING);
     SyncButtons(dialog, screen);
 
@@ -212,29 +344,57 @@ void StartInstall(HWND dialog, Screen& screen) {
     }).detach();
 }
 
-void InitList(HWND dialog) {
+// One column as wide as the list, no header: the rows are painted whole. The
+// image list sets the height of the rows.
+void InitList(HWND dialog, Screen& screen) {
     HWND list = GetDlgItem(dialog, IDC_ADDONS_LIST);
     ListView_SetExtendedListViewStyle(list, LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
 
+    RECT bounds = {};
+    GetClientRect(list, &bounds);
     LVCOLUMNW col = {};
-    col.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
-    int index = 0;
-    for (const Column& column : kColumns) {
-        col.iSubItem = index;
-        col.cx = column.width;
-        col.pszText = const_cast<wchar_t*>(Str(column.title));
-        ListView_InsertColumn(list, index, &col);
-        ++index;
+    col.mask = LVCF_WIDTH;
+    col.cx = bounds.right - bounds.left;
+    ListView_InsertColumn(list, 0, &col);
+
+    HFONT base = reinterpret_cast<HFONT>(SendMessageW(dialog, WM_GETFONT, 0, 0));
+    LOGFONTW description = {};
+    GetObjectW(base, sizeof(description), &description);
+    description.lfWeight = FW_SEMIBOLD;
+    screen.bold = CreateFontIndirectW(&description);
+    description.lfWeight = FW_NORMAL;
+    description.lfHeight = description.lfHeight * 9 / 10;
+    screen.small = CreateFontIndirectW(&description);
+
+    // An empty image list of the right height until the icons arrive.
+    screen.icons = ImageList_Create(kIconSize, kIconSize + kRowPadding, ILC_COLOR32, 0, 0);
+    ListView_SetImageList(list, screen.icons, LVSIL_SMALL);
+}
+
+// Names the icon buttons in a tooltip, since they carry no caption.
+void InitTips(HWND dialog) {
+    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(dialog, GWLP_HINSTANCE));
+    HWND tips = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr,
+                                WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX, 0, 0, 0, 0, dialog,
+                                nullptr, instance, nullptr);
+    if (tips == nullptr) {
+        return;
+    }
+    const StringId captions[] = {STR_ADDONS_REFRESH, STR_ADDONS_INSTALL, STR_ADDONS_REMOVE,
+                                 STR_ADDONS_CONFIGURE};
+    for (size_t i = 0; i < std::size(kActions); ++i) {
+        TOOLINFOW tool = {};
+        tool.cbSize = sizeof(tool);
+        tool.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
+        tool.hwnd = dialog;
+        tool.uId = reinterpret_cast<UINT_PTR>(GetDlgItem(dialog, kActions[i].control));
+        tool.lpszText = const_cast<wchar_t*>(Str(captions[i]));
+        SendMessageW(tips, TTM_ADDTOOLW, 0, reinterpret_cast<LPARAM>(&tool));
     }
 }
 
 void Retranslate(HWND dialog) {
     SetDialogTitle(dialog, STR_VIEW_ADDONS);
-    SetDialogText(dialog, IDC_ADDONS_REFRESH, STR_ADDONS_REFRESH);
-    SetDialogText(dialog, IDC_ADDONS_INSTALL, STR_ADDONS_INSTALL);
-    SetDialogText(dialog, IDC_ADDONS_REMOVE, STR_ADDONS_REMOVE);
-    SetDialogText(dialog, IDC_ADDONS_CONFIGURE, STR_ADDONS_CONFIGURE);
-    SetDialogText(dialog, IDCANCEL, STR_DLG_CLOSE);
 }
 
 INT_PTR CALLBACK AddonsDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -250,14 +410,36 @@ INT_PTR CALLBACK AddonsDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM l
         SetWindowLongPtrW(dialog, GWLP_USERDATA, lParam);
         screen = reinterpret_cast<Screen*>(lParam);
         Retranslate(dialog);
-        InitList(dialog);
+        InitList(dialog, *screen);
+        InitTips(dialog);
         ActiveTheme().ApplyToDialog(dialog);
         StartFetch(dialog, *screen);
         return TRUE;
 
+    case WM_TIMER:
+        if (wParam == kSpinTimer && screen != nullptr) {
+            screen->spin += 12.0f;
+            if (screen->spin >= 360.0f) {
+                screen->spin -= 360.0f;
+            }
+            InvalidateRect(GetDlgItem(dialog, IDC_ADDONS_REFRESH), nullptr, FALSE);
+        }
+        return TRUE;
+
+    case WM_DRAWITEM: {
+        auto* draw = reinterpret_cast<DRAWITEMSTRUCT*>(lParam);
+        if (screen == nullptr || draw->CtlType != ODT_BUTTON) {
+            return FALSE;
+        }
+        DrawAction(*draw, *screen);
+        return TRUE;
+    }
+
     case kFetched: {
         std::unique_ptr<Catalogue> catalogue(reinterpret_cast<Catalogue*>(lParam));
         screen->busy = false;
+        KillTimer(dialog, kSpinTimer);
+        screen->spin = 0.0f;
         screen->entries = std::move(catalogue->entries);
         AdoptIcons(dialog, *screen, catalogue->icons);
         FillList(dialog, *screen);
@@ -281,8 +463,22 @@ INT_PTR CALLBACK AddonsDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM l
 
     case WM_NOTIFY: {
         auto* notify = reinterpret_cast<NMHDR*>(lParam);
-        if (notify->idFrom == IDC_ADDONS_LIST && notify->code == LVN_ITEMCHANGED) {
+        if (screen == nullptr || notify->idFrom != IDC_ADDONS_LIST) {
+            return FALSE;
+        }
+        if (notify->code == LVN_ITEMCHANGED) {
             SyncButtons(dialog, *screen);
+        } else if (notify->code == NM_CUSTOMDRAW) {
+            auto* draw = reinterpret_cast<NMLVCUSTOMDRAW*>(lParam);
+            LRESULT answer = CDRF_DODEFAULT;
+            if (draw->nmcd.dwDrawStage == CDDS_PREPAINT) {
+                answer = CDRF_NOTIFYITEMDRAW;
+            } else if (draw->nmcd.dwDrawStage == CDDS_ITEMPREPAINT) {
+                DrawRow(dialog, *screen, draw);
+                answer = CDRF_SKIPDEFAULT;
+            }
+            SetWindowLongPtrW(dialog, DWLP_MSGRESULT, answer);
+            return TRUE;
         }
         return FALSE;
     }
@@ -329,9 +525,18 @@ INT_PTR CALLBACK AddonsDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM l
         }
 
     case WM_DESTROY:
-        if (screen != nullptr && screen->icons != nullptr) {
-            ImageList_Destroy(screen->icons);
-            screen->icons = nullptr;
+        if (screen != nullptr) {
+            KillTimer(dialog, kSpinTimer);
+            if (screen->icons != nullptr) {
+                ImageList_Destroy(screen->icons);
+                screen->icons = nullptr;
+            }
+            for (HFONT* font : {&screen->bold, &screen->small}) {
+                if (*font != nullptr) {
+                    DeleteObject(*font);
+                    *font = nullptr;
+                }
+            }
         }
         return FALSE;
 
