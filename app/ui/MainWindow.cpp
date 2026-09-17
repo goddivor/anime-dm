@@ -1113,10 +1113,7 @@ void MainWindow::OnSidebarContext() {
             break;
         }
     } else if (node->kind == SidebarNodeKind::Episode) {
-        int command = ShowDownloadsContextMenu(hwnd_, screen.x, screen.y);
-        if (command != 0) {
-            OnCommand(command);
-        }
+        RunDownloadsMenu(screen.x, screen.y);
     }
 }
 
@@ -1332,6 +1329,9 @@ void MainWindow::OnDownloadEvent(std::unique_ptr<DownloadEvent> event) {
     }
     if (!event->outPath.empty()) {
         item->outPath = event->outPath;
+    }
+    if (!event->players.empty()) {
+        item->players = event->players;
     }
     if (IsActive(event->status)) {
         item->lastTry = std::time(nullptr);
@@ -1752,10 +1752,51 @@ void MainWindow::OnContextMenu(HWND target, int x, int y) {
         y = rect.top + 8;
     }
 
-    int command = ShowDownloadsContextMenu(hwnd_, x, y);
-    if (command != 0) {
+    RunDownloadsMenu(x, y);
+}
+
+// Shows the downloads menu for the selection and carries out its choice.
+// The players offered are those of the first selected item; a choice
+// applies to the whole selection.
+void MainWindow::RunDownloadsMenu(int x, int y) {
+    DownloadMenuOptions options;
+    std::vector<uint64_t> selected = downloads_.Selected();
+    if (!selected.empty()) {
+        if (const DownloadItem* first = Find(selected.front())) {
+            options.players = first->players;
+            options.currentPlayer = first->player;
+        }
+    }
+
+    int command = ShowDownloadsContextMenu(hwnd_, x, y, options);
+    if (command == 0) {
+        return;
+    }
+    if (command == ID_CTX_PLAYER_AUTO) {
+        ResumeSelectedWith(std::string());
+    } else if (command >= ID_PLAYER_FIRST &&
+               command < ID_PLAYER_FIRST + static_cast<int>(options.players.size())) {
+        ResumeSelectedWith(options.players[static_cast<size_t>(command - ID_PLAYER_FIRST)]);
+    } else {
         OnCommand(command);
     }
+}
+
+// Restarts the stopped and failed items of the selection through a player,
+// or through whatever the source prefers when the name is empty.
+void MainWindow::ResumeSelectedWith(const std::string& player) {
+    for (uint64_t id : downloads_.Selected()) {
+        DownloadItem* item = Find(id);
+        if (item == nullptr) {
+            continue;
+        }
+        item->player = player;
+        if (item->status == DownloadStatus::Stopped || item->status == DownloadStatus::Failed) {
+            StartItem(*item, false);
+        }
+    }
+    Persist();
+    UpdateActions();
 }
 
 // Applies the system message font to the child controls for a native look.

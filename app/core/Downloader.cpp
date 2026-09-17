@@ -307,6 +307,17 @@ void Downloader::Run(std::shared_ptr<Job> job) {
         return;
     }
 
+    // The names go up at once: the window offers them again when the chosen
+    // player turns out to have nothing.
+    for (const nlohmann::json& hoster : *hosters) {
+        std::string name = hoster.value("name", std::string());
+        if (!name.empty()) {
+            event.players.push_back(name);
+        }
+    }
+    Post(event);
+    event.players.clear();
+
     std::vector<nlohmann::json> order(hosters->begin(), hosters->end());
     if (!task.player.empty()) {
         std::stable_partition(order.begin(), order.end(), [&](const nlohmann::json& hoster) {

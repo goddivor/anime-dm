@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <ctime>
 #include <string>
+#include <vector>
 
 // Where a download stands in its life.
 enum class DownloadStatus {
@@ -36,6 +37,7 @@ struct DownloadItem {
     double episodeNumber = 0.0;
     std::string pageUrl;
     std::string player;  // empty lets the source decide
+    std::vector<std::string> players;  // the players the source lists, once asked
     bool movie = false;  // a film rather than a numbered episode
     std::wstring outPath;
     DownloadStatus status = DownloadStatus::Queued;
@@ -80,6 +82,7 @@ struct DownloadEvent {
     DownloadError error = DownloadError::None;
     std::string detail;
     std::wstring outPath;  // set when the engine settled on another name
+    std::vector<std::string> players;  // what the source lists for the episode
 };
 
 // The file name of an item, without its folder.

@@ -60,6 +60,14 @@ State Load() {
         item.episodeNumber = entry.value("episodeNumber", 0.0);
         item.pageUrl = entry.value("pageUrl", std::string());
         item.player = entry.value("player", std::string());
+        auto players = entry.find("players");
+        if (players != entry.end() && players->is_array()) {
+            for (const nlohmann::json& name : *players) {
+                if (name.is_string()) {
+                    item.players.push_back(name.get<std::string>());
+                }
+            }
+        }
         item.outPath = SafePath(Widen(entry.value("outPath", std::string())));
         item.movie = entry.value("movie", item.outPath.find(L" - Ep ") == std::wstring::npos);
         item.status = static_cast<DownloadStatus>(entry.value("status", 0));
@@ -120,6 +128,7 @@ void Save(const State& state) {
             {"episodeNumber", item.episodeNumber},
             {"pageUrl", item.pageUrl},
             {"player", item.player},
+            {"players", item.players},
             {"movie", item.movie},
             {"outPath", Narrow(item.outPath)},
             {"status", static_cast<int>(item.status)},
