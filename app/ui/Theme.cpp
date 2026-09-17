@@ -1,5 +1,6 @@
 #include "ui/Theme.h"
 
+#include "ui/IconFactory.h"
 #include "ui/Resource.h"
 
 #include <commctrl.h>
@@ -88,8 +89,24 @@ void DrawHeaderItem(HWND header, NMCUSTOMDRAW* draw) {
     cell.left += 6;
     cell.right -= 6;
     UINT align = (item.fmt & HDF_JUSTIFYMASK) == HDF_RIGHT ? DT_RIGHT : DT_LEFT;
-    DrawTextW(dc, text, -1, &cell,
-              align | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
+    UINT format = align | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX;
+
+    // The column the list is sorted by carries the hooked arrow of IDM right
+    // after its caption, when the column is wide enough to show it whole.
+    bool sorted = (item.fmt & (HDF_SORTUP | HDF_SORTDOWN)) != 0;
+    if (sorted) {
+        RECT extent = cell;
+        DrawTextW(dc, text, -1, &extent, DT_SINGLELINE | DT_CALCRECT | DT_NOPREFIX);
+        int size = (cell.bottom - cell.top) * 3 / 5;
+        int gap = size / 2;
+        if (extent.right + gap + size <= cell.right) {
+            RECT mark = {extent.right + gap, (cell.top + cell.bottom - size) / 2,
+                         extent.right + gap + size, (cell.top + cell.bottom + size) / 2};
+            DrawSortMark(dc, mark, (item.fmt & HDF_SORTUP) != 0, colors.muted);
+            cell.right = mark.left - gap;
+        }
+    }
+    DrawTextW(dc, text, -1, &cell, format);
     if (previous != nullptr) {
         SelectObject(dc, previous);
     }
@@ -234,7 +251,7 @@ void Theme::Refresh() {
             RGB(0x20, 0x20, 0x20),  // panel: the categories tree
             RGB(0x20, 0x20, 0x20),  // menu
             RGB(0x39, 0x39, 0x39),  // surface: toolbar, caption bars, dialogs
-            RGB(0xD6, 0xD6, 0xD6),  // text
+            RGB(0xFF, 0xFF, 0xFF),  // text
             RGB(0x56, 0x56, 0x56),  // line: grid and separators
             RGB(0x00, 0x78, 0xD7),  // accent: a chosen row
             RGB(0xFF, 0xFF, 0xFF),  // accentText

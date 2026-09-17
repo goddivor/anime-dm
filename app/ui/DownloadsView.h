@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -23,6 +24,11 @@ public:
     void Upsert(const DownloadItem& item);
     void Remove(uint64_t id);
     void Clear();
+
+    // Marks the column the rows are sorted by, or none, in the header.
+    void SetSortMark(int column, bool ascending);
+    // Reorders the rows; `before` says whether the first id ranks first.
+    void Sort(const std::function<bool(uint64_t, uint64_t)>& before);
 
     std::vector<uint64_t> Selected() const;
     int RowOf(uint64_t id) const;

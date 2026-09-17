@@ -59,6 +59,7 @@ void SetCell(HWND list, int row, int column, const std::wstring& text) {
 }
 
 constexpr int kWheelStep = 40;  // pixels of sideways travel per wheel notch
+constexpr int kMinColumnWidth = 40;  // a column can shrink, not vanish
 
 // Whether the pointer of a wheel message rests on this window.
 bool WheelIsOver(HWND window, LPARAM lParam) {
@@ -84,6 +85,20 @@ LRESULT CALLBACK KeepScrollBar(HWND list, UINT msg, WPARAM wParam, LPARAM lParam
     }
     if ((msg == WM_MOUSEWHEEL || msg == WM_MOUSEHWHEEL) && !WheelIsOver(list, lParam)) {
         return SendMessageW(GetParent(list), msg, wParam, lParam);
+    }
+    if (msg == WM_NOTIFY) {
+        auto* header = reinterpret_cast<NMHEADERW*>(lParam);
+        if ((header->hdr.code == HDN_ITEMCHANGINGW || header->hdr.code == HDN_ITEMCHANGINGA) &&
+            header->pitem != nullptr && (header->pitem->mask & HDI_WIDTH) != 0) {
+            // A column being dragged narrower stops at the minimum instead of
+            // closing on itself.
+            HDC dc = GetDC(list);
+            int least = MulDiv(kMinColumnWidth, GetDeviceCaps(dc, LOGPIXELSX), 96);
+            ReleaseDC(list, dc);
+            if (header->pitem->cxy < least) {
+                header->pitem->cxy = least;
+            }
+        }
     }
     if (msg == WM_MOUSEWHEEL && (GET_KEYSTATE_WPARAM(wParam) & (MK_CONTROL | MK_SHIFT)) != 0) {
         int notches = GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
@@ -220,6 +235,47 @@ void DownloadsView::Fill(int row, const DownloadItem& item) {
             downloading && item.speed > 0.0 ? format::Speed(item.speed) : L"");
     SetCell(hwnd_, row, COL_LAST_TRY, format::Date(item.lastTry));
     SetCell(hwnd_, row, COL_ADDED, format::Date(item.addedAt));
+}
+
+// Marks the column the rows are sorted by, or none, in the header.
+void DownloadsView::SetSortMark(int column, bool ascending) {
+    HWND header = ListView_GetHeader(hwnd_);
+    int count = Header_GetItemCount(header);
+    for (int index = 0; index < count; ++index) {
+        HDITEMW item = {};
+        item.mask = HDI_FORMAT;
+        Header_GetItem(header, index, &item);
+        item.fmt &= ~(HDF_SORTUP | HDF_SORTDOWN);
+        if (index == column) {
+            item.fmt |= ascending ? HDF_SORTUP : HDF_SORTDOWN;
+        }
+        Header_SetItem(header, index, &item);
+    }
+    InvalidateRect(header, nullptr, FALSE);
+}
+
+namespace {
+// What the sort callback of the list is handed: the caller's ordering.
+struct SortContext {
+    const std::function<bool(uint64_t, uint64_t)>* before;
+};
+
+int CALLBACK CompareRows(LPARAM first, LPARAM second, LPARAM data) {
+    const auto* context = reinterpret_cast<const SortContext*>(data);
+    uint64_t a = static_cast<uint64_t>(first);
+    uint64_t b = static_cast<uint64_t>(second);
+    if ((*context->before)(a, b)) {
+        return -1;
+    }
+    return (*context->before)(b, a) ? 1 : 0;
+}
+}  // namespace
+
+// Reorders the rows; the items of the rows are handed to `before` by id.
+void DownloadsView::Sort(const std::function<bool(uint64_t, uint64_t)>& before) {
+    SortContext context = {&before};
+    ListView_SortItems(hwnd_, CompareRows, reinterpret_cast<LPARAM>(&context));
+    InvalidateRect(hwnd_, nullptr, FALSE);
 }
 
 // Drops the row of an item.

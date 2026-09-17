@@ -52,6 +52,8 @@ private:
     void Retranslate();
     LRESULT OnToolbarCustomDraw(NMTBCUSTOMDRAW* draw);
     LRESULT OnListCustomDraw(NMLVCUSTOMDRAW* draw);
+    void OnColumnClick(int column);
+    void ApplySort();
     void DrawRow(NMLVCUSTOMDRAW* draw);
     bool DrawProgressCell(HDC dc, const RECT& cell, uint64_t id, bool selected);
     void OnContextMenu(HWND target, int x, int y);
@@ -111,6 +113,8 @@ private:
     std::vector<ToolbarSkin> skins_;
     ListFilter filter_;
     Settings settings_;
+    int sortColumn_ = -1;  // the column the rows follow, or none
+    bool sortAscending_ = true;
     uint64_t nextId_ = 1;
     MenuBar menuBar_;
     Toolbar toolbar_;

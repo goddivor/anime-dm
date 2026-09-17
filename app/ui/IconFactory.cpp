@@ -581,3 +581,35 @@ HIMAGELIST CreateCategoryImageList(const CategoryPalette& palette) {
     g_palette = palette;
     return BuildImageList(kCategorySize, CAT_COUNT, DrawCategoryGlyph);
 }
+
+// Draws the hooked arrow of a sorted column: a stem with its head at one end
+// and a curl toward the left at the other, the way IDM marks its columns.
+void DrawSortMark(HDC dc, const RECT& box, bool ascending, COLORREF colour) {
+    Graphics graphics(dc);
+    graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+    graphics.SetPixelOffsetMode(Gdiplus::PixelOffsetModeHalf);
+
+    float side = static_cast<float>(min(box.right - box.left, box.bottom - box.top));
+    float x = static_cast<float>(box.left) + (static_cast<float>(box.right - box.left) - side) / 2.0f;
+    float y = static_cast<float>(box.top) + (static_cast<float>(box.bottom - box.top) - side) / 2.0f;
+    float unit = side / 12.0f;
+    // The shape is described pointing up; a descending sort flips it.
+    auto at = [&](float px, float py) {
+        return PointF(x + px * unit, y + (ascending ? py : 12.0f - py) * unit);
+    };
+
+    Color tint(0xFF, GetRValue(colour), GetGValue(colour), GetBValue(colour));
+    Pen pen(tint, 2.0f * unit);
+    pen.SetStartCap(Gdiplus::LineCapRound);
+    pen.SetEndCap(Gdiplus::LineCapRound);
+    pen.SetLineJoin(Gdiplus::LineJoinRound);
+
+    GraphicsPath stem;
+    stem.AddLine(at(7.5f, 4.5f), at(7.5f, 8.0f));
+    stem.AddBezier(at(7.5f, 8.0f), at(7.5f, 11.2f), at(5.2f, 11.6f), at(3.2f, 10.4f));
+    graphics.DrawPath(&pen, &stem);
+
+    Gdiplus::SolidBrush brush(tint);
+    PointF head[3] = {at(3.0f, 5.5f), at(12.0f, 5.5f), at(7.5f, 0.8f)};
+    graphics.FillPolygon(&brush, head, 3);
+}

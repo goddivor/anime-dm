@@ -178,8 +178,8 @@ configuration ; l'application les stocke dans `config.json` et les réinjecte au
   `window`, `panel`, `menu`, `surface`, `text`, `line`, `accent`, `accentText`, `hover`,
   `muted`, `ok`, `bad`, `header`, `frame`, `panelFrame`. **Chaque valeur est relevée sur une capture d'IDM
   6.43**, au pixel : sombre `window` et `surface` `#393939`, `panel` et `menu` `#202020`,
-  `header` `#191919`, `line` `#565656`, contour de liste `#7A7E86`, contour du panneau
-  `#CBCBCB`, survol `#384858` ;
+  `header` `#191919`, `line` `#565656`, texte `#FFFFFF`, contour de liste `#7A7E86`,
+  contour du panneau `#CBCBCB`, survol `#384858` ;
   clair `window`, `panel`, `menu` et `header` `#FFFFFF`, `surface` `#F0F0F0`, `line` `#D8D8D8`.
   La sélection vaut `#0078D7` sur texte blanc dans les deux thèmes.
   Ne pas inventer une teinte : la mesurer sur IDM.
