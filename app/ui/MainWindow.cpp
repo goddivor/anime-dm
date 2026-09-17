@@ -1787,13 +1787,12 @@ void MainWindow::RunDownloadsMenu(int x, int y) {
 void MainWindow::ResumeSelectedWith(const std::string& player) {
     for (uint64_t id : downloads_.Selected()) {
         DownloadItem* item = Find(id);
-        if (item == nullptr) {
+        if (item == nullptr ||
+            (item->status != DownloadStatus::Stopped && item->status != DownloadStatus::Failed)) {
             continue;
         }
         item->player = player;
-        if (item->status == DownloadStatus::Stopped || item->status == DownloadStatus::Failed) {
-            StartItem(*item, false);
-        }
+        StartItem(*item, false);
     }
     Persist();
     UpdateActions();
