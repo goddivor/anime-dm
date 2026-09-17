@@ -11,7 +11,7 @@ struct DownloadMenuOptions {
     std::vector<std::string> players;
     std::string currentPlayer;  // empty when the source decides
     bool canOpen = false;       // a finished file is selected
-    bool canResume = false;     // a stopped or failed item is selected
+    bool canResume = false;     // a stopped, failed or finished item is selected
     bool canStop = false;       // a running item is selected
 };
 

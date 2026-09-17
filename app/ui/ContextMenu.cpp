@@ -7,7 +7,8 @@
 
 // Builds the popup menu, tracks it synchronously and returns the selection.
 // Resume opens on the players of the episode: picking one tells the engine
-// which to try, since the one chosen at first may have nothing to give.
+// which to try, since the one chosen at first may have nothing to give, or
+// only a truncated copy; a finished episode can be fetched again this way.
 int ShowDownloadsContextMenu(HWND owner, int x, int y, const DownloadMenuOptions& options) {
     // An entry that cannot act on the selection is greyed, as on the toolbar.
     auto when = [](bool enabled) { return enabled ? MF_STRING : (MF_STRING | MF_GRAYED); };
