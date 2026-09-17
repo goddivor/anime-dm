@@ -1,6 +1,7 @@
 #include "ui/DownloadsView.h"
 
 #include <commctrl.h>
+#include <windowsx.h>
 
 #include "core/Text.h"
 #include "ui/Format.h"
@@ -57,16 +58,46 @@ void SetCell(HWND list, int row, int column, const std::wstring& text) {
     ListView_SetItemText(list, row, column, const_cast<wchar_t*>(text.c_str()));
 }
 
+constexpr int kWheelStep = 40;  // pixels of sideways travel per wheel notch
+
+// Whether the pointer of a wheel message rests on this window.
+bool WheelIsOver(HWND window, LPARAM lParam) {
+    POINT at = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+    RECT bounds = {};
+    GetWindowRect(window, &bounds);
+    return PtInRect(&bounds, at) != FALSE;
+}
+
+
 // Keeps the vertical scroll bar on screen even while the rows fit, the way
-// IDM frames its list. The control drops the bar whenever it recomputes its
-// range; putting it back disabled, right after, restores the frame.
+// IDM frames its list, and repaints the whole list after any scroll. The
+// control scrolls by shifting the pixels it already has and painting only the
+// strip that appears, which leaves the rows painted by the window out of step
+// with the header for a moment and smears them; a full repaint through the
+// double buffer costs nothing visible and settles it. Ctrl or Shift with the
+// wheel travels sideways, which the control does not do by itself.
 LRESULT CALLBACK KeepScrollBar(HWND list, UINT msg, WPARAM wParam, LPARAM lParam,
                                UINT_PTR, DWORD_PTR) {
     if (msg == WM_NCDESTROY) {
         RemoveWindowSubclass(list, KeepScrollBar, 1);
         return DefSubclassProc(list, msg, wParam, lParam);
     }
+    if ((msg == WM_MOUSEWHEEL || msg == WM_MOUSEHWHEEL) && !WheelIsOver(list, lParam)) {
+        return SendMessageW(GetParent(list), msg, wParam, lParam);
+    }
+    if (msg == WM_MOUSEWHEEL && (GET_KEYSTATE_WPARAM(wParam) & (MK_CONTROL | MK_SHIFT)) != 0) {
+        int notches = GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
+        ListView_Scroll(list, -notches * kWheelStep, 0);
+        InvalidateRect(list, nullptr, FALSE);
+        return 0;
+    }
+
+    int horizontal = GetScrollPos(list, SB_HORZ);
+    int vertical = GetScrollPos(list, SB_VERT);
     LRESULT result = DefSubclassProc(list, msg, wParam, lParam);
+    if (GetScrollPos(list, SB_HORZ) != horizontal || GetScrollPos(list, SB_VERT) != vertical) {
+        InvalidateRect(list, nullptr, FALSE);
+    }
 
     static thread_local bool restoring = false;
     if (!restoring && (GetWindowLongPtrW(list, GWL_STYLE) & WS_VSCROLL) == 0) {
