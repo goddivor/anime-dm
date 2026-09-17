@@ -68,6 +68,7 @@ enum CommandId : int {
 
     ID_CTX_OPEN,
     ID_CTX_OPEN_FOLDER,
+    ID_CTX_PLAYER_AUTO,
 
     ID_ANIME_OPEN,
     ID_ANIME_OPEN_FOLDER,
@@ -76,6 +77,9 @@ enum CommandId : int {
 
     // One entry per folder-icon recipe follows this id.
     ID_ICON_TEMPLATE_FIRST = 3000,
+
+    // One entry per player of an episode follows this id.
+    ID_PLAYER_FIRST = 3100,
 
     // One entry per toolbar skin follows this id.
     ID_TOOLBAR_SKIN_FIRST = 3200,

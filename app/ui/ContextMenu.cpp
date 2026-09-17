@@ -1,16 +1,35 @@
 #include "ui/ContextMenu.h"
 
+#include "core/Text.h"
 #include "ui/Commands.h"
 #include "ui/Strings.h"
 #include "ui/TemplateNames.h"
 
 // Builds the popup menu, tracks it synchronously and returns the selection.
-int ShowDownloadsContextMenu(HWND owner, int x, int y) {
+// Resume opens on the players of the episode: picking one tells the engine
+// which to try, since the one chosen at first may have nothing to give.
+int ShowDownloadsContextMenu(HWND owner, int x, int y, const DownloadMenuOptions& options) {
     HMENU menu = CreatePopupMenu();
     AppendMenuW(menu, MF_STRING, ID_CTX_OPEN, Str(STR_CTX_OPEN));
     AppendMenuW(menu, MF_STRING, ID_CTX_OPEN_FOLDER, Str(STR_CTX_OPEN_FOLDER));
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(menu, MF_STRING, ID_FILE_START, Str(STR_TB_RESUME));
+
+    HMENU players = CreatePopupMenu();
+    AppendMenuW(players, options.currentPlayer.empty() ? (MF_STRING | MF_CHECKED) : MF_STRING,
+                ID_CTX_PLAYER_AUTO, Str(STR_CTX_PLAYER_AUTO));
+    AppendMenuW(players, MF_SEPARATOR, 0, nullptr);
+    if (options.players.empty()) {
+        AppendMenuW(players, MF_STRING | MF_GRAYED, 0, Str(STR_CTX_PLAYERS_UNKNOWN));
+    }
+    for (size_t i = 0; i < options.players.size(); ++i) {
+        UINT flags = MF_STRING;
+        if (options.players[i] == options.currentPlayer) {
+            flags |= MF_CHECKED;
+        }
+        AppendMenuW(players, flags, ID_PLAYER_FIRST + static_cast<UINT_PTR>(i),
+                    Widen(options.players[i]).c_str());
+    }
+    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(players), Str(STR_TB_RESUME));
     AppendMenuW(menu, MF_STRING, ID_FILE_STOP, Str(STR_TB_STOP));
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, ID_FILE_REMOVE, Str(STR_TB_REMOVE));

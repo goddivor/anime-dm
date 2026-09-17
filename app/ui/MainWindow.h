@@ -75,6 +75,10 @@ private:
     void UpdateActions();
     void StartItem(DownloadItem& item, bool fresh);
     void ResumeSelected();
+    // Shows the downloads menu for the selection and carries out its choice.
+    void RunDownloadsMenu(int x, int y);
+    // Restarts the stopped and failed items of the selection through a player.
+    void ResumeSelectedWith(const std::string& player);
     void StopSelected();
     void RedownloadSelected();
     void RemoveSelected();

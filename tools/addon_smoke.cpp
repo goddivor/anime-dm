@@ -51,11 +51,16 @@ int Walk(const Addon& addon, const std::string& url) {
 
     int resolved = 0;
     for (const nlohmann::json& hoster : *hosters) {
+        error.clear();
         std::optional<nlohmann::json> videos = addon.Call("adm_video_list", hoster, &error);
         if (videos && videos->is_array() && !videos->empty()) {
             std::printf("  %s -> %s\n", hoster.value("name", "?").c_str(),
                         videos->front().value("url", "?").c_str());
             ++resolved;
+        } else {
+            std::printf("  %s -> nothing (%s) from %s\n", hoster.value("name", "?").c_str(),
+                        error.empty() ? "empty answer" : error.c_str(),
+                        hoster.value("url", "?").c_str());
         }
     }
     std::printf("resolved: %d\n", resolved);

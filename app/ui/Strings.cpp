@@ -276,6 +276,8 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Reprendre le lien du presse-papiers à l'ouverture de la fenêtre d'ajout",
      L"Take the link from the clipboard when the add window opens"},
     {L"Sélection :", L"Selection:"},
+    {L"Automatique (au choix de la source)", L"Automatic (the source decides)"},
+    {L"Lecteurs connus après un premier essai", L"Players known after a first try"},
 };
 
 Language g_language = Language::French;

@@ -5,9 +5,17 @@
 
 #include <windows.h>
 
-// Shows the downloads right-click menu at screen coordinates.
-// Returns the chosen command id, or 0 if the menu was dismissed.
-int ShowDownloadsContextMenu(HWND owner, int x, int y);
+// What the downloads menu offers under Resume: the players the source lists
+// for the episode, and the one in use.
+struct DownloadMenuOptions {
+    std::vector<std::string> players;
+    std::string currentPlayer;  // empty when the source decides
+};
+
+// Shows the downloads right-click menu at screen coordinates. A player
+// answers ID_PLAYER_FIRST plus its index, the automatic choice
+// ID_CTX_PLAYER_AUTO. Returns the chosen command id, or 0 if dismissed.
+int ShowDownloadsContextMenu(HWND owner, int x, int y, const DownloadMenuOptions& options);
 
 // What the anime menu offers beyond the fixed entries.
 struct AnimeMenuOptions {
