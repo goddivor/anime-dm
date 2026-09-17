@@ -278,6 +278,8 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Sélection :", L"Selection:"},
     {L"Automatique (au choix de la source)", L"Automatic (the source decides)"},
     {L"Lecteurs connus après un premier essai", L"Players known after a first try"},
+    {L"%d résultat(s)", L"%d result(s)"},
+    {L"Double-clic ou Entrée : afficher dans la liste", L"Double-click or Enter: show in the list"},
 };
 
 Language g_language = Language::French;

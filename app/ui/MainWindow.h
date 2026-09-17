@@ -86,6 +86,8 @@ private:
     void DeleteAll();
     void RemoveCompleted();
     void OpenSelected(bool folder);
+    // Selects an item in the list, lifting the filter when it hides it.
+    void RevealItem(uint64_t id);
     void ShowNotice(const wchar_t* message);
     int ChosenSkin() const;
     void ChooseSkin(int index);
