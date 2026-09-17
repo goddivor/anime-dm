@@ -1767,6 +1767,16 @@ void MainWindow::RunDownloadsMenu(int x, int y) {
             options.currentPlayer = first->player;
         }
     }
+    for (uint64_t id : selected) {
+        const DownloadItem* item = Find(id);
+        if (item == nullptr) {
+            continue;
+        }
+        options.canOpen = options.canOpen || item->status == DownloadStatus::Completed;
+        options.canResume = options.canResume || item->status == DownloadStatus::Stopped ||
+                            item->status == DownloadStatus::Failed;
+        options.canStop = options.canStop || IsActive(item->status);
+    }
 
     int command = ShowDownloadsContextMenu(hwnd_, x, y, options);
     if (command == 0) {
