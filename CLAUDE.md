@@ -51,7 +51,8 @@ build\download-smoke.exe --url <url vidéo> <sortie> [referer]    # le transfert
     analyse le sous-ensemble HLS utile ; `Cipher` déchiffre l'AES-128 des segments.
   - `Queue` : la file entre deux sessions (`downloads.json`), épisodes et groupes d'animés.
     Les affiches vivent à côté, dans `posters/`, nommées d'après le SHA-256 de la page.
-  - `Settings` : `settings.json` (icônes de dossier, modèle, Aniyomi, thème, langue).
+  - `Settings` : `settings.json` (icônes de dossier, modèle, Aniyomi, thème, langue, peau de
+    la barre d'outils, presse-papiers, dossier à rappeler).
   - `FolderIcon` : l'icône du dossier d'un animé, décrite plus bas.
   - `Digest` (SHA-256 par BCrypt), `Image` (décodage par GDI+), `Paths` (`%APPDATA%`), `Text`
     (conversions UTF-8 / UTF-16).
@@ -124,6 +125,41 @@ Les icônes de type viennent de la **liste d'images du shell** (`FileIcons`), ce
 d'Explorer : `SHGetFileInfoW` avec `SHGFI_USEFILEATTRIBUTES | SHGFI_SYSICONINDEX`, donc
 l'extension suffit et le fichier n'a pas besoin d'exister. Cette liste appartient au shell,
 elle ne se détruit pas ; les index sont mis en cache par extension.
+
+## L'ajout d'un téléchargement
+
+Trois fenêtres, à la manière d'IDM (`AddDialog.cpp`, une structure `Flow` partagée) :
+
+1. **L'adresse** (`IDD_ADD_URL`) : *Adresse* et *Source*, OK et Annuler à droite. Le lien du
+   presse-papiers se colle à l'ouverture (réglage `clipboardUrl`, une case dans Options). La
+   source se choisit d'après l'adresse : chaque bibliothèque est interrogée hors du fil
+   d'interface pour connaître le site qu'elle sert (`baseUrl` de `adm_metadata`), et l'adresse
+   saisie sélectionne celle qui le revendique ; une source qui ne correspond pas lève une
+   confirmation. OK grise la fenêtre, son bouton n'affiche qu'une ellipse pendant la lecture
+   de la page, et la suivante n'arrive qu'une fois les épisodes obtenus.
+2. **Les informations** (`IDD_ADD_INFO`) : URL en lecture seule, icône de dossier, *Enregistrer
+   sous*, *Rappeler ce chemin* (réglages `rememberPath` et `savePath`, le dossier proposé aux
+   ajouts suivants), l'affiche et le nombre d'épisodes à droite, un bouton *Épisodes* qui
+   ouvre la troisième fenêtre. *Plus tard* dépose la sélection dans la file sans la confier au
+   moteur (`AddRequest::later`), *Démarrer* la lance.
+3. **Les épisodes** (`IDD_ADD_EPISODES`) : une grille de cinq par ligne (`LVS_SMALLICON`, cases
+   posées à la main par `ListView_SetItemPosition`, voir les pièges), le champ de plages
+   (`1-5,12`) et les cases qui s'écrivent l'un l'autre sous un drapeau `filling`, le lecteur
+   global et le lecteur par épisode au clic droit.
+
+Les champs de ces fenêtres font 12 unités de haut, la hauteur d'une liste déroulante ; les
+boutons 52 × 14.
+
+## Le menu contextuel de la liste
+
+Ses entrées suivent la sélection comme la barre d'outils : *Arrêter* pour un transfert en
+cours, *Ouvrir* pour un fichier terminé, *Reprendre* pour un épisode arrêté, en échec ou
+terminé. *Reprendre* est un sous-menu : *Automatique* puis les lecteurs que la source liste
+pour l'épisode, le lecteur en cours coché. Le moteur remonte ces noms (`DownloadEvent::players`)
+dès qu'il a la liste, avant même le premier essai ; l'épisode les garde (`players` dans
+`downloads.json`). Choisir un lecteur relance les épisodes arrêtés ou en échec là où ils en
+étaient, et **repart de zéro pour un épisode terminé** : un lecteur sert parfois une copie
+tronquée là où un autre a la vidéo entière.
 
 ## Le modèle d'addons
 
@@ -204,8 +240,20 @@ de l'utilisateur est la **session 2**. Conséquences :
 - Fermer l'application avant de recompiler, sinon l'éditeur de liens bute sur le fichier
   verrouillé (« Permission denied »).
 - **Tout processus lancé par `run_powershell` meurt avec le script** : un test long
-  (`download-smoke`) doit partir par `open_app` (`powershell.exe -WindowStyle Hidden -Command …
-  *> journal`) et se lire ensuite dans son journal.
+  (`download-smoke`, une compilation complète) doit partir par `open_app`
+  (`powershell.exe -WindowStyle Hidden -Command … *> journal`) et se lire ensuite dans son journal.
+- **Capturer la fenêtre, pas l'écran** : l'utilisateur travaille souvent sur la machine. Un
+  script lancé par `open_app` capture la fenêtre de l'application et ses dialogues par
+  `PrintWindow` (drapeau `PW_RENDERFULLCONTENT`), même cachés derrière d'autres fenêtres, sans
+  toucher au focus ni au pointeur ; un menu contextuel ne se laisse pas imprimer et se prend par
+  `CopyFromScreen` sur son rectangle, dans le même script que celui qui l'a ouvert, car tout
+  nouveau lancement le referme.
+- **Remplir un champ d'un autre processus** passe par `SendMessage(WM_SETTEXT)`, pas par
+  `SetWindowText` : celui-ci n'atteint pas le contrôle, seule sa copie côté système change, et
+  `GetWindowText` la relit sans que l'application voie rien. Les coordonnées d'un script
+  PowerShell ne concordent avec celles de l'application (PerMonitorV2) qu'après
+  `SetProcessDPIAware`, et un `.ps1` sans BOM est lu en ANSI par PowerShell 5 : pas d'accents
+  dans les comparaisons de titres.
 
 ## Pièges de la chaîne, durement acquis
 
@@ -229,6 +277,18 @@ de l'utilisateur est la **session 2**. Conséquences :
   dégrade proprement s'ils disparaissent.
 - **Les en-têtes GDI+ utilisent `min` et `max`** que `NOMINMAX` supprime : déclarer
   `using std::min; using std::max;` avant de les inclure.
+- **`Header_GetItemRect` répond dans les coordonnées de l'en-tête**, et la liste déplace la
+  fenêtre d'en-tête vers la gauche pour défiler : tout rectangle lu dans l'en-tête passe par
+  `MapWindowPoints(header, list)` avant d'être dessiné. Sinon les cellules peintes à la main
+  restent figées pendant que l'en-tête bouge, et les défilements par bande laissent des traînées.
+  Liste et arbre repeignent d'ailleurs tout après chaque mouvement de barre, à travers leur
+  double tampon : le contrôle copie ses pixels et ne repeint qu'une bande, et cette copie ne
+  concorde jamais tout à fait avec un dessin à la main.
+- **`LVM_SETICONSPACING` est borné par le contrôle** à la largeur qu'il juge nécessaire à une
+  case (147 px pour « Ep 001 » en petites icônes) : pour une grille de cinq, poser les cases
+  soi-même par `ListView_SetItemPosition`, sans `LVS_AUTOARRANGE`.
+- **`HDN_ITEMCHANGING` permet de borner la largeur d'une colonne** en corrigeant `cxy` dans
+  la notification, plutôt qu'en la refusant.
 - **Un `desktop.ini` écrit à la main ne rafraîchit jamais Explorer à coup sûr** : il garde
   l'icône en cache par chemin du `.ico`, parfois des minutes. Ce que font FolderIco et l'onglet
   « Personnaliser » : `SHGetSetFolderCustomSettings` avec `FCS_FORCEWRITE`, qui écrit le fichier
