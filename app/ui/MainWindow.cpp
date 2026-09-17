@@ -1767,6 +1767,17 @@ void MainWindow::RunDownloadsMenu(int x, int y) {
             options.currentPlayer = first->player;
         }
     }
+    for (uint64_t id : selected) {
+        const DownloadItem* item = Find(id);
+        if (item == nullptr) {
+            continue;
+        }
+        options.canOpen = options.canOpen || item->status == DownloadStatus::Completed;
+        options.canResume = options.canResume || item->status == DownloadStatus::Stopped ||
+                            item->status == DownloadStatus::Failed ||
+                            item->status == DownloadStatus::Completed;
+        options.canStop = options.canStop || IsActive(item->status);
+    }
 
     int command = ShowDownloadsContextMenu(hwnd_, x, y, options);
     if (command == 0) {
@@ -1783,16 +1794,23 @@ void MainWindow::RunDownloadsMenu(int x, int y) {
 }
 
 // Restarts the stopped and failed items of the selection through a player,
-// or through whatever the source prefers when the name is empty.
+// or through whatever the source prefers when the name is empty. A finished
+// episode starts over from nothing: what a player served may stop halfway
+// through when another has the whole of it.
 void MainWindow::ResumeSelectedWith(const std::string& player) {
     for (uint64_t id : downloads_.Selected()) {
         DownloadItem* item = Find(id);
-        if (item == nullptr ||
-            (item->status != DownloadStatus::Stopped && item->status != DownloadStatus::Failed)) {
+        if (item == nullptr) {
+            continue;
+        }
+        bool finished = item->status == DownloadStatus::Completed;
+        bool halted = item->status == DownloadStatus::Stopped ||
+                      item->status == DownloadStatus::Failed;
+        if (!finished && !halted) {
             continue;
         }
         item->player = player;
-        StartItem(*item, false);
+        StartItem(*item, finished);
     }
     Persist();
     UpdateActions();

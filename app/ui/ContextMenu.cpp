@@ -7,10 +7,14 @@
 
 // Builds the popup menu, tracks it synchronously and returns the selection.
 // Resume opens on the players of the episode: picking one tells the engine
-// which to try, since the one chosen at first may have nothing to give.
+// which to try, since the one chosen at first may have nothing to give, or
+// only a truncated copy; a finished episode can be fetched again this way.
 int ShowDownloadsContextMenu(HWND owner, int x, int y, const DownloadMenuOptions& options) {
+    // An entry that cannot act on the selection is greyed, as on the toolbar.
+    auto when = [](bool enabled) { return enabled ? MF_STRING : (MF_STRING | MF_GRAYED); };
+
     HMENU menu = CreatePopupMenu();
-    AppendMenuW(menu, MF_STRING, ID_CTX_OPEN, Str(STR_CTX_OPEN));
+    AppendMenuW(menu, when(options.canOpen), ID_CTX_OPEN, Str(STR_CTX_OPEN));
     AppendMenuW(menu, MF_STRING, ID_CTX_OPEN_FOLDER, Str(STR_CTX_OPEN_FOLDER));
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
 
@@ -29,8 +33,9 @@ int ShowDownloadsContextMenu(HWND owner, int x, int y, const DownloadMenuOptions
         AppendMenuW(players, flags, ID_PLAYER_FIRST + static_cast<UINT_PTR>(i),
                     Widen(options.players[i]).c_str());
     }
-    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(players), Str(STR_TB_RESUME));
-    AppendMenuW(menu, MF_STRING, ID_FILE_STOP, Str(STR_TB_STOP));
+    AppendMenuW(menu, MF_POPUP | (options.canResume ? 0 : MF_GRAYED),
+                reinterpret_cast<UINT_PTR>(players), Str(STR_TB_RESUME));
+    AppendMenuW(menu, when(options.canStop), ID_FILE_STOP, Str(STR_TB_STOP));
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, ID_FILE_REMOVE, Str(STR_TB_REMOVE));
 
