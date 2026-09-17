@@ -1065,6 +1065,24 @@ void MainWindow::OnSidebarSelect(const SidebarNode* node) {
     UpdateActions();
 }
 
+// Selects an item in the list, lifting the filter when it hides it.
+void MainWindow::RevealItem(uint64_t id) {
+    if (downloads_.RowOf(id) < 0) {
+        filter_ = ListFilter();
+        FillList();
+    }
+    int row = downloads_.RowOf(id);
+    if (row < 0) {
+        return;
+    }
+    ListView_SetItemState(downloads_.Handle(), -1, 0, LVIS_SELECTED);
+    ListView_SetItemState(downloads_.Handle(), row, LVIS_SELECTED | LVIS_FOCUSED,
+                          LVIS_SELECTED | LVIS_FOCUSED);
+    ListView_EnsureVisible(downloads_.Handle(), row, FALSE);
+    SetFocus(downloads_.Handle());
+    UpdateActions();
+}
+
 // Shows the menu of the anime or the episode under the pointer.
 void MainWindow::OnSidebarContext() {
     POINT screen = {};
@@ -1675,7 +1693,7 @@ void MainWindow::OnCommand(int commandId) {
         OpenSelected(true);
         break;
     case ID_DOWNLOAD_SEARCH:
-        ShowSearchDialog(hwnd_, instance);
+        ShowSearchDialog(hwnd_, instance, items_, [this](uint64_t id) { RevealItem(id); });
         break;
     case ID_VIEW_SETTINGS:
         if (ShowSettingsDialog(hwnd_, instance, &settings_)) {
