@@ -226,6 +226,21 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
             return TRUE;
         }
         break;
+    case WM_MOUSEWHEEL:
+    case WM_MOUSEHWHEEL: {
+        // The wheel is delivered to the window that has the focus; the user
+        // expects it to move what lies under the pointer.
+        static thread_local bool forwarding = false;
+        POINT at = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        HWND under = WindowFromPoint(at);
+        if (!forwarding && under != nullptr && under != hwnd_ && IsChild(hwnd_, under)) {
+            forwarding = true;
+            LRESULT result = SendMessageW(under, msg, wParam, lParam);
+            forwarding = false;
+            return result;
+        }
+        break;
+    }
     case WM_NOTIFY: {
         auto* notify = reinterpret_cast<NMHDR*>(lParam);
         if (notify->hwndFrom == toolbar_.Handle() && notify->code == TBN_HOTITEMCHANGE) {
@@ -427,12 +442,16 @@ LRESULT MainWindow::OnListCustomDraw(NMLVCUSTOMDRAW* draw) {
     HPEN pen = CreatePen(PS_SOLID, 1, ActiveTheme().Colors().line);
     HPEN previous = static_cast<HPEN>(SelectObject(dc, pen));
 
+    // The header answers in its own coordinates, and the list slides the
+    // header window sideways to scroll: every rectangle is brought back into
+    // the coordinates of the list before anything is drawn from it.
     int columns = Header_GetItemCount(header);
     for (int column = 0; column < columns; ++column) {
         RECT item = {};
         if (!Header_GetItemRect(header, column, &item)) {
             continue;
         }
+        MapWindowPoints(header, list, reinterpret_cast<POINT*>(&item), 2);
         MoveToEx(dc, item.right - 1, item.bottom, nullptr);
         LineTo(dc, item.right - 1, client.bottom);
     }
@@ -503,6 +522,7 @@ void MainWindow::DrawRow(NMLVCUSTOMDRAW* draw) {
         if (!Header_GetItemRect(header, column, &span)) {
             continue;
         }
+        MapWindowPoints(header, list, reinterpret_cast<POINT*>(&span), 2);
         RECT cell = {span.left, bounds.top, span.right, bounds.bottom};
         if (cell.right <= client.left || cell.left >= client.right) {
             continue;

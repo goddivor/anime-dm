@@ -207,11 +207,19 @@ bool Same(const SidebarNode& a, const SidebarNode& b) {
     return a.kind == b.kind && a.animeUrl == b.animeUrl && a.itemId == b.itemId;
 }
 
-// Repaints the whole tree whenever its content slides sideways. To scroll,
-// the tree shifts the pixels already on screen and paints only the strip it
-// uncovers; the anime rows and the rule are laid out against the right edge
-// of the visible area, so a shifted copy of them would pile up beside the
-// fresh one.
+// Whether the pointer of a wheel message rests on this window.
+bool WheelIsOver(HWND window, LPARAM lParam) {
+    POINT at = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+    RECT bounds = {};
+    GetWindowRect(window, &bounds);
+    return PtInRect(&bounds, at) != FALSE;
+}
+
+// Repaints the whole tree whenever it scrolls, either way, and folds a row
+// when the press lands on its box. To scroll, the tree shifts the pixels
+// already on screen and paints only the strip it uncovers; the rows the panel
+// draws itself, laid out against the right edge and tied with dotted lines,
+// never quite match that copy.
 LRESULT CALLBACK RepaintOnScroll(HWND tree, UINT msg, WPARAM wParam, LPARAM lParam,
                                  UINT_PTR id, DWORD_PTR data) {
     if (msg == WM_NCDESTROY) {
@@ -224,9 +232,23 @@ LRESULT CALLBACK RepaintOnScroll(HWND tree, UINT msg, WPARAM wParam, LPARAM lPar
             return 0;
         }
     }
-    int before = GetScrollPos(tree, SB_HORZ);
+    if ((msg == WM_MOUSEWHEEL || msg == WM_MOUSEHWHEEL) && !WheelIsOver(tree, lParam)) {
+        return SendMessageW(GetParent(tree), msg, wParam, lParam);
+    }
+    // Ctrl or Shift with the wheel travels sideways.
+    if (msg == WM_MOUSEWHEEL && (GET_KEYSTATE_WPARAM(wParam) & (MK_CONTROL | MK_SHIFT)) != 0) {
+        int notches = GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
+        for (int step = 0; step < 3 * (notches < 0 ? -notches : notches); ++step) {
+            SendMessageW(tree, WM_HSCROLL, notches < 0 ? SB_LINERIGHT : SB_LINELEFT, 0);
+        }
+        InvalidateRect(tree, nullptr, FALSE);
+        return 0;
+    }
+
+    int horizontal = GetScrollPos(tree, SB_HORZ);
+    int vertical = GetScrollPos(tree, SB_VERT);
     LRESULT result = DefSubclassProc(tree, msg, wParam, lParam);
-    if (GetScrollPos(tree, SB_HORZ) != before) {
+    if (GetScrollPos(tree, SB_HORZ) != horizontal || GetScrollPos(tree, SB_VERT) != vertical) {
         InvalidateRect(tree, nullptr, FALSE);
     }
     return result;
