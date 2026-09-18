@@ -188,6 +188,33 @@ ne touche à rien.
 La fenêtre principale applique ce qui sort du dialogue (`ApplySettings`) : registre `Run`,
 `bridge::RegisterHost` par navigateur, limites du moteur, puis `settings::Save`.
 
+## Le Planificateur
+
+Deux **files** : la *principale* et celle du *planificateur* ; chaque épisode appartient à l'une
+(`queue` dans `downloads.json`, clic droit *Mettre dans la file*). **« Plus tard »** dépose
+l'épisode *arrêté* dans la file principale, comme « Télécharger plus tard » d'IDM ; *Démarrer la
+file* reprend les épisodes arrêtés ou en échec de la file, *Arrêter la file* stoppe ceux qui
+tournent. Une session coupée net ne laisse rien *En attente* : au chargement, tout ce qui
+était actif passe *Arrêté*.
+
+La fenêtre (`SchedulerDialog.cpp`, bouton *Planifier*) a deux onglets (`TabStrip`, le même
+dessin que les Options) :
+
+1. **Files** : par file, démarrage automatique *une fois* (date, heure) ou *chaque jour* (jours
+   cochés, heure), arrêt automatique, action une fois la file finie (rien, quitter, éteindre
+   l'ordinateur), la liste des fichiers, *Démarrer maintenant*. `Scheduler::Tick`
+   (`core/Schedule`), appelé toutes les 30 s par un `WM_TIMER` de la fenêtre principale, ne
+   tire qu'une fois par minute et par file ; réglages dans `schedule.json`.
+2. **Animés suivis** (`core/Follow`, `FollowDialog`) : un animé suivi (source, page, dossier,
+   jour et heure de sortie, file de destination, démarrage aussitôt ou non) est vérifié par un
+   fil de fond (`CheckFollow`, `adm_episode_list`) : la **première vérification ne fait que
+   noter** les épisodes présents (`primed`), les suivantes ajoutent les nouveaux dans le
+   dossier de l'animé (`AddEpisodes`). Rythme (`follow::Plan`) : au moment de sortie, puis
+   toutes les 3 h pendant 48 h tant que rien ne paraît, puis la semaine suivante. Les sources
+   ne donnent pas de date d'épisode (`date_upload` reste vide) : le jour et l'heure viennent
+   de l'utilisateur, préremplis avec le moment du suivi. Clic droit sur un animé du panneau :
+   *Suivre les nouveaux épisodes…* (coché quand il est suivi). Réglages dans `follows.json`.
+
 ## Le pont avec le navigateur
 
 L'extension (`extension/`, MV3, Chromium et Firefox) ne parle jamais au réseau : elle
@@ -325,6 +352,13 @@ de l'utilisateur est la **session 2**. Conséquences :
   toucher au focus ni au pointeur ; un menu contextuel ne se laisse pas imprimer et se prend par
   `CopyFromScreen` sur son rectangle, dans le même script que celui qui l'a ouvert, car tout
   nouveau lancement le referme.
+- **Ne jamais cliquer avec le pointeur** (`SetCursorPos` + `mouse_event`) : l'utilisateur
+  travaille sur la machine et le clic tombe sur *sa* fenêtre de premier plan, pas sur la
+  nôtre, même cachée. `postclick.ps1` poste `WM_LBUTTONDOWN`/`WM_LBUTTONUP` en coordonnées
+  client à la fenêtre trouvée par son titre, ou `BM_CLICK` (par `PostMessage`, jamais
+  `SendMessage` : un bouton qui ouvre un dialogue modal bloquerait le script) au bouton
+  trouvé par `RealChildWindowFromPoint`. Les onglets dessinés à la main répondent au
+  `WM_LBUTTONDOWN` posté.
 - **Remplir un champ d'un autre processus** passe par `SendMessage(WM_SETTEXT)`, pas par
   `SetWindowText` : celui-ci n'atteint pas le contrôle, seule sa copie côté système change, et
   `GetWindowText` la relit sans que l'application voie rien. Les coordonnées d'un script
@@ -380,8 +414,7 @@ de l'utilisateur est la **session 2**. Conséquences :
   d'installation qu'écrit Options restent sans effet. À reprendre quand l'utilisateur aura
   ouvert les comptes développeur (zip Chromium avec la `key` du manifeste, zip Firefox pour la
   signature auto-distribuée, XPI signé à livrer dans `resources\extension`).
-- Aucune **limitation de débit**, aucun **planificateur** : les entrées de menu existent,
-  pas le comportement.
+- Aucune **limitation de débit** : les entrées de menu existent, pas le comportement.
 - Seules les actions de téléchargement (reprendre, arrêter, supprimer…) sont grisées selon
   l'état ; le reste du menu ne l'est pas encore.
 - Les **superpositions** note, genre et logo des gabarits (qui lisent un `.nfo`) ne sont pas

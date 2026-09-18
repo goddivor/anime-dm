@@ -14,6 +14,7 @@
 #include "ui/Paint.h"
 #include "ui/Resource.h"
 #include "ui/Strings.h"
+#include "ui/TabStrip.h"
 #include "ui/TemplateNames.h"
 #include "ui/Theme.h"
 
@@ -27,7 +28,6 @@ constexpr StringId kPageTitles[kPageCount] = {STR_SET_TAB_GENERAL, STR_SET_TAB_S
 // The strip of tabs and the body under it, in dialog units.
 constexpr RECT kStripUnits = {8, 6, 332, 20};
 constexpr RECT kBodyUnits = {8, 20, 332, 228};
-constexpr int kTabPaddingUnits = 10;
 
 // What the dialog works on: the settings, the pages, and where the tabs lie.
 struct Screen {
@@ -38,19 +38,11 @@ struct Screen {
     HINSTANCE instance = nullptr;
     HWND pages[kPageCount] = {};
     int creating = 0;
-    int page = 0;
-    RECT strip = {};
-    RECT body = {};
-    std::vector<RECT> tabs;
+    TabStrip tabs;
 };
 
 HFONT FontOf(HWND window) {
     return reinterpret_cast<HFONT>(SendMessageW(window, WM_GETFONT, 0, 0));
-}
-
-RECT ToPixels(HWND dialog, RECT units) {
-    MapDialogRect(dialog, &units);
-    return units;
 }
 
 // --- the pages ----------------------------------------------------------------
@@ -390,104 +382,25 @@ INT_PTR CALLBACK PanelProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) 
 
 // --- the tabs -----------------------------------------------------------------
 
-// Measures the tabs from their captions, side by side along the strip.
-void LayOutTabs(HWND dialog, Screen& screen) {
-    screen.strip = ToPixels(dialog, kStripUnits);
-    screen.body = ToPixels(dialog, kBodyUnits);
-    RECT padding = ToPixels(dialog, {0, 0, kTabPaddingUnits, 0});
-
-    HDC dc = GetDC(dialog);
-    HFONT old = SelectFont(dc, FontOf(dialog));
-    int x = screen.strip.left;
-    screen.tabs.clear();
-    for (StringId title : kPageTitles) {
-        SIZE size = {};
-        const wchar_t* text = Str(title);
-        GetTextExtentPoint32W(dc, text, lstrlenW(text), &size);
-        RECT tab = {x, screen.strip.top, x + size.cx + 2 * padding.right, screen.strip.bottom};
-        screen.tabs.push_back(tab);
-        x = tab.right - 1;
-    }
-    SelectFont(dc, old);
-    ReleaseDC(dialog, dc);
-}
-
 // Shows one page and hides the others.
 void ShowPage(HWND dialog, Screen& screen, int index) {
-    screen.page = index;
+    screen.tabs.SetPage(dialog, index);
     for (int i = 0; i < kPageCount; ++i) {
         ShowWindow(screen.pages[i], i == index ? SW_SHOW : SW_HIDE);
     }
-    RECT strip = screen.strip;
-    strip.bottom = screen.body.top + 1;
-    InvalidateRect(dialog, &strip, TRUE);
-}
-
-// Draws the strip: each tab outlined, the chosen one filled like the page
-// and open onto it, the body framed underneath.
-void PaintTabs(HWND dialog, const Screen& screen) {
-    PAINTSTRUCT ps = {};
-    HDC dc = BeginPaint(dialog, &ps);
-    const ThemeColors& colors = ActiveTheme().Colors();
-    HFONT oldFont = SelectFont(dc, FontOf(dialog));
-    HPEN pen = CreatePen(PS_SOLID, 1, colors.line);
-    HPEN oldPen = SelectPen(dc, pen);
-    HBRUSH page = CreateSolidBrush(colors.window);
-    HBRUSH rest = CreateSolidBrush(colors.surface);
-
-    SelectBrush(dc, page);
-    Rectangle(dc, screen.body.left, screen.body.top, screen.body.right, screen.body.bottom);
-
-    SetBkMode(dc, TRANSPARENT);
-    for (size_t i = 0; i < screen.tabs.size(); ++i) {
-        bool chosen = static_cast<int>(i) == screen.page;
-        RECT tab = screen.tabs[i];
-        if (!chosen) {
-            tab.top += 2;
-        }
-        SelectBrush(dc, chosen ? page : rest);
-        Rectangle(dc, tab.left, tab.top, tab.right, tab.bottom + 1);
-        if (chosen) {
-            HPEN erase = CreatePen(PS_SOLID, 1, colors.window);
-            HPEN kept = SelectPen(dc, erase);
-            MoveToEx(dc, tab.left + 1, tab.bottom, nullptr);
-            LineTo(dc, tab.right - 1, tab.bottom);
-            SelectPen(dc, kept);
-            DeleteObject(erase);
-        }
-        SetTextColor(dc, chosen ? colors.text : colors.muted);
-        DrawTextW(dc, Str(kPageTitles[i]), -1, &tab,
-                  DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-    }
-
-    SelectPen(dc, oldPen);
-    SelectFont(dc, oldFont);
-    DeleteObject(pen);
-    DeleteObject(page);
-    DeleteObject(rest);
-    EndPaint(dialog, &ps);
-}
-
-// The tab under a point, or -1.
-int TabAt(const Screen& screen, POINT point) {
-    for (size_t i = 0; i < screen.tabs.size(); ++i) {
-        if (PtInRect(&screen.tabs[i], point)) {
-            return static_cast<int>(i);
-        }
-    }
-    return -1;
 }
 
 // Creates the pages inside the body and shows the first.
 void CreatePages(HWND dialog, Screen& screen) {
-    LayOutTabs(dialog, screen);
+    screen.tabs.Init(dialog, kStripUnits, kBodyUnits,
+                     std::vector<StringId>(kPageTitles, kPageTitles + kPageCount));
+    const RECT& body = screen.tabs.Body();
     for (int i = 0; i < kPageCount; ++i) {
         screen.creating = i;
         screen.pages[i] = CreateDialogParamW(screen.instance, MAKEINTRESOURCEW(kPageIds[i]), dialog,
                                              PageProc, reinterpret_cast<LPARAM>(&screen));
-        SetWindowPos(screen.pages[i], HWND_TOP, screen.body.left + 1, screen.body.top + 1,
-                     screen.body.right - screen.body.left - 2,
-                     screen.body.bottom - screen.body.top - 2, SWP_NOACTIVATE);
+        SetWindowPos(screen.pages[i], HWND_TOP, body.left + 1, body.top + 1,
+                     body.right - body.left - 2, body.bottom - body.top - 2, SWP_NOACTIVATE);
     }
     ShowPage(dialog, screen, 0);
 }
@@ -511,11 +424,11 @@ INT_PTR CALLBACK SettingsDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM
         CreatePages(dialog, *screen);
         return TRUE;
     case WM_PAINT:
-        PaintTabs(dialog, *screen);
+        screen->tabs.Paint(dialog);
         return TRUE;
     case WM_LBUTTONDOWN: {
-        int tab = TabAt(*screen, {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)});
-        if (tab >= 0 && tab != screen->page) {
+        int tab = screen->tabs.HitTest({GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)});
+        if (tab >= 0 && tab != screen->tabs.Page()) {
             ShowPage(dialog, *screen, tab);
         }
         return TRUE;

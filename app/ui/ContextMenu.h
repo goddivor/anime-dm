@@ -26,6 +26,7 @@ struct AnimeMenuOptions {
     std::vector<std::string> templates;  // folder-icon recipe ids, in order
     std::string currentTemplate;         // the one ticked, if any
     bool offerAniyomi = false;           // when the folder lacks the Aniyomi files
+    bool followed = false;               // its new episodes are fetched on their own
 };
 
 // Shows the right-click menu of an anime of the categories panel. A recipe

@@ -45,6 +45,7 @@ constexpr UINT kDownloadEvent = WM_APP + 20;
 constexpr UINT kPosterEvent = WM_APP + 21;
 constexpr UINT kIconEvent = WM_APP + 22;
 constexpr UINT kOutsideAdd = WM_APP + 23;
+constexpr UINT kFollowEvent = WM_APP + 24;
 constexpr UINT_PTR kScheduleTimer = 7;
 constexpr UINT kScheduleTickMs = 30000;
 constexpr int kNameColumn = 0;
@@ -147,6 +148,13 @@ struct PosterPayload : PosterPayloadData {};
 // What a worker thread reports once it dressed a folder up.
 struct IconPayload : IconPayloadData {};
 
+// What a worker thread brings back from the page of a followed anime.
+struct FollowPayload {
+    std::string animeUrl;
+    bool ok = false;
+    std::vector<AddRequestEpisode> episodes;
+};
+
 // Registers the window class and creates the top-level window.
 bool MainWindow::Create(HINSTANCE instance, const wchar_t* title) {
     WNDCLASSEXW wc = {};
@@ -219,6 +227,9 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
     case kIconEvent:
         OnIconEvent(std::unique_ptr<IconPayload>(reinterpret_cast<IconPayload*>(lParam)));
+        return 0;
+    case kFollowEvent:
+        OnFollowEvent(std::unique_ptr<FollowPayload>(reinterpret_cast<FollowPayload*>(lParam)));
         return 0;
     case kOutsideAdd: {
         std::unique_ptr<Handed> handed(reinterpret_cast<Handed*>(lParam));
@@ -394,6 +405,7 @@ void MainWindow::OnCreate() {
     LoadPosters();
     downloader_.Attach(hwnd_, kDownloadEvent);
     schedule::Load(&scheduler_);
+    follows_ = follow::Load();
     SetTimer(hwnd_, kScheduleTimer, kScheduleTickMs, nullptr);
 
     ACCEL accels[] = {
@@ -924,6 +936,26 @@ void MainWindow::OnAddDownload(const std::string& initialUrl, const std::string&
     }
 
     request.animeTitle = TidyText(request.animeTitle);
+    AddEpisodes(request, QueueKind::Main, !request.later);
+    if (request.rememberPath != settings_.rememberPath ||
+        (request.rememberPath && Narrow(request.destination) != settings_.savePath)) {
+        settings_.rememberPath = request.rememberPath;
+        settings_.savePath = request.rememberPath ? Narrow(request.destination) : std::string();
+        settings::Save(settings_);
+    }
+    if (!request.posterBytes.empty()) {
+        DecorateFolder(request.animeUrl, request.folderTemplate);
+    }
+    ApplySort();
+    Persist();
+    RebuildSidebar();
+    UpdateActions();
+}
+
+// Puts the episodes of a request in the queue, under the folder of their
+// anime, creating the anime group on the way; `start` hands them to the
+// engine at once, otherwise they wait stopped for the queue.
+void MainWindow::AddEpisodes(const AddRequest& request, QueueKind queue, bool start) {
     std::wstring title = SafeFileName(Widen(request.animeTitle));
     std::wstring base = request.destination.empty() ? paths::UserDownloadsDir()
                                                     : request.destination;
@@ -957,29 +989,16 @@ void MainWindow::OnAddDownload(const std::string& initialUrl, const std::string&
                        (IsMovie(episode.name)
                             ? title + L".mp4"
                             : title + L" - Ep " + EpisodeLabel(episode.number) + L".mp4");
-        // Later leaves the episode stopped in the main queue: Resume, or
-        // starting the queue, hands it to the engine.
-        item.status = request.later ? DownloadStatus::Stopped : DownloadStatus::Queued;
+        item.queue = queue;
+        // Left stopped, the episode waits for Resume or for its queue to start.
+        item.status = start ? DownloadStatus::Queued : DownloadStatus::Stopped;
         item.addedAt = std::time(nullptr);
         items_.push_back(item);
         Refresh(item);
-        if (!request.later) {
+        if (start) {
             downloader_.Start(TaskOf(item));
         }
     }
-    if (request.rememberPath != settings_.rememberPath ||
-        (request.rememberPath && Narrow(request.destination) != settings_.savePath)) {
-        settings_.rememberPath = request.rememberPath;
-        settings_.savePath = request.rememberPath ? Narrow(request.destination) : std::string();
-        settings::Save(settings_);
-    }
-    if (!request.posterBytes.empty()) {
-        DecorateFolder(request.animeUrl, request.folderTemplate);
-    }
-    ApplySort();
-    Persist();
-    RebuildSidebar();
-    UpdateActions();
 }
 
 // Records what a worker thread did to a folder and tells the user when asked.
@@ -1194,6 +1213,8 @@ void MainWindow::OnSidebarContext() {
         }
         std::wstring folder = FolderOfAnime(url);
         options.offerAniyomi = !folder.empty() && !foldericon::HasAniyomiFiles(folder);
+        options.followed = std::any_of(follows_.begin(), follows_.end(),
+                                       [&](const FollowedAnime& f) { return f.animeUrl == url; });
 
         int command = ShowAnimeContextMenu(hwnd_, screen.x, screen.y, options);
         if (command >= ID_ICON_TEMPLATE_FIRST &&
@@ -1214,6 +1235,9 @@ void MainWindow::OnSidebarContext() {
             break;
         case ID_ANIME_DELETE:
             DeleteAnime(url);
+            break;
+        case ID_ANIME_FOLLOW:
+            FollowAnime(url);
             break;
         default:
             break;
@@ -1674,7 +1698,9 @@ void MainWindow::OpenScheduler() {
     HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
     SchedulerScreen screen;
     screen.scheduler = &scheduler_;
+    screen.follows = &follows_;
     screen.items = &items_;
+    screen.choices = FollowChoices();
     screen.initial = filter_.kind == ListFilter::Kind::QueueMain ? QueueKind::Main
                                                                   : QueueKind::Scheduler;
     screen.run = [this](QueueKind queue, bool start) {
@@ -1686,7 +1712,185 @@ void MainWindow::OpenScheduler() {
     };
     if (ShowSchedulerDialog(hwnd_, instance, &screen)) {
         schedule::Save(scheduler_);
+        follow::Save(follows_);
+        CheckFollows();
     }
+}
+
+// The animes of the queue a follow may name, with the source and the folder
+// their episodes came through.
+std::vector<FollowChoice> MainWindow::FollowChoices() const {
+    std::vector<FollowChoice> choices;
+    for (const AnimeGroup& group : groups_) {
+        FollowChoice choice;
+        choice.animeUrl = group.url;
+        choice.title = group.title;
+        for (const DownloadItem& item : items_) {
+            if (item.animeUrl == group.url) {
+                choice.addonId = item.addonId;
+                choice.destination = FolderOf(FolderOf(item.outPath));
+                break;
+            }
+        }
+        if (!choice.addonId.empty()) {
+            choices.push_back(choice);
+        }
+    }
+    return choices;
+}
+
+// Opens the follow dialog on an anime of the panel, or on the follow it
+// already has.
+void MainWindow::FollowAnime(const std::string& url) {
+    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+    FollowScreen screen;
+    screen.choices = FollowChoices();
+    FollowedAnime draft;
+    FollowedAnime* existing = nullptr;
+    for (FollowedAnime& follow : follows_) {
+        if (follow.animeUrl == url) {
+            existing = &follow;
+        }
+    }
+    if (existing != nullptr) {
+        draft = *existing;
+    } else {
+        draft.animeUrl = url;
+        std::time_t now = std::time(nullptr);
+        std::tm local = {};
+        localtime_s(&local, &now);
+        draft.releaseDay = (local.tm_wday + 6) % 7;
+        draft.releaseHour = local.tm_hour;
+    }
+    screen.follow = &draft;
+    screen.editing = true;
+    if (!ShowFollowDialog(hwnd_, instance, &screen)) {
+        return;
+    }
+    if (existing != nullptr) {
+        bool moved = existing->releaseDay != draft.releaseDay ||
+                     existing->releaseHour != draft.releaseHour ||
+                     existing->releaseMinute != draft.releaseMinute;
+        *existing = draft;
+        if (moved && existing->primed) {
+            existing->nextCheck = follow::NextRelease(*existing, std::time(nullptr));
+            existing->misses = 0;
+        }
+    } else {
+        draft.nextCheck = 0;
+        draft.primed = false;
+        follows_.push_back(draft);
+    }
+    follow::Save(follows_);
+    CheckFollows();
+}
+
+// Starts a check for every follow whose moment has come and that is not
+// being checked already.
+void MainWindow::CheckFollows() {
+    std::time_t now = std::time(nullptr);
+    for (const FollowedAnime& follow : follows_) {
+        bool busy = std::find(checking_.begin(), checking_.end(), follow.animeUrl) !=
+                    checking_.end();
+        if (!busy && follow.nextCheck <= now) {
+            checking_.push_back(follow.animeUrl);
+            CheckFollow(follow);
+        }
+    }
+}
+
+// Asks the source for the episodes of a followed anime, off the interface
+// thread, and posts them back.
+void MainWindow::CheckFollow(const FollowedAnime& follow) {
+    std::wstring library = store_.LibraryPath(follow.addonId);
+    std::map<std::string, std::string> config = store_.ReadConfig(follow.addonId);
+    std::string url = follow.animeUrl;
+    Http* http = &http_;
+    HWND window = hwnd_;
+    std::thread([library, config, url, http, window] {
+        auto* payload = new FollowPayload();
+        payload->animeUrl = url;
+        std::unique_ptr<Addon> addon = Addon::Load(library, *http, config);
+        if (addon) {
+            nlohmann::json input = {{"url", url}};
+            if (std::optional<nlohmann::json> episodes = addon->Call("adm_episode_list", input)) {
+                if (episodes->is_array()) {
+                    for (const nlohmann::json& entry : *episodes) {
+                        AddRequestEpisode episode;
+                        episode.url = entry.value("url", std::string());
+                        episode.name = entry.value("name", std::string());
+                        episode.number = entry.value("number", 0.0);
+                        if (!episode.url.empty()) {
+                            payload->episodes.push_back(std::move(episode));
+                        }
+                    }
+                    payload->ok = !payload->episodes.empty();
+                }
+            }
+        }
+        if (!PostMessageW(window, kFollowEvent, 0, reinterpret_cast<LPARAM>(payload))) {
+            delete payload;
+        }
+    }).detach();
+}
+
+// Takes the episodes a check found: the first check only records them, the
+// next ones queue whatever is new and plan the check after.
+void MainWindow::OnFollowEvent(std::unique_ptr<FollowPayload> payload) {
+    checking_.erase(std::remove(checking_.begin(), checking_.end(), payload->animeUrl),
+                    checking_.end());
+    FollowedAnime* follow = nullptr;
+    for (FollowedAnime& candidate : follows_) {
+        if (candidate.animeUrl == payload->animeUrl) {
+            follow = &candidate;
+        }
+    }
+    if (follow == nullptr) {
+        return;
+    }
+    std::time_t now = std::time(nullptr);
+    if (!payload->ok) {
+        follow::Plan(follow, now, false);
+        follow::Save(follows_);
+        return;
+    }
+
+    AddRequest request;
+    request.addonId = follow->addonId;
+    request.animeTitle = follow->title;
+    request.animeUrl = follow->animeUrl;
+    request.destination = follow->destination;
+    for (const AddRequestEpisode& episode : payload->episodes) {
+        bool known = std::find(follow->known.begin(), follow->known.end(), episode.url) !=
+                     follow->known.end();
+        bool queued = std::any_of(items_.begin(), items_.end(), [&](const DownloadItem& item) {
+            return item.pageUrl == episode.url;
+        });
+        if (!known) {
+            follow->known.push_back(episode.url);
+        }
+        if (episode.number > follow->lastNumber) {
+            follow->lastNumber = episode.number;
+        }
+        if (!known && !queued && follow->primed) {
+            request.episodes.push_back(episode);
+        }
+    }
+    bool found = !request.episodes.empty();
+    if (found) {
+        AddEpisodes(request, follow->queue, follow->startAtOnce);
+        ApplySort();
+        Persist();
+        RebuildSidebar();
+        UpdateActions();
+    }
+    if (!follow->primed) {
+        follow->primed = true;
+        follow->nextCheck = follow::NextRelease(*follow, now);
+    } else {
+        follow::Plan(follow, now, found);
+    }
+    follow::Save(follows_);
 }
 
 // Carries out what the schedules name as due, once every tick.
@@ -1706,6 +1910,7 @@ void MainWindow::OnScheduleTick() {
     if (changed) {
         schedule::Save(scheduler_);
     }
+    CheckFollows();
 }
 
 // Once a queue the clock started has nothing left running, does what its
