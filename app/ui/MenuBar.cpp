@@ -298,7 +298,7 @@ bool MenuBar::MeasureItem(MEASUREITEMSTRUCT* measure, HWND window) const {
     SelectObject(dc, previous);
     ReleaseDC(window, dc);
 
-    measure->itemWidth = size.cx + 14;
+    measure->itemWidth = size.cx + 40;
     measure->itemHeight = size.cy + 6;
     return true;
 }
