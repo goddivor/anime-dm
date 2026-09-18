@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 // What the user chose once and expects to find again, kept in `settings.json`.
 struct Settings {
@@ -13,9 +14,22 @@ struct Settings {
     bool clipboardUrl = true;             // paste the link of the clipboard into the add window
     bool rememberPath = false;            // reuse the folder below for the next downloads
     std::string savePath;                 // that folder, in UTF-8
+    bool startWithWindows = false;        // run when the user signs in
+    std::vector<std::string> browsers;    // the ids of the browsers the host is declared to
+    int maxRunning = 3;                   // videos downloaded at once
+    int connections = 8;                  // connections one video may open
+    std::string panelMode = "full";       // the browser panel, "full" with its label or "mini"
+    bool panelOnPage = true;              // show it on the page of an anime or an episode
+    bool panelOnLinks = true;             // show it over the links that lead to one
 };
 
 namespace settings {
+
+// The bounds of the two limits of the download engine.
+constexpr int kMinRunning = 1;
+constexpr int kMaxRunning = 10;
+constexpr int kMinConnections = 1;
+constexpr int kMaxConnections = 16;
 
 Settings Load();
 void Save(const Settings& settings);

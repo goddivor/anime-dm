@@ -363,6 +363,8 @@ BOOL CALLBACK ThemeChild(HWND child, LPARAM data) {
         theme.ApplyToTree(child);
     } else if (lstrcmpiW(name, WC_EDITW) == 0 || lstrcmpiW(name, WC_COMBOBOXW) == 0) {
         SetWindowTheme(child, dark ? L"DarkMode_CFD" : L"CFD", nullptr);
+    } else if (lstrcmpiW(name, UPDOWN_CLASSW) == 0) {
+        SetWindowTheme(child, dark ? L"DarkMode_Explorer" : L"Explorer", nullptr);
     } else if (lstrcmpiW(name, WC_BUTTONW) == 0) {
         // A themed check box or radio button draws its caption in the colour
         // of the visual style, black whatever the dialog answers; without the

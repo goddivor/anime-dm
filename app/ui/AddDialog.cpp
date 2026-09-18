@@ -21,6 +21,7 @@
 #include "core/Settings.h"
 #include "core/Text.h"
 #include "ui/AddSelection.h"
+#include "ui/FolderPicker.h"
 #include "ui/ConfirmDialog.h"
 #include "ui/NoticeDialog.h"
 #include "ui/Paint.h"
@@ -78,6 +79,9 @@ struct Flow {
     std::vector<std::string> hosts;  // parallel to `sources`, empty until known
     int source = -1;
     std::string url;
+    std::string initialUrl;
+    std::string initialEpisode;
+    bool autoStart = false;
 
     std::string title;
     std::string posterUrl;
@@ -196,32 +200,6 @@ std::wstring DefaultDestination() {
     std::wstring path(folder);
     CoTaskMemFree(folder);
     return path;
-}
-
-std::wstring PickFolder(HWND owner) {
-    IFileDialog* dialog = nullptr;
-    if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER,
-                                IID_PPV_ARGS(&dialog)))) {
-        return std::wstring();
-    }
-
-    std::wstring chosen;
-    DWORD options = 0;
-    if (SUCCEEDED(dialog->GetOptions(&options)) &&
-        SUCCEEDED(dialog->SetOptions(options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM)) &&
-        SUCCEEDED(dialog->Show(owner))) {
-        IShellItem* item = nullptr;
-        if (SUCCEEDED(dialog->GetResult(&item))) {
-            PWSTR path = nullptr;
-            if (SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &path))) {
-                chosen = path;
-                CoTaskMemFree(path);
-            }
-            item->Release();
-        }
-    }
-    dialog->Release();
-    return chosen;
 }
 
 }  // namespace
@@ -950,7 +928,10 @@ INT_PTR CALLBACK UrlProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
         SetDialogText(dialog, IDCANCEL, STR_DLG_CANCEL);
 
         FillSources(dialog, *flow);
-        if (flow->settings != nullptr && flow->settings->clipboardUrl) {
+        if (!flow->initialUrl.empty()) {
+            SetDlgItemTextW(dialog, IDC_ADD_URL, Widen(flow->initialUrl).c_str());
+            flow->autoStart = !flow->sources.empty();
+        } else if (flow->settings != nullptr && flow->settings->clipboardUrl) {
             std::wstring pasted = ClipboardUrl(dialog);
             if (!pasted.empty()) {
                 SetDlgItemTextW(dialog, IDC_ADD_URL, pasted.c_str());
@@ -967,6 +948,14 @@ INT_PTR CALLBACK UrlProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
         std::unique_ptr<Hosts> answer(reinterpret_cast<Hosts*>(lParam));
         flow->hosts = std::move(answer->hosts);
         MatchSource(dialog, *flow);
+        // An address handed in from outside goes on by itself once the
+        // source that serves it is known; if none does, the user decides.
+        if (flow->autoStart && !flow->busy) {
+            flow->autoStart = false;
+            if (SourceFits(dialog, *flow)) {
+                StartLoad(dialog, *flow);
+            }
+        }
         return TRUE;
     }
 
@@ -992,8 +981,24 @@ INT_PTR CALLBACK UrlProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
         flow->playerOptions = std::move(listing->players);
         flow->playerByEpisode.clear();
         flow->picked.clear();
+        // A page of one episode picks that episode alone; the trailing slash
+        // of an address does not tell two of them apart.
+        auto trimmed = [](std::string url) {
+            while (!url.empty() && url.back() == '/') {
+                url.pop_back();
+            }
+            return url;
+        };
+        std::string wanted = trimmed(flow->initialEpisode);
         for (size_t index = 0; index < flow->episodes.size(); ++index) {
-            flow->picked.insert(static_cast<int>(index));
+            if (wanted.empty() || trimmed(flow->episodes[index].url) == wanted) {
+                flow->picked.insert(static_cast<int>(index));
+            }
+        }
+        if (flow->picked.empty()) {
+            for (size_t index = 0; index < flow->episodes.size(); ++index) {
+                flow->picked.insert(static_cast<int>(index));
+            }
         }
         EndDialog(dialog, IDOK);
         return TRUE;
@@ -1047,13 +1052,16 @@ INT_PTR CALLBACK UrlProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 // Runs the add flow: the address, then what the source answered about it.
 INT_PTR ShowAddDialog(HWND owner, HINSTANCE instance, const AddonStore& store, Http& http,
-                      const Settings& settings, AddRequest* request) {
+                      const Settings& settings, AddRequest* request,
+                      const std::string& initialUrl, const std::string& initialEpisode) {
     Flow flow;
     flow.store = &store;
     flow.http = &http;
     flow.settings = &settings;
     flow.request = request;
     flow.sources = store.Installed();
+    flow.initialUrl = initialUrl;
+    flow.initialEpisode = initialEpisode;
 
     INT_PTR answer = IDCANCEL;
     if (DialogBoxParamW(instance, MAKEINTRESOURCEW(IDD_ADD_URL), owner, UrlProc,

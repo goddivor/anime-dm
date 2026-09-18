@@ -30,6 +30,9 @@ struct ListFilter {
 class MainWindow {
 public:
     bool Create(HINSTANCE instance, const wchar_t* title);
+    // Opens the add window on an address handed in from outside (the browser
+    // extension, or a second instance started with --add).
+    void AddFromOutside(const std::string& url, const std::string& episode = std::string());
     void Show(int cmdShow);
     HWND Handle() const { return hwnd_; }
     HACCEL Accelerator() const { return accel_; }
@@ -41,7 +44,10 @@ private:
     void OnDestroy();
     void OnCommand(int commandId);
     void ShowSoon(int commandId);
-    void OnAddDownload();
+    void OnAddDownload(const std::string& initialUrl = std::string(),
+                       const std::string& initialEpisode = std::string());
+    void PublishSources();
+    void ApplySettings();
     void OnDownloadEvent(std::unique_ptr<DownloadEvent> event);
     void OnPosterEvent(std::unique_ptr<PosterPayload> payload);
     void OnIconEvent(std::unique_ptr<IconPayload> payload);

@@ -209,10 +209,17 @@ bool Downloader::Holds(uint64_t id) {
                        [&](const DownloadTask& t) { return t.id == id; });
 }
 
+// Takes the new limits; a wider slot count starts waiting items at once.
+void Downloader::SetLimits(int running, int connections) {
+    maxRunning_ = running;
+    connections_ = connections;
+    Pump();
+}
+
 // Launches queued items while slots remain.
 void Downloader::Pump() {
     std::lock_guard<std::mutex> lock(mutex_);
-    size_t slots = static_cast<size_t>(kMaxRunning);
+    size_t slots = static_cast<size_t>(maxRunning_.load());
     for (auto it = pending_.begin(); it != pending_.end() && running_.size() < slots;) {
         if (running_.count(it->id) > 0) {
             ++it;
@@ -370,7 +377,7 @@ void Downloader::Run(std::shared_ptr<Job> job) {
     Post(event);
 
     bool fetched = transfer->Run(
-        kConnections, [&](uint64_t done, uint64_t total, double fraction, double speed) {
+        connections_.load(), [&](uint64_t done, uint64_t total, double fraction, double speed) {
             event.done = done;
             event.total = total;
             event.fraction = fraction;

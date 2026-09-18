@@ -52,7 +52,10 @@ build\download-smoke.exe --url <url vidéo> <sortie> [referer]    # le transfert
   - `Queue` : la file entre deux sessions (`downloads.json`), épisodes et groupes d'animés.
     Les affiches vivent à côté, dans `posters/`, nommées d'après le SHA-256 de la page.
   - `Settings` : `settings.json` (icônes de dossier, modèle, Aniyomi, thème, langue, peau de
-    la barre d'outils, presse-papiers, dossier à rappeler).
+    la barre d'outils, presse-papiers, dossier à rappeler, démarrage avec Windows, navigateurs
+    intégrés, limites du moteur).
+  - `Bridge` : ce que l'application fait pour l'extension de navigateur, décrit plus bas.
+    `Autostart` : la valeur `Run` de HKCU qui lance l'application à l'ouverture de session.
   - `FolderIcon` : l'icône du dossier d'un animé, décrite plus bas.
   - `Digest` (SHA-256 par BCrypt), `Image` (décodage par GDI+), `Paths` (`%APPDATA%`), `Text`
     (conversions UTF-8 / UTF-16).
@@ -61,7 +64,9 @@ build\download-smoke.exe --url <url vidéo> <sortie> [referer]    # le transfert
 - **`app/ui/`** : `MainWindow`, `MenuBar`, `Toolbar`, `Sidebar`, `DownloadsView`, les dialogues
   (`AddDialog`, `AddonsDialog`, `AddonConfigDialog`, `PosterDialog`, `SearchDialog`,
   `SettingsDialog`, `NoticeDialog`, `ConfirmDialog`, `HelpDialogs`), plus `Theme`, `Strings`,
-  `Paint`, `Format`, `IconFactory`, `FileIcons`, `AddSelection`.
+  `Paint`, `Format`, `IconFactory`, `FileIcons`, `AddSelection`, `FolderPicker`.
+- **`app/host/adm_host.cpp`** : l'hôte de messagerie native (`adm-host.exe`), décrit plus bas.
+- **`extension/`** : l'extension de navigateur, une seule base de code pour Chromium et Firefox.
 - **`tools/addon_smoke.cpp`** : éprouve l'ABI sans lancer l'application.
 - **`tools/download_smoke.cpp`** : éprouve le moteur de téléchargement, avec ou sans source.
 
@@ -160,6 +165,78 @@ dès qu'il a la liste, avant même le premier essai ; l'épisode les garde (`pla
 `downloads.json`). Choisir un lecteur relance les épisodes arrêtés ou en échec là où ils en
 étaient, et **repart de zéro pour un épisode terminé** : un lecteur sert parfois une copie
 tronquée là où un autre a la vidéo entière.
+
+## La fenêtre Options
+
+`SettingsDialog.cpp`, à la manière de la configuration d'IDM : une fenêtre « Configuration
+d'Anime Download Manager » à **onglets dessinés à la main** (le `SysTabControl32` ne se laisse
+pas assombrir), chaque page étant un dialogue enfant (`DS_CONTROL`) posé dans le corps encadré,
+peint couleur `window` pour se lire comme la feuille sous l'onglet choisi. OK applique, Annuler
+ne touche à rien.
+
+1. **Général** : l'icône et le titre « Intégration au navigateur / Système » soulignés, le
+   démarrage à l'ouverture de session (`Autostart`), le presse-papiers, la liste à cases
+   des navigateurs auxquels l'hôte se déclare (`settings.browsers`, tous par défaut), puis le
+   bouton *Éditer…* du panneau de téléchargement (`IDD_PANEL` : mode complet ou mini avec un
+   aperçu peint de chacun, sur la page, au survol des liens).
+2. **Enregistrer sous** : le dossier de téléchargement et sa case « Proposer ce dossier », les
+   icônes de dossier avec leur modèle, Aniyomi.
+3. **Téléchargements** : les téléchargements simultanés (1 à 10) et les connexions par
+   téléchargement (1 à 16), avec leurs compteurs ; `Downloader::SetLimits` les reçoit, le
+   premier joue aussitôt, le second aux prochains transferts.
+
+La fenêtre principale applique ce qui sort du dialogue (`ApplySettings`) : registre `Run`,
+`bridge::RegisterHost` par navigateur, limites du moteur, puis `settings::Save`.
+
+## Le pont avec le navigateur
+
+L'extension (`extension/`, MV3, Chromium et Firefox) ne parle jamais au réseau : elle
+s'adresse à **l'hôte de messagerie native** `adm-host.exe` (`app/host/adm_host.cpp`), que le
+navigateur lance à côté de l'extension et auquel il parle par stdin/stdout (quatre octets de
+longueur puis un document JSON). L'hôte répond à trois requêtes : `ping`, `sources` (il relit
+`%APPDATA%\anime-dm\sources.json`) et `add{url, episode}`.
+
+- **Déclaration** : à chaque démarrage et après le magasin d'addons, `bridge::RegisterHost`
+  écrit les manifestes sous `%APPDATA%\anime-dm\host` (`com.animedm.host.json` pour la famille
+  Chromium, `.firefox.json` pour Firefox) et les clés `NativeMessagingHosts` de HKCU des
+  navigateurs cochés dans Options ; les autres sont retirées. L'identifiant Chromium est fixé
+  par la `key` du manifeste (`kajalpjiomebkclalgjggcgjeiibkfcg`, clé privée hors dépôt),
+  celui de Firefox vaut `adm@animedm.app` (`BridgeProtocol.h`).
+- **Installation de l'extension** : les mêmes cases demandent au navigateur d'installer
+  l'extension, comme IDM. Famille Chromium : clé `<navigateur>\Extensions\<id>` avec
+  l'`update_url` du Chrome Web Store ; le navigateur la télécharge à son prochain démarrage et
+  demande à l'utilisateur de l'activer. Firefox : valeur `<id>` sous
+  `Software\Mozilla\Firefox\Extensions` pointant sur le XPI **signé** livré dans
+  `resources\extension\adm@animedm.app.xpi`, écrite seulement si le fichier existe. Tant que
+  l'extension n'est pas publiée sur le Web Store ni signée par Mozilla, ces clés ne produisent
+  rien : Chrome ignore sur Windows toute extension hors magasin, Firefox tout XPI non signé.
+  Le bouton *Installer l'extension…* d'Options ouvre la page du magasin (`kChromiumStoreUrl`).
+- **Les sites servis** : `bridge::WriteSources` charge chaque source hors du fil d'interface
+  et écrit `sources.json` (id, nom, langue, `site`, `animePattern`, `episodePattern`,
+  `animeFromEpisode`). Les deux motifs sont des expressions régulières sur le chemin de la
+  page, déclarées par la source dans `adm_metadata` ; `animeFromEpisode` est le remplacement
+  qui ramène une page d'épisode à son animé (`$1`). Une source sans motif voit tout son site
+  proposé à l'ajout.
+- **Dans la page** : `content.js` pose, dans une racine fantôme, un bouton dans le coin d'une
+  page d'animé (« Télécharger avec ADM ») ou d'épisode (« Télécharger cet épisode avec ADM »),
+  et le même panneau **au survol de tout lien** du site qui mène à l'un ou l'autre (affiche de
+  la page d'accueil, numéro d'épisode d'une fiche), posé sur l'affiche que le lien enveloppe ou
+  recouvre. Le réglage `panel` de `sources.json` (mode `full` ou `mini`, `onPage`, `onLinks`)
+  vient d'Options › Général › Éditer… ; `background.js` garde sites et réglage une minute, pose
+  le badge « ADM » et envoie `add`.
+- **Remise à l'application** : l'hôte cherche la fenêtre `AnimeDmMainWindow` et lui remet un
+  `WM_COPYDATA` (marque `ADM1`, JSON `{"kind":"add","url","episode"}`) ; si elle n'existe pas,
+  il lance `anime-dm.exe --add <url> [--episode <url>]`. Le mutex `Local\AnimeDm.Instance`
+  garantit l'instance unique : un second lancement transmet ses arguments au premier et
+  s'efface. La fenêtre refuse un ajout tant qu'un dialogue modal est ouvert, sinon elle ouvre
+  le flux d'ajout sur l'adresse, choisit la source qui revendique le site, lit la page sans
+  attendre OK et ne coche que l'épisode nommé.
+
+Pour éprouver dans Edge sans toucher au profil de l'utilisateur :
+`msedge.exe --user-data-dir=<profil de test> --load-extension=<dépôt>\extension`. Edge lit
+les scripts de l'extension **au chargement de celle-ci**, pas à chaque page : après une
+modification, relancer Edge (et vider `Service Worker` dans le profil si le `background.js`
+reste l'ancien).
 
 ## Le modèle d'addons
 
@@ -299,8 +376,10 @@ de l'utilisateur est la **session 2**. Conséquences :
 
 ## Ce qui manque encore
 
-- Le **nombre de connexions** et de téléchargements simultanés sont des constantes de
-  `Downloader` ; ils attendent le fichier de réglages pour devenir des options.
+- **L'extension n'est ni publiée sur le Chrome Web Store ni signée par Mozilla** : les clés
+  d'installation qu'écrit Options restent sans effet. À reprendre quand l'utilisateur aura
+  ouvert les comptes développeur (zip Chromium avec la `key` du manifeste, zip Firefox pour la
+  signature auto-distribuée, XPI signé à livrer dans `resources\extension`).
 - Aucune **limitation de débit**, aucun **planificateur** : les entrées de menu existent,
   pas le comportement.
 - Seules les actions de téléchargement (reprendre, arrêter, supprimer…) sont grisées selon

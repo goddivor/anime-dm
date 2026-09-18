@@ -14,6 +14,8 @@ add_executable(anime-dm WIN32
     app/main.cpp
     app/core/Addon.cpp
     app/core/AddonStore.cpp
+    app/core/Autostart.cpp
+    app/core/Bridge.cpp
     app/core/Cipher.cpp
     app/core/Digest.cpp
     app/core/Download.cpp
@@ -29,6 +31,7 @@ add_executable(anime-dm WIN32
     app/core/Text.cpp
     app/ui/ConfirmDialog.cpp
     app/ui/FileIcons.cpp
+    app/ui/FolderPicker.cpp
     app/ui/Format.cpp
     app/ui/MainWindow.cpp
     app/ui/MenuBar.cpp
@@ -94,6 +97,16 @@ target_compile_definitions(addon-smoke PRIVATE
 )
 
 target_link_libraries(addon-smoke PRIVATE winhttp)
+
+# The native messaging host the browser extension starts; no window of its own.
+add_executable(adm-host WIN32 app/host/adm_host.cpp)
+target_include_directories(adm-host PRIVATE app)
+target_compile_definitions(adm-host PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+if(MINGW)
+    target_compile_options(adm-host PRIVATE -municode)
+    target_link_options(adm-host PRIVATE -municode)
+endif()
+add_dependencies(anime-dm adm-host)
 
 # Console tool that runs the download engine on one episode.
 add_executable(download-smoke
