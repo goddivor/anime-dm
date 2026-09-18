@@ -16,16 +16,20 @@
 #include "core/Bridge.h"
 #include "core/BridgeProtocol.h"
 #include "core/Digest.h"
+#include "core/Export.h"
+#include "core/Import.h"
 #include "core/FolderIcon.h"
 #include "core/Paths.h"
 #include "core/Queue.h"
 #include "core/Text.h"
+#include "core/Url.h"
 #include "ui/AddDialog.h"
 #include "ui/AddonsDialog.h"
 #include "ui/Commands.h"
 #include "ui/ConfirmDialog.h"
 #include "ui/ContextMenu.h"
 #include "ui/FileIcons.h"
+#include "ui/FilePicker.h"
 #include "ui/HelpDialogs.h"
 #include "ui/NoticeDialog.h"
 #include "ui/Resource.h"
@@ -46,6 +50,7 @@ constexpr UINT kPosterEvent = WM_APP + 21;
 constexpr UINT kIconEvent = WM_APP + 22;
 constexpr UINT kOutsideAdd = WM_APP + 23;
 constexpr UINT kFollowEvent = WM_APP + 24;
+constexpr UINT kImportEvent = WM_APP + 25;
 constexpr UINT_PTR kScheduleTimer = 7;
 constexpr UINT kScheduleTickMs = 30000;
 constexpr int kNameColumn = 0;
@@ -148,6 +153,11 @@ struct PosterPayload : PosterPayloadData {};
 // What a worker thread reports once it dressed a folder up.
 struct IconPayload : IconPayloadData {};
 
+// What a worker thread resolved out of an imported file.
+struct ImportPayload {
+    ImportResult result;
+};
+
 // What a worker thread brings back from the page of a followed anime.
 struct FollowPayload {
     std::string animeUrl;
@@ -230,6 +240,9 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
     case kFollowEvent:
         OnFollowEvent(std::unique_ptr<FollowPayload>(reinterpret_cast<FollowPayload*>(lParam)));
+        return 0;
+    case kImportEvent:
+        OnImportEvent(std::unique_ptr<ImportPayload>(reinterpret_cast<ImportPayload*>(lParam)));
         return 0;
     case kOutsideAdd: {
         std::unique_ptr<Handed> handed(reinterpret_cast<Handed*>(lParam));
@@ -1717,6 +1730,118 @@ void MainWindow::OpenScheduler() {
     }
 }
 
+// The kind of file behind each entry of the Export and Import submenus.
+FileKind KindOf(int format) {
+    static const StringId kLabels[4] = {STR_KIND_ADM, STR_KIND_TEXT, STR_KIND_JSON, STR_KIND_CSV};
+    exporting::Format kind = static_cast<exporting::Format>(format);
+    return {Str(kLabels[format]), exporting::Extension(kind)};
+}
+
+// Writes the selection, or the whole list when nothing is selected, to a
+// file of the chosen shape.
+void MainWindow::ExportList(int format) {
+    std::vector<uint64_t> selected = downloads_.Selected();
+    std::vector<DownloadItem> chosen;
+    for (const DownloadItem& item : items_) {
+        if (selected.empty() ||
+            std::find(selected.begin(), selected.end(), item.id) != selected.end()) {
+            chosen.push_back(item);
+        }
+    }
+    if (chosen.empty()) {
+        ShowNotice(Str(STR_EXPORT_NOTHING));
+        return;
+    }
+    FileKind kind = KindOf(format);
+    std::wstring path = PickSaveFile(hwnd_, kind, std::wstring(L"anime-dm.") + kind.extension);
+    if (path.empty()) {
+        return;
+    }
+    std::string text = exporting::Render(static_cast<exporting::Format>(format), chosen, groups_);
+    bool written = false;
+    {
+        std::ofstream file(std::filesystem::path(path), std::ios::binary | std::ios::trunc);
+        written = file && (file << text) && file.flush();
+    }
+    if (!written) {
+        ShowNotice(Str(STR_EXPORT_FAILED));
+        return;
+    }
+    wchar_t message[128] = {};
+    swprintf(message, 128, Str(STR_EXPORT_DONE), static_cast<int>(chosen.size()));
+    ShowNotice(message);
+}
+
+// Reads a file of the chosen shape and resolves its pages off the interface
+// thread; the episodes come back through kImportEvent.
+void MainWindow::ImportList(int format) {
+    std::wstring path = PickOpenFile(hwnd_, KindOf(format));
+    if (path.empty()) {
+        return;
+    }
+    std::ifstream file(std::filesystem::path(path), std::ios::binary);
+    std::string text((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    std::vector<ImportEntry> entries = importing::Parse(text);
+    if (entries.empty()) {
+        ShowNotice(Str(STR_IMPORT_EMPTY));
+        return;
+    }
+    const AddonStore* store = &store_;
+    Http* http = &http_;
+    HWND window = hwnd_;
+    std::thread([entries, store, http, window] {
+        auto* payload = new ImportPayload();
+        payload->result = importing::Resolve(entries, *store, *http);
+        if (!PostMessageW(window, kImportEvent, 0, reinterpret_cast<LPARAM>(payload))) {
+            delete payload;
+        }
+    }).detach();
+}
+
+// Queues what an import resolved, stopped in the main queue, leaving aside
+// the episodes the list already holds, and tells the user the count.
+void MainWindow::OnImportEvent(std::unique_ptr<ImportPayload> payload) {
+    int added = 0;
+    int present = 0;
+    for (const ImportedAnime& anime : payload->result.animes) {
+        AddRequest request;
+        request.addonId = anime.addonId;
+        request.animeTitle = TidyText(anime.title);
+        request.animeUrl = anime.animeUrl;
+        request.posterUrl = anime.posterUrl;
+        request.destination = settings_.rememberPath ? Widen(settings_.savePath) : std::wstring();
+        for (const ImportedEpisode& episode : anime.episodes) {
+            bool queued = std::any_of(items_.begin(), items_.end(), [&](const DownloadItem& item) {
+                return url::SamePage(item.pageUrl, episode.url);
+            });
+            if (queued) {
+                present += 1;
+                continue;
+            }
+            AddRequestEpisode wanted;
+            wanted.url = episode.url;
+            wanted.name = episode.name;
+            wanted.number = episode.number;
+            wanted.player = episode.player;
+            request.episodes.push_back(wanted);
+        }
+        if (!request.episodes.empty()) {
+            added += static_cast<int>(request.episodes.size());
+            AddEpisodes(request, QueueKind::Main, false);
+        }
+    }
+    if (added > 0) {
+        ApplySort();
+        Persist();
+        RebuildSidebar();
+        UpdateActions();
+    }
+    wchar_t message[400] = {};
+    swprintf(message, 400, Str(STR_IMPORT_DONE), added, present,
+             payload->result.unknown + payload->result.failed);
+    ShowNotice(message);
+}
+
 // The animes of the queue a follow may name, with the source and the folder
 // their episodes came through.
 std::vector<FollowChoice> MainWindow::FollowChoices() const {
@@ -2091,6 +2216,18 @@ void MainWindow::OnCommand(int commandId) {
         break;
     case ID_DOWNLOAD_SCHEDULE:
         OpenScheduler();
+        break;
+    case ID_TASK_EXPORT_ADM:
+    case ID_TASK_EXPORT_TXT:
+    case ID_TASK_EXPORT_JSON:
+    case ID_TASK_EXPORT_SHEET:
+        ExportList(commandId - ID_TASK_EXPORT_ADM);
+        break;
+    case ID_TASK_IMPORT_ADM:
+    case ID_TASK_IMPORT_TXT:
+    case ID_TASK_IMPORT_JSON:
+    case ID_TASK_IMPORT_SHEET:
+        ImportList(commandId - ID_TASK_IMPORT_ADM);
         break;
     case ID_QUEUE_START_MAIN:
         StartQueue(QueueKind::Main);

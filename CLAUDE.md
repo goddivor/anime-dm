@@ -188,6 +188,22 @@ ne touche à rien.
 La fenêtre principale applique ce qui sort du dialogue (`ApplySettings`) : registre `Run`,
 `bridge::RegisterHost` par navigateur, limites du moteur, puis `settings::Save`.
 
+## Exporter et importer
+
+Tâches › Exporter écrit **la sélection, ou toute la liste** quand rien n'est choisi
+(`core/Export`) : le fichier d'ADM (`.adm`, JSON complet : animés, affiches, sources,
+épisodes, lecteurs, files), un texte d'adresses (une page par ligne), une liste JSON plate,
+ou un CSV (`;`, BOM UTF-8, pour l'Excel français). Tâches › Importer (`core/Import`) relit
+n'importe laquelle de ces formes en la reconnaissant à son contenu, puis **résout hors du fil
+d'interface** : ce que le fichier d'ADM décrit se remet tel quel ; une adresse nue trouve sa
+source par le site, une page d'épisode remonte à son animé par `episodePattern` et
+`animeFromEpisode` (`std::regex`, même syntaxe que l'extension), et la source est interrogée
+(`adm_anime_details`, `adm_episode_list`) : page d'animé, tous les épisodes ; page d'épisode,
+celui-là seul. Les épisodes déjà dans la liste (`url::SamePage`) sont laissés de côté, les
+autres attendent **arrêtés dans la file principale** ; un avis donne les comptes. Les
+sélecteurs de fichiers vivent dans `ui/FilePicker`. Le tableur reste au CSV : `.xlsx` et
+`.ods` demanderaient un écrivain de zip.
+
 ## Le Planificateur
 
 Deux **files** : la *principale* et celle du *planificateur* ; chaque épisode appartient à l'une

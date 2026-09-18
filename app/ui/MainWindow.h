@@ -23,6 +23,7 @@
 struct PosterPayload;
 struct IconPayload;
 struct FollowPayload;
+struct ImportPayload;
 
 // Which items the list shows, as chosen in the categories panel.
 struct ListFilter {
@@ -57,6 +58,7 @@ private:
     void OnPosterEvent(std::unique_ptr<PosterPayload> payload);
     void OnIconEvent(std::unique_ptr<IconPayload> payload);
     void OnFollowEvent(std::unique_ptr<FollowPayload> payload);
+    void OnImportEvent(std::unique_ptr<ImportPayload> payload);
     LRESULT OnSidebarNotify(NMHDR* notify);
     void OnSidebarSelect(const SidebarNode* node);
     void OnSidebarContext();
@@ -103,6 +105,9 @@ private:
     void OpenScheduler();
     void OnScheduleTick();
     void FinishScheduledRun(QueueKind queue);
+    // --- export and import ---
+    void ExportList(int format);
+    void ImportList(int format);
     // --- the followed animes ---
     void AddEpisodes(const AddRequest& request, QueueKind queue, bool start);
     void FollowAnime(const std::string& url);

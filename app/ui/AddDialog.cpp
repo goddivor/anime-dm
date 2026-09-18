@@ -20,6 +20,7 @@
 #include "core/Image.h"
 #include "core/Settings.h"
 #include "core/Text.h"
+#include "core/Url.h"
 #include "ui/AddSelection.h"
 #include "ui/FolderPicker.h"
 #include "ui/ConfirmDialog.h"
@@ -126,43 +127,6 @@ std::wstring Format(StringId id, int first, int second) {
     return text;
 }
 
-// The origin of a page, which image hosts ask for as a referer.
-std::string OriginOf(const std::string& url) {
-    size_t scheme = url.find("://");
-    if (scheme == std::string::npos) {
-        return std::string();
-    }
-    size_t slash = url.find('/', scheme + 3);
-    return slash == std::string::npos ? url : url.substr(0, slash);
-}
-
-// The host of an address, lowercased and without its `www.`.
-std::string HostOf(const std::string& url) {
-    size_t start = url.find("://");
-    start = start == std::string::npos ? 0 : start + 3;
-    size_t end = url.find_first_of("/?#", start);
-    std::string host = url.substr(start, end == std::string::npos ? std::string::npos : end - start);
-    std::transform(host.begin(), host.end(), host.begin(),
-                   [](unsigned char letter) { return static_cast<char>(tolower(letter)); });
-    if (host.rfind("www.", 0) == 0) {
-        host = host.substr(4);
-    }
-    return host;
-}
-
-// Whether two hosts belong to the same site, a subdomain counting as one.
-bool SameSite(const std::string& one, const std::string& other) {
-    if (one.empty() || other.empty()) {
-        return false;
-    }
-    if (one == other) {
-        return true;
-    }
-    return one.size() > other.size() ? one.compare(one.size() - other.size() - 1, other.size() + 1,
-                                                   "." + other) == 0
-                                     : other.compare(other.size() - one.size() - 1, one.size() + 1,
-                                                     "." + one) == 0;
-}
 
 // What the clipboard holds, when it holds an address.
 std::wstring ClipboardUrl(HWND owner) {
@@ -793,9 +757,9 @@ void MatchSource(HWND dialog, const Flow& flow) {
     if (flow.hosts.size() != flow.sources.size()) {
         return;
     }
-    std::string host = HostOf(Narrow(ReadText(dialog, IDC_ADD_URL)));
+    std::string host = url::HostOf(Narrow(ReadText(dialog, IDC_ADD_URL)));
     for (size_t index = 0; index < flow.hosts.size(); ++index) {
-        if (SameSite(host, flow.hosts[index])) {
+        if (url::SameSite(host, flow.hosts[index])) {
             SendDlgItemMessageW(dialog, IDC_ADD_SOURCE, CB_SETCURSEL, index, 0);
             return;
         }
@@ -810,7 +774,7 @@ bool SourceFits(HWND dialog, const Flow& flow) {
         return true;
     }
     const std::string& host = flow.hosts[static_cast<size_t>(index)];
-    return host.empty() || SameSite(HostOf(Narrow(ReadText(dialog, IDC_ADD_URL))), host);
+    return host.empty() || url::SameSite(url::HostOf(Narrow(ReadText(dialog, IDC_ADD_URL))), host);
 }
 
 // Reads the address every source declares, off the interface thread: each
@@ -830,7 +794,7 @@ void StartHosts(HWND dialog, const Flow& flow) {
             std::string host;
             std::unique_ptr<Addon> addon = Addon::Load(libraries[index], *http, configs[index]);
             if (addon) {
-                host = HostOf(addon->Meta().baseUrl);
+                host = url::HostOf(addon->Meta().baseUrl);
             }
             answer->hosts.push_back(host);
         }
@@ -898,7 +862,7 @@ void StartLoad(HWND dialog, Flow& flow) {
         }
         if (!listing->posterUrl.empty()) {
             // Image hosts often refuse a hotlink without the page it belongs to.
-            std::map<std::string, std::string> headers = {{"Referer", OriginOf(url)}};
+            std::map<std::string, std::string> headers = {{"Referer", url::OriginOf(url)}};
             if (std::optional<std::vector<uint8_t>> bytes =
                     http->GetBytes(listing->posterUrl, headers)) {
                 listing->poster = std::move(*bytes);
