@@ -21,6 +21,9 @@ constexpr Column kColumns[] = {
     {STR_COL_SPEED, 110},
     {STR_COL_LAST_TRY, 130},
     {STR_COL_ADDED, 130},
+    {STR_COL_LOCATION, 220},
+    {STR_COL_ADDRESS, 280},
+    {STR_COL_PARENT_PAGE, 260},
 };
 
 enum ColumnIndex {
@@ -31,6 +34,9 @@ enum ColumnIndex {
     COL_SPEED,
     COL_LAST_TRY,
     COL_ADDED,
+    COL_LOCATION,
+    COL_ADDRESS,
+    COL_PARENT_PAGE,
 };
 
 // What the interface says about a failure.
@@ -235,6 +241,10 @@ void DownloadsView::Fill(int row, const DownloadItem& item) {
             downloading && item.speed > 0.0 ? format::Speed(item.speed) : L"");
     SetCell(hwnd_, row, COL_LAST_TRY, format::Date(item.lastTry));
     SetCell(hwnd_, row, COL_ADDED, format::Date(item.addedAt));
+    size_t cut = item.outPath.find_last_of(L"\\/");
+    SetCell(hwnd_, row, COL_LOCATION, cut == std::wstring::npos ? L"" : item.outPath.substr(0, cut));
+    SetCell(hwnd_, row, COL_ADDRESS, Widen(item.pageUrl));
+    SetCell(hwnd_, row, COL_PARENT_PAGE, Widen(item.animeUrl));
 }
 
 // Marks the column the rows are sorted by, or none, in the header.
