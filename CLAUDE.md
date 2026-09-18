@@ -376,6 +376,10 @@ de l'utilisateur est la **session 2**. Conséquences :
 
 ## Ce qui manque encore
 
+- **L'extension n'est ni publiée sur le Chrome Web Store ni signée par Mozilla** : les clés
+  d'installation qu'écrit Options restent sans effet. À reprendre quand l'utilisateur aura
+  ouvert les comptes développeur (zip Chromium avec la `key` du manifeste, zip Firefox pour la
+  signature auto-distribuée, XPI signé à livrer dans `resources\extension`).
 - Aucune **limitation de débit**, aucun **planificateur** : les entrées de menu existent,
   pas le comportement.
 - Seules les actions de téléchargement (reprendre, arrêter, supprimer…) sont grisées selon
