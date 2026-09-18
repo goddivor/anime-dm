@@ -68,16 +68,19 @@ namespace bridge {
 void WriteSources(const AddonStore& store, Http& http) {
     nlohmann::json sources = nlohmann::json::array();
     for (const InstalledAddon& installed : store.Installed()) {
-        std::string site;
+        AddonMetadata meta;
         std::unique_ptr<Addon> addon =
             Addon::Load(store.LibraryPath(installed.id), http, store.ReadConfig(installed.id));
         if (addon) {
-            site = addon->Meta().baseUrl;
+            meta = addon->Meta();
         }
         sources.push_back({{"id", installed.id},
                            {"name", installed.name},
                            {"lang", installed.lang},
-                           {"site", site}});
+                           {"site", meta.baseUrl},
+                           {"animePattern", meta.animePattern},
+                           {"episodePattern", meta.episodePattern},
+                           {"animeFromEpisode", meta.animeFromEpisode}});
     }
     std::wstring path = paths::SourcesFile();
     if (!path.empty()) {

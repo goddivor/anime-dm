@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Anime Download Manager",
   "short_name": "ADM",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Download anime in one click with Anime Download Manager.",
   "default_locale": "fr",
   "icons": {

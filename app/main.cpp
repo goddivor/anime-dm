@@ -14,29 +14,41 @@
 
 namespace {
 
-// The address given on the command line after `--add`, or nothing.
-std::wstring AddressToAdd(PWSTR commandLine) {
+// What the command line hands over: an address after `--add`, and the
+// episode wanted on it after `--episode`.
+struct Handed {
+    std::wstring url;
+    std::wstring episode;
+};
+
+Handed FromCommandLine(PWSTR commandLine) {
     int count = 0;
     LPWSTR* arguments = CommandLineToArgvW(commandLine, &count);
-    std::wstring url;
+    Handed handed;
     if (arguments != nullptr) {
         for (int i = 0; i + 1 < count; ++i) {
             if (lstrcmpiW(arguments[i], bridge::kAddSwitch) == 0) {
-                url = arguments[i + 1];
+                handed.url = arguments[i + 1];
+            } else if (lstrcmpiW(arguments[i], bridge::kEpisodeSwitch) == 0) {
+                handed.episode = arguments[i + 1];
             }
         }
         LocalFree(arguments);
     }
-    return url;
+    return handed;
 }
 
 // Hands an address to the instance already running; false when there is none.
-bool HandToRunningInstance(const std::wstring& url) {
+bool HandToRunningInstance(const Handed& handed) {
     HWND window = FindWindowW(bridge::kWindowClass, nullptr);
     if (window == nullptr) {
         return false;
     }
-    std::string text = nlohmann::json({{"kind", "add"}, {"url", Narrow(url)}}).dump();
+    nlohmann::json message = {{"kind", "add"}, {"url", Narrow(handed.url)}};
+    if (!handed.episode.empty()) {
+        message["episode"] = Narrow(handed.episode);
+    }
+    std::string text = message.dump();
     COPYDATASTRUCT data = {};
     data.dwData = bridge::kCopyDataMark;
     data.cbData = static_cast<DWORD>(text.size());
@@ -51,16 +63,16 @@ bool HandToRunningInstance(const std::wstring& url) {
 // Process entry point: enables visual styles, creates the window, pumps messages.
 // A second instance hands its address to the first and leaves.
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int cmdShow) {
-    std::wstring address = AddressToAdd(commandLine);
+    Handed handed = FromCommandLine(commandLine);
     HANDLE single = CreateMutexW(nullptr, TRUE, L"Local\\AnimeDm.Instance");
     if (single != nullptr && GetLastError() == ERROR_ALREADY_EXISTS) {
-        if (address.empty()) {
+        if (handed.url.empty()) {
             HWND window = FindWindowW(bridge::kWindowClass, nullptr);
             if (window != nullptr) {
                 SetForegroundWindow(window);
             }
         } else {
-            HandToRunningInstance(address);
+            HandToRunningInstance(handed);
         }
         CloseHandle(single);
         return 0;
@@ -79,8 +91,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int cmdSho
         return 1;
     }
     window.Show(cmdShow);
-    if (!address.empty()) {
-        window.AddFromOutside(Narrow(address));
+    if (!handed.url.empty()) {
+        window.AddFromOutside(Narrow(handed.url), Narrow(handed.episode));
     }
 
     HACCEL accel = window.Accelerator();

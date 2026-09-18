@@ -1,6 +1,17 @@
 {
-  "button": { "message": "Download with ADM" },
-  "sent": { "message": "Sent to Anime Download Manager" },
-  "notRunning": { "message": "Anime Download Manager does not answer. Is it installed?" },
-  "noSource": { "message": "No installed source serves this site." }
+  "button": {
+    "message": "Download with ADM"
+  },
+  "sent": {
+    "message": "Sent to Anime Download Manager"
+  },
+  "notRunning": {
+    "message": "Anime Download Manager does not answer. Is it installed?"
+  },
+  "noSource": {
+    "message": "No installed source serves this site."
+  },
+  "buttonEpisode": {
+    "message": "Download this episode with ADM"
+  }
 }

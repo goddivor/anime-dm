@@ -78,7 +78,8 @@ struct Flow {
     std::vector<std::string> hosts;  // parallel to `sources`, empty until known
     int source = -1;
     std::string url;
-    std::string initialUrl;  // handed in from outside, read as soon as matched
+    std::string initialUrl;
+    std::string initialEpisode;
     bool autoStart = false;
 
     std::string title;
@@ -1005,8 +1006,24 @@ INT_PTR CALLBACK UrlProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
         flow->playerOptions = std::move(listing->players);
         flow->playerByEpisode.clear();
         flow->picked.clear();
+        // A page of one episode picks that episode alone; the trailing slash
+        // of an address does not tell two of them apart.
+        auto trimmed = [](std::string url) {
+            while (!url.empty() && url.back() == '/') {
+                url.pop_back();
+            }
+            return url;
+        };
+        std::string wanted = trimmed(flow->initialEpisode);
         for (size_t index = 0; index < flow->episodes.size(); ++index) {
-            flow->picked.insert(static_cast<int>(index));
+            if (wanted.empty() || trimmed(flow->episodes[index].url) == wanted) {
+                flow->picked.insert(static_cast<int>(index));
+            }
+        }
+        if (flow->picked.empty()) {
+            for (size_t index = 0; index < flow->episodes.size(); ++index) {
+                flow->picked.insert(static_cast<int>(index));
+            }
         }
         EndDialog(dialog, IDOK);
         return TRUE;
@@ -1061,7 +1078,7 @@ INT_PTR CALLBACK UrlProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
 // Runs the add flow: the address, then what the source answered about it.
 INT_PTR ShowAddDialog(HWND owner, HINSTANCE instance, const AddonStore& store, Http& http,
                       const Settings& settings, AddRequest* request,
-                      const std::string& initialUrl) {
+                      const std::string& initialUrl, const std::string& initialEpisode) {
     Flow flow;
     flow.store = &store;
     flow.http = &http;
@@ -1069,6 +1086,7 @@ INT_PTR ShowAddDialog(HWND owner, HINSTANCE instance, const AddonStore& store, H
     flow.request = request;
     flow.sources = store.Installed();
     flow.initialUrl = initialUrl;
+    flow.initialEpisode = initialEpisode;
 
     INT_PTR answer = IDCANCEL;
     if (DialogBoxParamW(instance, MAKEINTRESOURCEW(IDD_ADD_URL), owner, UrlProc,

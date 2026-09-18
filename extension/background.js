@@ -41,7 +41,15 @@ async function refreshSources() {
     return null;
   }
   const sources = (answer.sources ?? [])
-    .map((s) => ({ id: s.id, name: s.name, lang: s.lang, site: hostOf(s.site) }))
+    .map((s) => ({
+      id: s.id,
+      name: s.name,
+      lang: s.lang,
+      site: hostOf(s.site),
+      animePattern: s.animePattern ?? "",
+      episodePattern: s.episodePattern ?? "",
+      animeFromEpisode: s.animeFromEpisode ?? "",
+    }))
     .filter((s) => s.site);
   await api.storage.local.set({ sources, refreshedAt: Date.now() });
   return sources;
@@ -56,13 +64,54 @@ async function sources() {
   return (await refreshSources()) ?? stored.sources ?? [];
 }
 
-// The source that serves a page, or null.
-async function sourceFor(url) {
+// A regular expression a source declared, or null when it declared none or
+// wrote it wrong.
+function patternOf(text) {
+  if (!text) {
+    return null;
+  }
+  try {
+    return new RegExp(text);
+  } catch {
+    return null;
+  }
+}
+
+// What a page is to its source: the anime page to send, the episode wanted
+// on it, or nothing when the source knows the site but not this page.
+//   { source, anime, episode } or null
+async function pageOf(url) {
   const host = hostOf(url);
   if (!host) {
     return null;
   }
-  return (await sources()).find((s) => sameSite(host, s.site)) ?? null;
+  const source = (await sources()).find((s) => sameSite(host, s.site));
+  if (!source) {
+    return null;
+  }
+  let target;
+  try {
+    target = new URL(url);
+  } catch {
+    return null;
+  }
+  const path = target.pathname + target.search;
+  const anime = patternOf(source.animePattern);
+  const episode = patternOf(source.episodePattern);
+  if (episode && episode.test(path) && source.animeFromEpisode) {
+    const animePath = path.replace(episode, source.animeFromEpisode);
+    return { source, anime: target.origin + animePath, episode: target.origin + path };
+  }
+  if (!anime || anime.test(path)) {
+    return { source, anime: target.origin + path, episode: "" };
+  }
+  return null;
+}
+
+// The source that serves a page, or null.
+async function sourceFor(url) {
+  const page = await pageOf(url);
+  return page ? page.source : null;
 }
 
 // Marks the toolbar icon of a tab whose site is served by a source.
@@ -81,9 +130,18 @@ async function markTab(tabId, url) {
   }
 }
 
-// Hands an address to the application through the host.
+// Hands a page to the application through the host: the anime page, and
+// the episode wanted on it when the page named one.
 async function send(url) {
-  const answer = await askHost({ kind: "add", url });
+  const page = await pageOf(url);
+  if (!page) {
+    return { ok: false, error: "page" };
+  }
+  const request = { kind: "add", url: page.anime };
+  if (page.episode) {
+    request.episode = page.episode;
+  }
+  const answer = await askHost(request);
   if (!answer) {
     return { ok: false, error: "host" };
   }
@@ -128,7 +186,8 @@ api.action.onClicked.addListener(async (tab) => {
 api.runtime.onMessage.addListener((message, sender, reply) => {
   (async () => {
     if (message.kind === "source") {
-      reply({ source: await sourceFor(message.url) });
+      const page = await pageOf(message.url);
+      reply({ source: page ? page.source : null, episode: page ? !!page.episode : false });
     } else if (message.kind === "add") {
       reply(await send(message.url));
     } else {

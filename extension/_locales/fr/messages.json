@@ -1,6 +1,17 @@
 {
-  "button": { "message": "Télécharger avec ADM" },
-  "sent": { "message": "Envoyé à Anime Download Manager" },
-  "notRunning": { "message": "Anime Download Manager ne répond pas. Est-il installé ?" },
-  "noSource": { "message": "Aucune source installée ne sert ce site." }
+  "button": {
+    "message": "Télécharger avec ADM"
+  },
+  "sent": {
+    "message": "Envoyé à Anime Download Manager"
+  },
+  "notRunning": {
+    "message": "Anime Download Manager ne répond pas. Est-il installé ?"
+  },
+  "noSource": {
+    "message": "Aucune source installée ne sert ce site."
+  },
+  "buttonEpisode": {
+    "message": "Télécharger cet épisode avec ADM"
+  }
 }

@@ -42,10 +42,16 @@ constexpr char kFluentSkin[] = "fluent";  // the settings value naming the icon 
 constexpr UINT kDownloadEvent = WM_APP + 20;
 constexpr UINT kPosterEvent = WM_APP + 21;
 constexpr UINT kIconEvent = WM_APP + 22;
-constexpr UINT kOutsideAdd = WM_APP + 23;  // lParam: a heap std::string with the address
+constexpr UINT kOutsideAdd = WM_APP + 23;
 constexpr int kNameColumn = 0;
 constexpr int kStatusColumn = 2;
 constexpr int kIconGap = 4;  // around the picture of a file type
+
+// An address handed in from outside, with the episode wanted on it.
+struct Handed {
+    std::string url;
+    std::string episode;
+};
 
 // The bytes of an image, on their way from a worker thread to the panel.
 struct PosterPayloadData {
@@ -206,8 +212,8 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         OnIconEvent(std::unique_ptr<IconPayload>(reinterpret_cast<IconPayload*>(lParam)));
         return 0;
     case kOutsideAdd: {
-        std::unique_ptr<std::string> url(reinterpret_cast<std::string*>(lParam));
-        OnAddDownload(*url);
+        std::unique_ptr<Handed> handed(reinterpret_cast<Handed*>(lParam));
+        OnAddDownload(handed->url, handed->episode);
         return 0;
     }
     case WM_COPYDATA: {
@@ -220,7 +226,8 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         std::string text(static_cast<const char*>(data->lpData), data->cbData);
         nlohmann::json message = nlohmann::json::parse(text, nullptr, false);
         if (message.is_object() && message.value("kind", std::string()) == "add") {
-            AddFromOutside(message.value("url", std::string()));
+            AddFromOutside(message.value("url", std::string()),
+                           message.value("episode", std::string()));
         }
         return TRUE;
     }
@@ -862,7 +869,7 @@ void MainWindow::CancelSplitterDrag() {
 // Opens the add window on an address handed in from outside. The request
 // arrives inside a message the sender waits on, so the window opens from a
 // message of its own; while another dialog is up, the address is dropped.
-void MainWindow::AddFromOutside(const std::string& url) {
+void MainWindow::AddFromOutside(const std::string& url, const std::string& episode) {
     if (url.empty() || !IsWindowEnabled(hwnd_)) {
         MessageBeep(MB_ICONWARNING);
         return;
@@ -871,18 +878,19 @@ void MainWindow::AddFromOutside(const std::string& url) {
         ShowWindow(hwnd_, SW_RESTORE);
     }
     SetForegroundWindow(hwnd_);
-    auto* copy = new std::string(url);
+    auto* copy = new Handed{url, episode};
     if (!PostMessageW(hwnd_, kOutsideAdd, 0, reinterpret_cast<LPARAM>(copy))) {
         delete copy;
     }
 }
 
 // Asks the user for an anime, then queues the episodes it picked.
-void MainWindow::OnAddDownload(const std::string& initialUrl) {
+void MainWindow::OnAddDownload(const std::string& initialUrl, const std::string& initialEpisode) {
     HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
 
     AddRequest request;
-    if (ShowAddDialog(hwnd_, instance, store_, http_, settings_, &request, initialUrl) != IDOK) {
+    if (ShowAddDialog(hwnd_, instance, store_, http_, settings_, &request, initialUrl,
+                      initialEpisode) != IDOK) {
         return;
     }
 

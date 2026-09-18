@@ -176,6 +176,9 @@ std::unique_ptr<Addon> Addon::Load(const std::wstring& libraryPath, Http& http,
     addon->meta_.name = Field(*meta, "name");
     addon->meta_.lang = Field(*meta, "lang");
     addon->meta_.baseUrl = Field(*meta, "baseUrl");
+    addon->meta_.animePattern = Field(*meta, "animePattern");
+    addon->meta_.episodePattern = Field(*meta, "episodePattern");
+    addon->meta_.animeFromEpisode = Field(*meta, "animeFromEpisode");
     addon->meta_.version = Field(*meta, "version");
     auto nsfw = meta->find("nsfw");
     addon->meta_.nsfw = nsfw != meta->end() && nsfw->is_boolean() && nsfw->get<bool>();

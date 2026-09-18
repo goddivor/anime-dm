@@ -20,6 +20,7 @@ On any site served by an installed source, a button hands the page to the app.
 ## What it does
 
 - On a site served by one of the sources installed in the app, a floating **Download with ADM** button appears. One click sends the page to Anime Download Manager, which opens its add window with the address filled in and reads the page, exactly as if the link had been pasted.
+- Each source tells which addresses are anime pages and which are episode pages. On an episode page the button reads **Download this episode with ADM**: the app opens the anime and preselects that one episode. On a page the source does not know (home, search, a genre), no button.
 - The toolbar icon carries an **ADM** badge on those sites; clicking it sends the current tab.
 - Nothing goes over the network. The extension talks to the app through the native messaging host `adm-host.exe`, which the app registers with every browser when it starts (manifests under `%APPDATA%\anime-dm\host`, keys under `HKCU`).
 
@@ -35,6 +36,6 @@ Start the app at least once first, so that the host is registered.
 ## Files
 
 - `manifest.json` — permissions `nativeMessaging`, `storage` and `tabs`; a content script on every page, which does nothing until the site is recognised.
-- `background.js` — asks the host for the list of sites (`{"kind":"sources"}`), keeps it for five minutes, answers the content scripts, sends the addresses (`{"kind":"add","url":…}`) and sets the badge.
+- `background.js` — asks the host for the list of sites and their page patterns (`{"kind":"sources"}`), keeps it for five minutes, answers the content scripts, sends the addresses (`{"kind":"add","url":…,"episode":…}`) and sets the badge.
 - `content.js` — the floating button, inside a shadow root so the styles of the page cannot reach it.
 - `_locales` — the captions, in English and in French.

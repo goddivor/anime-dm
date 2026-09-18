@@ -18,6 +18,9 @@ struct AddonMetadata {
     std::string baseUrl;
     std::string version;
     bool nsfw = false;
+    std::string animePattern;
+    std::string episodePattern;
+    std::string animeFromEpisode;
 };
 
 // One setting a source declares, rendered as a field by the settings screen.

@@ -11,7 +11,7 @@
 
   // The button and its toast live in a shadow root, out of reach of the
   // styles of the page.
-  function mount(source) {
+  function mount(source, episode) {
     const holder = document.createElement("div");
     holder.id = "adm-holder";
     const root = holder.attachShadow({ mode: "closed" });
@@ -43,7 +43,7 @@
       </style>
       <button class="adm" type="button" title="${source.name}">
         <img alt="" src="${api.runtime.getURL("icons/adm-32.png")}">
-        <span>${text("button")}</span>
+        <span>${text(episode ? "buttonEpisode" : "button")}</span>
       </button>
       <div class="toast" role="status"></div>
     `;
@@ -80,7 +80,7 @@
 
   api.runtime.sendMessage({ kind: "source", url: location.href }).then((answer) => {
     if (answer && answer.source && !document.getElementById("adm-holder")) {
-      mount(answer.source);
+      mount(answer.source, answer.episode);
     }
   }).catch(() => {});
 })();

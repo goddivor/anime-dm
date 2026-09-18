@@ -103,10 +103,13 @@ bool HandToApplication(const nlohmann::json& message) {
     return true;
 }
 
-// Starts the application with an address to add.
-bool StartApplication(const std::string& url) {
+// Starts the application with an address to add, and the episode wanted.
+bool StartApplication(const std::string& url, const std::string& episode) {
     std::wstring exe = ExeDir() + L"\\" + kAppExe;
     std::wstring line = L"\"" + exe + L"\" " + bridge::kAddSwitch + L" \"" + Widen(url) + L"\"";
+    if (!episode.empty()) {
+        line += std::wstring(L" ") + bridge::kEpisodeSwitch + L" \"" + Widen(episode) + L"\"";
+    }
     STARTUPINFOW startup = {};
     startup.cb = sizeof(startup);
     PROCESS_INFORMATION process = {};
@@ -135,7 +138,12 @@ nlohmann::json Answer(const nlohmann::json& request) {
         if (url.empty()) {
             return {{"ok", false}, {"error", "no url"}};
         }
-        bool done = HandToApplication({{"kind", "add"}, {"url", url}}) || StartApplication(url);
+        nlohmann::json order = {{"kind", "add"}, {"url", url}};
+        std::string episode = request.value("episode", std::string());
+        if (!episode.empty()) {
+            order["episode"] = episode;
+        }
+        bool done = HandToApplication(order) || StartApplication(url, episode);
         return {{"ok", done}};
     }
     if (kind == "ping") {

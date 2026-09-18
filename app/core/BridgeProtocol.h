@@ -17,10 +17,13 @@ constexpr char kFirefoxExtensionId[] = "adm@animedm.app";
 constexpr wchar_t kWindowClass[] = L"AnimeDmMainWindow";
 
 // The mark of a WM_COPYDATA meant for the application; the payload is a JSON
-// document in UTF-8, `{"kind":"add","url":"..."}` for now.
+// document in UTF-8: `{"kind":"add","url":"...","episode":"..."}`, the
+// episode being optional.
 constexpr unsigned long kCopyDataMark = 0x31444D41;  // "ADM1"
 
-// The switch that hands an address to a fresh instance.
+// The switches that hand an address, and the episode wanted on it, to a
+// fresh instance.
 constexpr wchar_t kAddSwitch[] = L"--add";
+constexpr wchar_t kEpisodeSwitch[] = L"--episode";
 
 }  // namespace bridge

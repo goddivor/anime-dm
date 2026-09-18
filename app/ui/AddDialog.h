@@ -35,7 +35,9 @@ struct AddRequest {
 
 // Shows the add dialog. Returns IDOK and fills `request` when confirmed. An
 // `initialUrl`, as the browser extension hands one, fills the address and
-// starts the reading of the page as soon as the source is known.
+// starts the reading of the page as soon as the source is known; an
+// `initialEpisode` picks that one episode alone once the list is read.
 INT_PTR ShowAddDialog(HWND owner, HINSTANCE instance, const AddonStore& store, Http& http,
                       const Settings& settings, AddRequest* request,
-                      const std::string& initialUrl = std::string());
+                      const std::string& initialUrl = std::string(),
+                      const std::string& initialEpisode = std::string());
