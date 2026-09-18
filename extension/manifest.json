@@ -1,0 +1,66 @@
+{
+  "manifest_version": 3,
+  "name": "Anime Download Manager",
+  "short_name": "ADM",
+  "version": "0.1.0",
+  "description": "Envoie les animés des sites reconnus à Anime Download Manager en un clic.",
+  "default_locale": "fr",
+  "icons": {
+    "16": "icons/adm-16.png",
+    "32": "icons/adm-32.png",
+    "48": "icons/adm-48.png",
+    "128": "icons/adm-128.png"
+  },
+  "permissions": [
+    "nativeMessaging",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Anime Download Manager",
+    "default_icon": {
+      "16": "icons/adm-16.png",
+      "32": "icons/adm-32.png"
+    }
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "adm@animedm.app",
+      "strict_min_version": "121.0"
+    }
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAupY6NVMVfd7JMIUGYXwXwHVSkYg4SwCsKV3kFY0DgZGEXgr0N2nwllp+xWbHjUwrhz9dXrKs7LpjPdIJFSgmZUnT1kWLcAo3kDczcayx+CIsgr6kzt3/TUHkqyzs0bkb7OcOAeLLxDtWIXkyi0gcNT6aZ8tW9/oTDAflENumeiMVO/kMjUkf61jHM4p3K8AjZPg5M5tGsN36p/MkKNtFvZswGqktIcXIGkdXz4XvjtiQQ/TY3UrhlV4Tw0gNCD51jr59oxQnO/EdE751XzVaRe7j+cOuPX/EcjuxQl7v7MfROsADAUXJfHk+1rPyK7BZKhfegG52mBcjR94CIw7HZQIDAQAB",
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icons/adm-32.png"
+      ],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ]
+    }
+  ]
+}
