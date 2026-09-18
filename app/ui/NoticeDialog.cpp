@@ -1,5 +1,6 @@
 #include "ui/NoticeDialog.h"
 
+#include "ui/FitDialog.h"
 #include "ui/Resource.h"
 #include "ui/Theme.h"
 #include "ui/Strings.h"
@@ -19,6 +20,7 @@ INT_PTR CALLBACK NoticeDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM l
         SetDialogTitle(dialog, STR_NOTICE_TITLE);
         SetDialogText(dialog, IDOK, STR_DLG_OK);
         SetDlgItemTextW(dialog, IDC_NOTICE_TEXT, reinterpret_cast<const wchar_t*>(lParam));
+        FitDialogToText(dialog, IDC_NOTICE_TEXT);
         return TRUE;
     case WM_COMMAND:
         if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) {

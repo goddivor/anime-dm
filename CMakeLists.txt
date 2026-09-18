@@ -31,6 +31,7 @@ add_executable(anime-dm WIN32
     app/core/Text.cpp
     app/ui/ConfirmDialog.cpp
     app/ui/FileIcons.cpp
+    app/ui/FitDialog.cpp
     app/ui/FolderPicker.cpp
     app/ui/Format.cpp
     app/ui/MainWindow.cpp
