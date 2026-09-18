@@ -400,13 +400,17 @@ void MainWindow::PublishSources() {
     bridge::RegisterHost(settings_.browsers);
     const AddonStore* store = &store_;
     Http* http = &http_;
-    std::thread([store, http] { bridge::WriteSources(*store, *http); }).detach();
+    bridge::Panel panel;
+    panel.mode = settings_.panelMode;
+    panel.onPage = settings_.panelOnPage;
+    panel.onLinks = settings_.panelOnLinks;
+    std::thread([store, http, panel] { bridge::WriteSources(*store, *http, panel); }).detach();
 }
 
 // Pushes onto the system and the engine what the options decide.
 void MainWindow::ApplySettings() {
     autostart::Set(settings_.startWithWindows);
-    bridge::RegisterHost(settings_.browsers);
+    PublishSources();
     downloader_.SetLimits(settings_.maxRunning, settings_.connections);
 }
 

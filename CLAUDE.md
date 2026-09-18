@@ -175,8 +175,10 @@ peint couleur `window` pour se lire comme la feuille sous l'onglet choisi. OK ap
 ne touche à rien.
 
 1. **Général** : l'icône et le titre « Intégration au navigateur / Système » soulignés, le
-   démarrage à l'ouverture de session (`Autostart`), le presse-papiers, puis la liste à cases
-   des navigateurs auxquels l'hôte se déclare (`settings.browsers`, tous par défaut).
+   démarrage à l'ouverture de session (`Autostart`), le presse-papiers, la liste à cases
+   des navigateurs auxquels l'hôte se déclare (`settings.browsers`, tous par défaut), puis le
+   bouton *Éditer…* du panneau de téléchargement (`IDD_PANEL` : mode complet ou mini avec un
+   aperçu peint de chacun, sur la page, au survol des liens).
 2. **Enregistrer sous** : le dossier de téléchargement et sa case « Proposer ce dossier », les
    icônes de dossier avec leur modèle, Aniyomi.
 3. **Téléchargements** : les téléchargements simultanés (1 à 10) et les connexions par
@@ -206,10 +208,13 @@ longueur puis un document JSON). L'hôte répond à trois requêtes : `ping`, `s
   page, déclarées par la source dans `adm_metadata` ; `animeFromEpisode` est le remplacement
   qui ramène une page d'épisode à son animé (`$1`). Une source sans motif voit tout son site
   proposé à l'ajout.
-- **Dans la page** : `content.js` pose un bouton flottant dans une racine fantôme, « Télécharger
-  avec ADM » sur une page d'animé, « Télécharger cet épisode avec ADM » sur une page d'épisode,
-  rien sur une page inconnue de la source ; `background.js` garde la liste des sites cinq
-  minutes, pose le badge « ADM » et envoie `add`.
+- **Dans la page** : `content.js` pose, dans une racine fantôme, un bouton dans le coin d'une
+  page d'animé (« Télécharger avec ADM ») ou d'épisode (« Télécharger cet épisode avec ADM »),
+  et le même panneau **au survol de tout lien** du site qui mène à l'un ou l'autre (affiche de
+  la page d'accueil, numéro d'épisode d'une fiche), posé sur l'affiche que le lien enveloppe ou
+  recouvre. Le réglage `panel` de `sources.json` (mode `full` ou `mini`, `onPage`, `onLinks`)
+  vient d'Options › Général › Éditer… ; `background.js` garde sites et réglage une minute, pose
+  le badge « ADM » et envoie `add`.
 - **Remise à l'application** : l'hôte cherche la fenêtre `AnimeDmMainWindow` et lui remet un
   `WM_COPYDATA` (marque `ADM1`, JSON `{"kind":"add","url","episode"}`) ; si elle n'existe pas,
   il lance `anime-dm.exe --add <url> [--episode <url>]`. Le mutex `Local\AnimeDm.Instance`
@@ -219,9 +224,10 @@ longueur puis un document JSON). L'hôte répond à trois requêtes : `ping`, `s
   attendre OK et ne coche que l'épisode nommé.
 
 Pour éprouver dans Edge sans toucher au profil de l'utilisateur :
-`msedge.exe --user-data-dir=<profil de test> --load-extension=<dépôt>\extension`. Edge garde
-le `background.js` en cache de service worker : monter la `version` du manifeste, ou vider
-`Service Worker` dans le profil, quand une modification ne se voit pas.
+`msedge.exe --user-data-dir=<profil de test> --load-extension=<dépôt>\extension`. Edge lit
+les scripts de l'extension **au chargement de celle-ci**, pas à chaque page : après une
+modification, relancer Edge (et vider `Service Worker` dans le profil si le `background.js`
+reste l'ancien).
 
 ## Le modèle d'addons
 

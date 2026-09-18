@@ -7,7 +7,8 @@
 const api = globalThis.browser ?? globalThis.chrome;
 
 const HOST = "com.animedm.host";
-const REFRESH_MS = 5 * 60 * 1000;
+const REFRESH_MS = 60 * 1000;
+const DEFAULT_PANEL = { mode: "full", onPage: true, onLinks: true };
 
 // Sends one request to the native host and returns its answer, or null when
 // the host cannot be reached (not installed, or refused by the browser).
@@ -51,8 +52,16 @@ async function refreshSources() {
       animeFromEpisode: s.animeFromEpisode ?? "",
     }))
     .filter((s) => s.site);
-  await api.storage.local.set({ sources, refreshedAt: Date.now() });
+  const panel = Object.assign({}, DEFAULT_PANEL, answer.panel ?? {});
+  await api.storage.local.set({ sources, panel, refreshedAt: Date.now() });
   return sources;
+}
+
+// How the panels look and where they show, as the options of the
+// application decide.
+async function panelSettings() {
+  const stored = await api.storage.local.get(["panel"]);
+  return Object.assign({}, DEFAULT_PANEL, stored.panel ?? {});
 }
 
 // The stored list, refreshed when stale.
@@ -106,6 +115,25 @@ async function pageOf(url) {
     return { source, anime: target.origin + path, episode: "" };
   }
   return null;
+}
+
+// The source that serves the site of a page, with what the content script
+// needs to recognise its links, or null.
+async function siteOf(url) {
+  const host = hostOf(url);
+  if (!host) {
+    return null;
+  }
+  const source = (await sources()).find((s) => sameSite(host, s.site));
+  if (!source) {
+    return null;
+  }
+  return {
+    host: source.site,
+    name: source.name,
+    animePattern: source.animePattern,
+    episodePattern: source.episodePattern,
+  };
 }
 
 // The source that serves a page, or null.
@@ -185,9 +213,8 @@ api.action.onClicked.addListener(async (tab) => {
 // What the content scripts ask: whether their page is served, and to send it.
 api.runtime.onMessage.addListener((message, sender, reply) => {
   (async () => {
-    if (message.kind === "source") {
-      const page = await pageOf(message.url);
-      reply({ source: page ? page.source : null, episode: page ? !!page.episode : false });
+    if (message.kind === "site") {
+      reply({ site: await siteOf(message.url), panel: await panelSettings() });
     } else if (message.kind === "add") {
       reply(await send(message.url));
     } else {

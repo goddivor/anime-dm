@@ -54,6 +54,12 @@ Settings Load() {
             }
         }
     }
+    settings.panelMode = root.value("panelMode", settings.panelMode);
+    settings.panelOnPage = root.value("panelOnPage", settings.panelOnPage);
+    settings.panelOnLinks = root.value("panelOnLinks", settings.panelOnLinks);
+    if (settings.panelMode != "mini") {
+        settings.panelMode = "full";
+    }
     settings.maxRunning = Clamp(root.value("maxRunning", settings.maxRunning), kMinRunning, kMaxRunning);
     settings.connections =
         Clamp(root.value("connections", settings.connections), kMinConnections, kMaxConnections);
@@ -83,6 +89,9 @@ void Save(const Settings& settings) {
         {"browsers", settings.browsers},
         {"maxRunning", settings.maxRunning},
         {"connections", settings.connections},
+        {"panelMode", settings.panelMode},
+        {"panelOnPage", settings.panelOnPage},
+        {"panelOnLinks", settings.panelOnLinks},
     };
     std::wstring temp = path + L".tmp";
     {

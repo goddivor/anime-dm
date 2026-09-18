@@ -10,10 +10,18 @@ class Http;
 // host how to be found, and keeps the list of the sites the sources serve.
 namespace bridge {
 
-// Writes `<data>/sources.json`: the id, name, language and site of every
-// installed source. Each library is loaded to be asked for its site, so this
-// belongs off the interface thread.
-void WriteSources(const AddonStore& store, Http& http);
+// How the extension shows its panel, as the options decide.
+struct Panel {
+    std::string mode = "full";
+    bool onPage = true;
+    bool onLinks = true;
+};
+
+// Writes `<data>/sources.json`: the id, name, language, site and page
+// patterns of every installed source, and the panel settings. Each library
+// is loaded to be asked for its site, so this belongs off the interface
+// thread.
+void WriteSources(const AddonStore& store, Http& http, const Panel& panel);
 
 // A browser the host can be declared to.
 struct Browser {

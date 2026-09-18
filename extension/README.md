@@ -19,8 +19,9 @@ On any site served by an installed source, a button hands the page to the app.
 
 ## What it does
 
-- On a site served by one of the sources installed in the app, a floating **Download with ADM** button appears. One click sends the page to Anime Download Manager, which opens its add window with the address filled in and reads the page, exactly as if the link had been pasted.
-- Each source tells which addresses are anime pages and which are episode pages. On an episode page the button reads **Download this episode with ADM**: the app opens the anime and preselects that one episode. On a page the source does not know (home, search, a genre), no button.
+- Each source tells which addresses are anime pages and which are episode pages. On such a page, a **Download with ADM** button sits in the corner; on an episode page it reads **Download this episode with ADM** and the app preselects that one episode. One click sends the page to Anime Download Manager, which opens its add window with the address filled in and reads the page, exactly as if the link had been pasted.
+- Anywhere on the site (the home page, a listing, the episode list of an anime), the same panel appears over any link that leads to an anime or an episode as the pointer passes over it: a poster on the home page, an episode number in a list. Clicking it sends that link.
+- The panel is set up in the app, under Options, General, *Edit*: full (icon and caption) or mini (icon alone), shown on the page, over the links, or both.
 - The toolbar icon carries an **ADM** badge on those sites; clicking it sends the current tab.
 - Nothing goes over the network. The extension talks to the app through the native messaging host `adm-host.exe`, which the app registers with every browser when it starts (manifests under `%APPDATA%\anime-dm\host`, keys under `HKCU`).
 
@@ -36,6 +37,6 @@ Start the app at least once first, so that the host is registered.
 ## Files
 
 - `manifest.json` — permissions `nativeMessaging`, `storage` and `tabs`; a content script on every page, which does nothing until the site is recognised.
-- `background.js` — asks the host for the list of sites and their page patterns (`{"kind":"sources"}`), keeps it for five minutes, answers the content scripts, sends the addresses (`{"kind":"add","url":…,"episode":…}`) and sets the badge.
-- `content.js` — the floating button, inside a shadow root so the styles of the page cannot reach it.
+- `background.js` — asks the host for the list of sites, their page patterns and the panel settings (`{"kind":"sources"}`), keeps them for a minute, answers the content scripts, sends the addresses (`{"kind":"add","url":…,"episode":…}`) and sets the badge.
+- `content.js` — the button of the page and the panel over the links, inside a shadow root so the styles of the page cannot reach them.
 - `_locales` — the captions, in English and in French.

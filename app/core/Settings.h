@@ -18,6 +18,9 @@ struct Settings {
     std::vector<std::string> browsers;    // the ids of the browsers the host is declared to
     int maxRunning = 3;                   // videos downloaded at once
     int connections = 8;                  // connections one video may open
+    std::string panelMode = "full";       // the browser panel, "full" with its label or "mini"
+    bool panelOnPage = true;              // show it on the page of an anime or an episode
+    bool panelOnLinks = true;             // show it over the links that lead to one
 };
 
 namespace settings {

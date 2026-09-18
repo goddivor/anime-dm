@@ -11,6 +11,7 @@
 #include "core/FolderIcon.h"
 #include "core/Text.h"
 #include "ui/FolderPicker.h"
+#include "ui/Paint.h"
 #include "ui/Resource.h"
 #include "ui/Strings.h"
 #include "ui/TemplateNames.h"
@@ -32,6 +33,7 @@ constexpr int kTabPaddingUnits = 10;
 struct Screen {
     Settings* settings = nullptr;
     Settings original;
+    Settings draft;
     std::vector<std::string> templates;
     HINSTANCE instance = nullptr;
     HWND pages[kPageCount] = {};
@@ -69,6 +71,8 @@ void InitGeneral(HWND page, Screen& screen) {
     SetDialogText(page, IDC_SET_CLIPBOARD, STR_SET_CLIPBOARD);
     SetDialogText(page, IDC_SET_LBL_BROWSERS, STR_SET_BROWSERS);
     SetDialogText(page, IDC_SET_BROWSERS_HINT, STR_SET_BROWSERS_HINT);
+    SetDialogText(page, IDC_SET_LBL_PANEL, STR_SET_PANEL);
+    SetDialogText(page, IDC_SET_PANEL_EDIT, STR_SET_PANEL_EDIT);
 
     HICON icon = static_cast<HICON>(LoadImageW(screen.instance, MAKEINTRESOURCEW(IDI_APP),
                                                IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR));
@@ -203,6 +207,10 @@ void ReadPages(Screen& screen) {
     HWND downloads = screen.pages[2];
     settings.maxRunning = SpinValue(downloads, IDC_SET_RUNNING_SPIN);
     settings.connections = SpinValue(downloads, IDC_SET_CONNECTIONS_SPIN);
+
+    settings.panelMode = screen.draft.panelMode;
+    settings.panelOnPage = screen.draft.panelOnPage;
+    settings.panelOnLinks = screen.draft.panelOnLinks;
 }
 
 // Paints a page in the colour of a window, so that it reads as the sheet
@@ -213,6 +221,8 @@ INT_PTR PageColor(HDC dc) {
     SetBkColor(dc, theme.Colors().window);
     return reinterpret_cast<INT_PTR>(theme.WindowBrush());
 }
+
+INT_PTR CALLBACK PanelProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam);
 
 // Procedure shared by the three pages: colours, the initial fill, and the
 // few controls that act at once.
@@ -253,6 +263,12 @@ INT_PTR CALLBACK PageProc(HWND page, UINT msg, WPARAM wParam, LPARAM lParam) {
         case IDC_SET_FOLDER_ICONS:
             SyncTemplateState(page);
             return TRUE;
+        case IDC_SET_PANEL_EDIT: {
+            auto* screen = reinterpret_cast<Screen*>(GetWindowLongPtrW(page, GWLP_USERDATA));
+            DialogBoxParamW(screen->instance, MAKEINTRESOURCEW(IDD_PANEL), GetParent(page),
+                            PanelProc, reinterpret_cast<LPARAM>(screen));
+            return TRUE;
+        }
         case IDC_SET_BROWSE: {
             std::wstring folder = PickFolder(page);
             if (!folder.empty()) {
@@ -263,6 +279,106 @@ INT_PTR CALLBACK PageProc(HWND page, UINT msg, WPARAM wParam, LPARAM lParam) {
         default:
             return FALSE;
         }
+    default:
+        return FALSE;
+    }
+}
+
+// --- the panel dialog ---------------------------------------------------------
+
+// Paints a sample of the panel as the extension draws it: the pill in the
+// accent colour, the icon, and the caption unless the sample is the mini one.
+void DrawPanelSample(const DRAWITEMSTRUCT& item, HINSTANCE instance, bool mini) {
+    const ThemeColors& colors = ActiveTheme().Colors();
+    RECT bounds = item.rcItem;
+    HBRUSH back = CreateSolidBrush(colors.surface);
+    FillRect(item.hDC, &bounds, back);
+    DeleteObject(back);
+
+    int height = bounds.bottom - bounds.top;
+    int icon = 16;
+    int pad = (height - icon) / 2;
+    std::wstring caption = mini ? std::wstring() : Str(STR_BUTTON_SAMPLE);
+    SIZE size = {};
+    HFONT font = FontOf(item.hwndItem);
+    HFONT old = SelectFont(item.hDC, font);
+    if (!caption.empty()) {
+        GetTextExtentPoint32W(item.hDC, caption.c_str(), static_cast<int>(caption.size()), &size);
+    }
+    RECT pill = bounds;
+    pill.right = pill.left + pad + icon + (caption.empty() ? pad : pad + size.cx + pad + 2);
+    paint::RoundedRect(item.hDC, pill, static_cast<float>(height) / 2.0f, colors.accent,
+                       colors.accent);
+
+    HICON glyph = static_cast<HICON>(LoadImageW(instance, MAKEINTRESOURCEW(IDI_APP), IMAGE_ICON,
+                                                icon, icon, LR_DEFAULTCOLOR));
+    DrawIconEx(item.hDC, pill.left + pad, pill.top + pad, glyph, icon, icon, 0, nullptr,
+               DI_NORMAL);
+    DestroyIcon(glyph);
+    if (!caption.empty()) {
+        RECT text = {pill.left + pad + icon + pad, pill.top, pill.right - pad, pill.bottom};
+        paint::Label(item.hDC, text, caption, colors.accentText, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    }
+    SelectFont(item.hDC, old);
+}
+
+// Procedure of the panel dialog: two looks to pick from, two places to show.
+INT_PTR CALLBACK PanelProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
+    INT_PTR colour = 0;
+    if (ThemeDialogMessage(msg, wParam, &colour)) {
+        return colour;
+    }
+    auto* screen = reinterpret_cast<Screen*>(GetWindowLongPtrW(dialog, GWLP_USERDATA));
+    switch (msg) {
+    case WM_INITDIALOG: {
+        SetWindowLongPtrW(dialog, GWLP_USERDATA, lParam);
+        screen = reinterpret_cast<Screen*>(lParam);
+        ActiveTheme().ApplyToDialog(dialog);
+        SetDialogTitle(dialog, STR_DLG_PANEL_TITLE);
+        SetDialogText(dialog, IDC_PANEL_LBL_MODE, STR_PANEL_MODE);
+        SetDialogText(dialog, IDC_PANEL_FULL, STR_PANEL_FULL);
+        SetDialogText(dialog, IDC_PANEL_MINI, STR_PANEL_MINI);
+        SetDialogText(dialog, IDC_PANEL_LBL_WHERE, STR_PANEL_WHERE);
+        SetDialogText(dialog, IDC_PANEL_ON_PAGE, STR_PANEL_ON_PAGE);
+        SetDialogText(dialog, IDC_PANEL_ON_LINKS, STR_PANEL_ON_LINKS);
+        SetDialogText(dialog, IDOK, STR_DLG_OK);
+        SetDialogText(dialog, IDCANCEL, STR_DLG_CANCEL);
+        const Settings& settings = screen->draft;
+        CheckRadioButton(dialog, IDC_PANEL_FULL, IDC_PANEL_MINI,
+                         settings.panelMode == "mini" ? IDC_PANEL_MINI : IDC_PANEL_FULL);
+        CheckDlgButton(dialog, IDC_PANEL_ON_PAGE, settings.panelOnPage ? BST_CHECKED : BST_UNCHECKED);
+        CheckDlgButton(dialog, IDC_PANEL_ON_LINKS,
+                       settings.panelOnLinks ? BST_CHECKED : BST_UNCHECKED);
+        return TRUE;
+    }
+    case WM_DRAWITEM: {
+        const auto* item = reinterpret_cast<const DRAWITEMSTRUCT*>(lParam);
+        if (item->CtlID == IDC_PANEL_PREVIEW_FULL || item->CtlID == IDC_PANEL_PREVIEW_MINI) {
+            DrawPanelSample(*item, screen->instance, item->CtlID == IDC_PANEL_PREVIEW_MINI);
+            return TRUE;
+        }
+        return FALSE;
+    }
+    case WM_COMMAND:
+        switch (LOWORD(wParam)) {
+        case IDOK: {
+            Settings& settings = screen->draft;
+            settings.panelMode =
+                IsDlgButtonChecked(dialog, IDC_PANEL_MINI) == BST_CHECKED ? "mini" : "full";
+            settings.panelOnPage = IsDlgButtonChecked(dialog, IDC_PANEL_ON_PAGE) == BST_CHECKED;
+            settings.panelOnLinks = IsDlgButtonChecked(dialog, IDC_PANEL_ON_LINKS) == BST_CHECKED;
+            EndDialog(dialog, IDOK);
+            return TRUE;
+        }
+        case IDCANCEL:
+            EndDialog(dialog, IDCANCEL);
+            return TRUE;
+        default:
+            return FALSE;
+        }
+    case WM_CLOSE:
+        EndDialog(dialog, IDCANCEL);
+        return TRUE;
     default:
         return FALSE;
     }
@@ -426,7 +542,9 @@ bool Differs(const Settings& a, const Settings& b) {
            a.aniyomi != b.aniyomi || a.clipboardUrl != b.clipboardUrl ||
            a.rememberPath != b.rememberPath || a.savePath != b.savePath ||
            a.startWithWindows != b.startWithWindows || a.browsers != b.browsers ||
-           a.maxRunning != b.maxRunning || a.connections != b.connections;
+           a.maxRunning != b.maxRunning || a.connections != b.connections ||
+           a.panelMode != b.panelMode || a.panelOnPage != b.panelOnPage ||
+           a.panelOnLinks != b.panelOnLinks;
 }
 
 }  // namespace
@@ -436,6 +554,7 @@ bool ShowSettingsDialog(HWND owner, HINSTANCE instance, Settings* settings) {
     Screen screen;
     screen.settings = settings;
     screen.original = *settings;
+    screen.draft = *settings;
     screen.instance = instance;
     DialogBoxParamW(instance, MAKEINTRESOURCEW(IDD_SETTINGS), owner, SettingsDialogProc,
                     reinterpret_cast<LPARAM>(&screen));

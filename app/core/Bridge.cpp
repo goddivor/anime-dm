@@ -76,8 +76,8 @@ const KnownBrowser kBrowsers[] = {
 
 namespace bridge {
 
-// Writes the id, name, language and site of every installed source.
-void WriteSources(const AddonStore& store, Http& http) {
+// Writes what the extension needs to know about the sources and the panel.
+void WriteSources(const AddonStore& store, Http& http, const Panel& panel) {
     nlohmann::json sources = nlohmann::json::array();
     for (const InstalledAddon& installed : store.Installed()) {
         AddonMetadata meta;
@@ -96,7 +96,11 @@ void WriteSources(const AddonStore& store, Http& http) {
     }
     std::wstring path = paths::SourcesFile();
     if (!path.empty()) {
-        WriteText(path, nlohmann::json({{"sources", sources}}).dump(2));
+        nlohmann::json root = {
+            {"sources", sources},
+            {"panel", {{"mode", panel.mode}, {"onPage", panel.onPage}, {"onLinks", panel.onLinks}}},
+        };
+        WriteText(path, root.dump(2));
     }
 }
 
