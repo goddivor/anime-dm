@@ -78,6 +78,8 @@ struct Flow {
     std::vector<std::string> hosts;  // parallel to `sources`, empty until known
     int source = -1;
     std::string url;
+    std::string initialUrl;  // handed in from outside, read as soon as matched
+    bool autoStart = false;
 
     std::string title;
     std::string posterUrl;
@@ -950,7 +952,10 @@ INT_PTR CALLBACK UrlProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
         SetDialogText(dialog, IDCANCEL, STR_DLG_CANCEL);
 
         FillSources(dialog, *flow);
-        if (flow->settings != nullptr && flow->settings->clipboardUrl) {
+        if (!flow->initialUrl.empty()) {
+            SetDlgItemTextW(dialog, IDC_ADD_URL, Widen(flow->initialUrl).c_str());
+            flow->autoStart = !flow->sources.empty();
+        } else if (flow->settings != nullptr && flow->settings->clipboardUrl) {
             std::wstring pasted = ClipboardUrl(dialog);
             if (!pasted.empty()) {
                 SetDlgItemTextW(dialog, IDC_ADD_URL, pasted.c_str());
@@ -967,6 +972,14 @@ INT_PTR CALLBACK UrlProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
         std::unique_ptr<Hosts> answer(reinterpret_cast<Hosts*>(lParam));
         flow->hosts = std::move(answer->hosts);
         MatchSource(dialog, *flow);
+        // An address handed in from outside goes on by itself once the
+        // source that serves it is known; if none does, the user decides.
+        if (flow->autoStart && !flow->busy) {
+            flow->autoStart = false;
+            if (SourceFits(dialog, *flow)) {
+                StartLoad(dialog, *flow);
+            }
+        }
         return TRUE;
     }
 
@@ -1047,13 +1060,15 @@ INT_PTR CALLBACK UrlProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 // Runs the add flow: the address, then what the source answered about it.
 INT_PTR ShowAddDialog(HWND owner, HINSTANCE instance, const AddonStore& store, Http& http,
-                      const Settings& settings, AddRequest* request) {
+                      const Settings& settings, AddRequest* request,
+                      const std::string& initialUrl) {
     Flow flow;
     flow.store = &store;
     flow.http = &http;
     flow.settings = &settings;
     flow.request = request;
     flow.sources = store.Installed();
+    flow.initialUrl = initialUrl;
 
     INT_PTR answer = IDCANCEL;
     if (DialogBoxParamW(instance, MAKEINTRESOURCEW(IDD_ADD_URL), owner, UrlProc,

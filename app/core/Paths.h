@@ -18,6 +18,12 @@ std::wstring SettingsFile();
 // `<data>/downloads.json`, the queue between two sessions.
 std::wstring DownloadsFile();
 
+// `<data>/sources.json`, what the browser extension knows of the sources.
+std::wstring SourcesFile();
+
+// `<data>/host`, the manifests the browsers read to find the native host.
+std::wstring HostDir();
+
 // `<data>/posters`, one image per anime of the queue.
 std::wstring PostersDir();
 

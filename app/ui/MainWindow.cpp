@@ -12,6 +12,8 @@
 #include <thread>
 
 #include "core/Addon.h"
+#include "core/Bridge.h"
+#include "core/BridgeProtocol.h"
 #include "core/Digest.h"
 #include "core/FolderIcon.h"
 #include "core/Paths.h"
@@ -40,6 +42,7 @@ constexpr char kFluentSkin[] = "fluent";  // the settings value naming the icon 
 constexpr UINT kDownloadEvent = WM_APP + 20;
 constexpr UINT kPosterEvent = WM_APP + 21;
 constexpr UINT kIconEvent = WM_APP + 22;
+constexpr UINT kOutsideAdd = WM_APP + 23;  // lParam: a heap std::string with the address
 constexpr int kNameColumn = 0;
 constexpr int kStatusColumn = 2;
 constexpr int kIconGap = 4;  // around the picture of a file type
@@ -202,6 +205,25 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     case kIconEvent:
         OnIconEvent(std::unique_ptr<IconPayload>(reinterpret_cast<IconPayload*>(lParam)));
         return 0;
+    case kOutsideAdd: {
+        std::unique_ptr<std::string> url(reinterpret_cast<std::string*>(lParam));
+        OnAddDownload(*url);
+        return 0;
+    }
+    case WM_COPYDATA: {
+        // What the native host of the browser extension, or a second
+        // instance, hands over: a JSON document marked as ours.
+        auto* data = reinterpret_cast<const COPYDATASTRUCT*>(lParam);
+        if (data == nullptr || data->dwData != bridge::kCopyDataMark) {
+            break;
+        }
+        std::string text(static_cast<const char*>(data->lpData), data->cbData);
+        nlohmann::json message = nlohmann::json::parse(text, nullptr, false);
+        if (message.is_object() && message.value("kind", std::string()) == "add") {
+            AddFromOutside(message.value("url", std::string()));
+        }
+        return TRUE;
+    }
     case WM_CONTEXTMENU:
         OnContextMenu(reinterpret_cast<HWND>(wParam), GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
         return 0;
@@ -361,6 +383,16 @@ void MainWindow::OnCreate() {
 
     ApplyTheme();
     UpdateActions();
+    PublishSources();
+}
+
+// Tells the browsers where the native host is, and writes what the extension
+// needs to know of the sources; the libraries are asked off this thread.
+void MainWindow::PublishSources() {
+    bridge::RegisterHost();
+    const AddonStore* store = &store_;
+    Http* http = &http_;
+    std::thread([store, http] { bridge::WriteSources(*store, *http); }).detach();
 }
 
 // Stops the transfers, keeps their parts, and records the queue as it stands.
@@ -827,12 +859,30 @@ void MainWindow::CancelSplitterDrag() {
     draggingSplitter_ = false;
 }
 
+// Opens the add window on an address handed in from outside. The request
+// arrives inside a message the sender waits on, so the window opens from a
+// message of its own; while another dialog is up, the address is dropped.
+void MainWindow::AddFromOutside(const std::string& url) {
+    if (url.empty() || !IsWindowEnabled(hwnd_)) {
+        MessageBeep(MB_ICONWARNING);
+        return;
+    }
+    if (IsIconic(hwnd_)) {
+        ShowWindow(hwnd_, SW_RESTORE);
+    }
+    SetForegroundWindow(hwnd_);
+    auto* copy = new std::string(url);
+    if (!PostMessageW(hwnd_, kOutsideAdd, 0, reinterpret_cast<LPARAM>(copy))) {
+        delete copy;
+    }
+}
+
 // Asks the user for an anime, then queues the episodes it picked.
-void MainWindow::OnAddDownload() {
+void MainWindow::OnAddDownload(const std::string& initialUrl) {
     HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
 
     AddRequest request;
-    if (ShowAddDialog(hwnd_, instance, store_, http_, settings_, &request) != IDOK) {
+    if (ShowAddDialog(hwnd_, instance, store_, http_, settings_, &request, initialUrl) != IDOK) {
         return;
     }
 
@@ -1711,6 +1761,7 @@ void MainWindow::OnCommand(int commandId) {
         break;
     case ID_VIEW_ADDONS:
         ShowAddonsDialog(hwnd_, instance, store_, http_);
+        PublishSources();
         break;
     case ID_VIEW_CATEGORIES:
         sidebarVisible_ = !sidebarVisible_;

@@ -66,6 +66,22 @@ std::wstring SettingsFile() {
     return base.empty() ? std::wstring() : base + L"\\settings.json";
 }
 
+// `<data>/sources.json`.
+std::wstring SourcesFile() {
+    std::wstring base = DataDir();
+    return base.empty() ? std::wstring() : base + L"\\sources.json";
+}
+
+// `<data>/host`, created on demand.
+std::wstring HostDir() {
+    std::wstring base = DataDir();
+    if (base.empty()) {
+        return std::wstring();
+    }
+    std::wstring dir = base + L"\\host";
+    return EnsureDir(dir) ? dir : std::wstring();
+}
+
 // `<data>/downloads.json`.
 std::wstring DownloadsFile() {
     std::wstring base = DataDir();

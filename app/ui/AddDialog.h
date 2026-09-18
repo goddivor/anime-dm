@@ -33,6 +33,9 @@ struct AddRequest {
     std::vector<AddRequestEpisode> episodes;
 };
 
-// Shows the add dialog. Returns IDOK and fills `request` when confirmed.
+// Shows the add dialog. Returns IDOK and fills `request` when confirmed. An
+// `initialUrl`, as the browser extension hands one, fills the address and
+// starts the reading of the page as soon as the source is known.
 INT_PTR ShowAddDialog(HWND owner, HINSTANCE instance, const AddonStore& store, Http& http,
-                      const Settings& settings, AddRequest* request);
+                      const Settings& settings, AddRequest* request,
+                      const std::string& initialUrl = std::string());
