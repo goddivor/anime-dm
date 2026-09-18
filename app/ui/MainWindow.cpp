@@ -29,6 +29,7 @@
 #include "ui/HelpDialogs.h"
 #include "ui/NoticeDialog.h"
 #include "ui/Resource.h"
+#include "ui/SchedulerDialog.h"
 #include "ui/SearchDialog.h"
 #include "ui/SettingsDialog.h"
 #include "ui/Strings.h"
@@ -44,6 +45,8 @@ constexpr UINT kDownloadEvent = WM_APP + 20;
 constexpr UINT kPosterEvent = WM_APP + 21;
 constexpr UINT kIconEvent = WM_APP + 22;
 constexpr UINT kOutsideAdd = WM_APP + 23;
+constexpr UINT_PTR kScheduleTimer = 7;
+constexpr UINT kScheduleTickMs = 30000;
 constexpr int kNameColumn = 0;
 constexpr int kStatusColumn = 2;
 constexpr int kIconGap = 4;  // around the picture of a file type
@@ -202,6 +205,11 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
     case WM_COMMAND:
         OnCommand(LOWORD(wParam));
+        return 0;
+    case WM_TIMER:
+        if (wParam == kScheduleTimer) {
+            OnScheduleTick();
+        }
         return 0;
     case kDownloadEvent:
         OnDownloadEvent(std::unique_ptr<DownloadEvent>(reinterpret_cast<DownloadEvent*>(lParam)));
@@ -371,14 +379,22 @@ void MainWindow::OnCreate() {
     queue::State state = queue::Load();
     items_ = std::move(state.items);
     groups_ = std::move(state.groups);
-    for (const DownloadItem& item : items_) {
+    // Nothing runs yet: an item the last session left running, or a session
+    // cut short left waiting, is stopped until the user or a queue starts it.
+    for (DownloadItem& item : items_) {
         nextId_ = std::max(nextId_, item.id + 1);
+        if (IsActive(item.status)) {
+            item.status = DownloadStatus::Stopped;
+            item.speed = 0.0;
+        }
     }
     PruneGroups();
     FillList();
     RebuildSidebar();
     LoadPosters();
     downloader_.Attach(hwnd_, kDownloadEvent);
+    schedule::Load(&scheduler_);
+    SetTimer(hwnd_, kScheduleTimer, kScheduleTickMs, nullptr);
 
     ACCEL accels[] = {
         {FVIRTKEY | FCONTROL, 'N', ID_TASK_ADD},
@@ -416,6 +432,7 @@ void MainWindow::ApplySettings() {
 
 // Stops the transfers, keeps their parts, and records the queue as it stands.
 void MainWindow::OnDestroy() {
+    KillTimer(hwnd_, kScheduleTimer);
     downloader_.Attach(nullptr, 0);
     downloader_.PauseAll();
     for (DownloadItem& item : items_) {
@@ -940,11 +957,12 @@ void MainWindow::OnAddDownload(const std::string& initialUrl, const std::string&
                        (IsMovie(episode.name)
                             ? title + L".mp4"
                             : title + L" - Ep " + EpisodeLabel(episode.number) + L".mp4");
-        item.status = DownloadStatus::Queued;
+        // Later leaves the episode stopped in the main queue: Resume, or
+        // starting the queue, hands it to the engine.
+        item.status = request.later ? DownloadStatus::Stopped : DownloadStatus::Queued;
         item.addedAt = std::time(nullptr);
         items_.push_back(item);
         Refresh(item);
-        // Later leaves the episode in the queue: Resume hands it to the engine.
         if (!request.later) {
             downloader_.Start(TaskOf(item));
         }
@@ -1220,8 +1238,10 @@ bool MainWindow::Visible(const DownloadItem& item) const {
     switch (filter_.kind) {
     case ListFilter::Kind::Anime:
         return item.animeUrl == filter_.animeUrl;
+    case ListFilter::Kind::QueueMain:
+        return item.queue == QueueKind::Main;
     case ListFilter::Kind::QueueScheduler:
-        return false;
+        return item.queue == QueueKind::Scheduler;
     default:
         return true;
     }
@@ -1434,6 +1454,9 @@ void MainWindow::OnDownloadEvent(std::unique_ptr<DownloadEvent> event) {
         Persist();
         RebuildSidebar();
         UpdateActions();
+        if (!IsActive(item->status)) {
+            FinishScheduledRun(item->queue);
+        }
     }
 }
 
@@ -1612,6 +1635,117 @@ void MainWindow::StopAll() {
     }
 }
 
+// Hands every stopped or failed item of a queue to the engine.
+void MainWindow::StartQueue(QueueKind queue) {
+    for (DownloadItem& item : items_) {
+        if (item.queue == queue && (item.status == DownloadStatus::Stopped ||
+                                    item.status == DownloadStatus::Failed)) {
+            StartItem(item, false);
+        }
+    }
+    Persist();
+    UpdateActions();
+}
+
+// Stops every running item of a queue, keeping the parts.
+void MainWindow::StopQueue(QueueKind queue) {
+    for (const DownloadItem& item : items_) {
+        if (item.queue == queue && IsActive(item.status)) {
+            downloader_.Pause(item.id);
+        }
+    }
+}
+
+// Puts the selection in a queue; the categories panel follows.
+void MainWindow::MoveSelectedTo(QueueKind queue) {
+    for (uint64_t id : downloads_.Selected()) {
+        if (DownloadItem* item = Find(id)) {
+            item->queue = queue;
+        }
+    }
+    Persist();
+    FillList();
+    RebuildSidebar();
+}
+
+// Opens the scheduler window on the scheduler queue, or on the queue the
+// panel shows.
+void MainWindow::OpenScheduler() {
+    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+    SchedulerScreen screen;
+    screen.scheduler = &scheduler_;
+    screen.items = &items_;
+    screen.initial = filter_.kind == ListFilter::Kind::QueueMain ? QueueKind::Main
+                                                                  : QueueKind::Scheduler;
+    screen.run = [this](QueueKind queue, bool start) {
+        if (start) {
+            StartQueue(queue);
+        } else {
+            StopQueue(queue);
+        }
+    };
+    if (ShowSchedulerDialog(hwnd_, instance, &screen)) {
+        schedule::Save(scheduler_);
+    }
+}
+
+// Carries out what the schedules name as due, once every tick.
+void MainWindow::OnScheduleTick() {
+    bool changed = false;
+    for (const ScheduleAction& action : scheduler_.Tick(std::time(nullptr))) {
+        int slot = action.queue == QueueKind::Scheduler ? 1 : 0;
+        if (action.start) {
+            scheduledRun_[slot] = true;
+            StartQueue(action.queue);
+            changed = changed || !scheduler_.Of(action.queue).daily;
+        } else {
+            scheduledRun_[slot] = false;
+            StopQueue(action.queue);
+        }
+    }
+    if (changed) {
+        schedule::Save(scheduler_);
+    }
+}
+
+// Once a queue the clock started has nothing left running, does what its
+// schedule asks: quits, or shuts the computer down.
+void MainWindow::FinishScheduledRun(QueueKind queue) {
+    int slot = queue == QueueKind::Scheduler ? 1 : 0;
+    if (!scheduledRun_[slot]) {
+        return;
+    }
+    for (const DownloadItem& item : items_) {
+        if (item.queue == queue && IsActive(item.status)) {
+            return;
+        }
+    }
+    scheduledRun_[slot] = false;
+    switch (scheduler_.Of(queue).whenDone) {
+    case QueueSchedule::WhenDone::Quit:
+        PostMessageW(hwnd_, WM_CLOSE, 0, 0);
+        break;
+    case QueueSchedule::WhenDone::Shutdown: {
+        HANDLE token = nullptr;
+        if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token)) {
+            TOKEN_PRIVILEGES privileges = {};
+            privileges.PrivilegeCount = 1;
+            LookupPrivilegeValueW(nullptr, SE_SHUTDOWN_NAME, &privileges.Privileges[0].Luid);
+            privileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+            AdjustTokenPrivileges(token, FALSE, &privileges, 0, nullptr, nullptr);
+            CloseHandle(token);
+        }
+        Persist();
+        ExitWindowsEx(EWX_SHUTDOWN | EWX_POWEROFF, SHTDN_REASON_MAJOR_APPLICATION |
+                                                       SHTDN_REASON_MINOR_OTHER |
+                                                       SHTDN_REASON_FLAG_PLANNED);
+        break;
+    }
+    default:
+        break;
+    }
+}
+
 // Empties the queue, dropping the parts of what was running.
 void MainWindow::DeleteAll() {
     HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
@@ -1750,6 +1884,21 @@ void MainWindow::OnCommand(int commandId) {
     case ID_DOWNLOAD_STOP_ALL:
         StopAll();
         break;
+    case ID_DOWNLOAD_SCHEDULE:
+        OpenScheduler();
+        break;
+    case ID_QUEUE_START_MAIN:
+        StartQueue(QueueKind::Main);
+        break;
+    case ID_QUEUE_START_SCHEDULER:
+        StartQueue(QueueKind::Scheduler);
+        break;
+    case ID_QUEUE_STOP_MAIN:
+        StopQueue(QueueKind::Main);
+        break;
+    case ID_QUEUE_STOP_SCHEDULER:
+        StopQueue(QueueKind::Scheduler);
+        break;
     case ID_DOWNLOAD_DELETE_ALL:
         DeleteAll();
         break;
@@ -1855,6 +2004,7 @@ void MainWindow::RunDownloadsMenu(int x, int y) {
         if (const DownloadItem* first = Find(selected.front())) {
             options.players = first->players;
             options.currentPlayer = first->player;
+            options.inScheduler = first->queue == QueueKind::Scheduler;
         }
     }
     for (uint64_t id : selected) {
@@ -1873,7 +2023,11 @@ void MainWindow::RunDownloadsMenu(int x, int y) {
     if (command == 0) {
         return;
     }
-    if (command == ID_CTX_PLAYER_AUTO) {
+    if (command == ID_CTX_QUEUE_MAIN) {
+        MoveSelectedTo(QueueKind::Main);
+    } else if (command == ID_CTX_QUEUE_SCHEDULER) {
+        MoveSelectedTo(QueueKind::Scheduler);
+    } else if (command == ID_CTX_PLAYER_AUTO) {
         ResumeSelectedWith(std::string());
     } else if (command >= ID_PLAYER_FIRST &&
                command < ID_PLAYER_FIRST + static_cast<int>(options.players.size())) {

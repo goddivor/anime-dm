@@ -71,6 +71,7 @@ State Load() {
         item.outPath = SafePath(Widen(entry.value("outPath", std::string())));
         item.movie = entry.value("movie", item.outPath.find(L" - Ep ") == std::wstring::npos);
         item.status = static_cast<DownloadStatus>(entry.value("status", 0));
+        item.queue = entry.value("queue", 0) == 1 ? QueueKind::Scheduler : QueueKind::Main;
         item.done = entry.value("done", uint64_t(0));
         item.total = entry.value("total", uint64_t(0));
         item.fraction = entry.value("fraction", -1.0);
@@ -132,6 +133,7 @@ void Save(const State& state) {
             {"movie", item.movie},
             {"outPath", Narrow(item.outPath)},
             {"status", static_cast<int>(item.status)},
+            {"queue", item.queue == QueueKind::Scheduler ? 1 : 0},
             {"done", item.done},
             {"total", item.total},
             {"fraction", item.fraction},

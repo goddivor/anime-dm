@@ -412,10 +412,15 @@ void Sidebar::Rebuild(const std::vector<AnimeGroup>& groups,
 
     Node* queues = Add(SidebarNodeKind::Queues, std::string(), 0);
     HTREEITEM queueRoot = Insert(TVI_ROOT, Str(STR_CAT_QUEUE), CAT_QUEUE, queues, 1);
+    size_t scheduled = static_cast<size_t>(std::count_if(
+        items.begin(), items.end(),
+        [](const DownloadItem& item) { return item.queue == QueueKind::Scheduler; }));
     Node* main = Add(SidebarNodeKind::QueueMain, std::string(), 0);
-    Insert(queueRoot, Counted(Str(STR_QUEUE_MAIN), items.size()).c_str(), CAT_QUEUE, main, 1);
+    Insert(queueRoot, Counted(Str(STR_QUEUE_MAIN), items.size() - scheduled).c_str(), CAT_QUEUE,
+           main, 1);
     Node* scheduler = Add(SidebarNodeKind::QueueScheduler, std::string(), 0);
-    Insert(queueRoot, Counted(Str(STR_QUEUE_SCHEDULER), 0).c_str(), CAT_TIMER, scheduler, 1);
+    Insert(queueRoot, Counted(Str(STR_QUEUE_SCHEDULER), scheduled).c_str(), CAT_TIMER, scheduler,
+           1);
     SendMessageW(tree_, TVM_EXPAND, TVE_EXPAND, reinterpret_cast<LPARAM>(queueRoot));
 
     Select(remembered);

@@ -21,6 +21,9 @@ std::wstring DownloadsFile();
 // `<data>/sources.json`, what the browser extension knows of the sources.
 std::wstring SourcesFile();
 
+// `<data>/schedule.json`, when the queues start and stop on their own.
+std::wstring ScheduleFile();
+
 // `<data>/host`, the manifests the browsers read to find the native host.
 std::wstring HostDir();
 
