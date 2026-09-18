@@ -78,6 +78,12 @@ std::wstring ScheduleFile() {
     return base.empty() ? std::wstring() : base + L"\\schedule.json";
 }
 
+// `<data>/follows.json`.
+std::wstring FollowsFile() {
+    std::wstring base = DataDir();
+    return base.empty() ? std::wstring() : base + L"\\follows.json";
+}
+
 // `<data>/host`, created on demand.
 std::wstring HostDir() {
     std::wstring base = DataDir();

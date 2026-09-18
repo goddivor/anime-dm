@@ -24,6 +24,9 @@ std::wstring SourcesFile();
 // `<data>/schedule.json`, when the queues start and stop on their own.
 std::wstring ScheduleFile();
 
+// `<data>/follows.json`, the animes whose new episodes are fetched on their own.
+std::wstring FollowsFile();
+
 // `<data>/host`, the manifests the browsers read to find the native host.
 std::wstring HostDir();
 

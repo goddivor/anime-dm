@@ -8,10 +8,13 @@
 #include "core/AddonStore.h"
 #include "core/Download.h"
 #include "core/Downloader.h"
+#include "core/Follow.h"
 #include "core/Http.h"
 #include "core/Schedule.h"
 #include "core/Settings.h"
+#include "ui/AddDialog.h"
 #include "ui/DownloadsView.h"
+#include "ui/FollowDialog.h"
 #include "ui/MenuBar.h"
 #include "ui/Sidebar.h"
 #include "ui/Theme.h"
@@ -19,6 +22,7 @@
 
 struct PosterPayload;
 struct IconPayload;
+struct FollowPayload;
 
 // Which items the list shows, as chosen in the categories panel.
 struct ListFilter {
@@ -52,6 +56,7 @@ private:
     void OnDownloadEvent(std::unique_ptr<DownloadEvent> event);
     void OnPosterEvent(std::unique_ptr<PosterPayload> payload);
     void OnIconEvent(std::unique_ptr<IconPayload> payload);
+    void OnFollowEvent(std::unique_ptr<FollowPayload> payload);
     LRESULT OnSidebarNotify(NMHDR* notify);
     void OnSidebarSelect(const SidebarNode* node);
     void OnSidebarContext();
@@ -98,6 +103,12 @@ private:
     void OpenScheduler();
     void OnScheduleTick();
     void FinishScheduledRun(QueueKind queue);
+    // --- the followed animes ---
+    void AddEpisodes(const AddRequest& request, QueueKind queue, bool start);
+    void FollowAnime(const std::string& url);
+    std::vector<FollowChoice> FollowChoices() const;
+    void CheckFollows();
+    void CheckFollow(const FollowedAnime& follow);
     void RemoveCompleted();
     void OpenSelected(bool folder);
     // Selects an item in the list, lifting the filter when it hides it.
@@ -134,6 +145,8 @@ private:
     ListFilter filter_;
     Settings settings_;
     Scheduler scheduler_;
+    std::vector<FollowedAnime> follows_;
+    std::vector<std::string> checking_;
     bool scheduledRun_[2] = {false, false};
     int sortColumn_ = -1;  // the column the rows follow, or none
     bool sortAscending_ = true;

@@ -74,6 +74,8 @@ int ShowAnimeContextMenu(HWND owner, int x, int y, const AnimeMenuOptions& optio
                     Str(TemplateName(options.templates[i])));
     }
     AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(templates), Str(STR_ICON_CHANGE));
+    AppendMenuW(menu, MF_STRING | (options.followed ? MF_CHECKED : 0), ID_ANIME_FOLLOW,
+                Str(STR_ANIME_FOLLOW));
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, ID_ANIME_DELETE, Str(STR_ANIME_DELETE));
 
