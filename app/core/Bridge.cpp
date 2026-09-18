@@ -1,6 +1,7 @@
 #include "core/Bridge.h"
 
 #include <windows.h>
+#include <shellapi.h>
 
 #include <filesystem>
 #include <fstream>
@@ -38,16 +39,36 @@ bool WriteText(const std::wstring& path, const std::string& text) {
     return true;
 }
 
-// Sets the default value of a key under HKCU, creating the key.
-void SetRegistryDefault(const std::wstring& key, const std::wstring& value) {
+// Sets a string value of a key under HKCU, creating the key; an empty name
+// sets the default value.
+void SetRegistryString(const std::wstring& key, const wchar_t* name, const std::wstring& value) {
     HKEY handle = nullptr;
     if (RegCreateKeyExW(HKEY_CURRENT_USER, key.c_str(), 0, nullptr, 0, KEY_SET_VALUE, nullptr,
                         &handle, nullptr) != ERROR_SUCCESS) {
         return;
     }
-    RegSetValueExW(handle, nullptr, 0, REG_SZ, reinterpret_cast<const BYTE*>(value.c_str()),
+    RegSetValueExW(handle, name, 0, REG_SZ, reinterpret_cast<const BYTE*>(value.c_str()),
                    static_cast<DWORD>((value.size() + 1) * sizeof(wchar_t)));
     RegCloseKey(handle);
+}
+
+void SetRegistryDefault(const std::wstring& key, const std::wstring& value) {
+    SetRegistryString(key, nullptr, value);
+}
+
+// Removes one value of a key under HKCU, when it exists.
+void DeleteRegistryValue(const std::wstring& key, const wchar_t* name) {
+    HKEY handle = nullptr;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, key.c_str(), 0, KEY_SET_VALUE, &handle) != ERROR_SUCCESS) {
+        return;
+    }
+    RegDeleteValueW(handle, name);
+    RegCloseKey(handle);
+}
+
+bool IsFile(const std::wstring& path) {
+    DWORD attributes = GetFileAttributesW(path.c_str());
+    return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
 }
 
 // Removes a key under HKCU, when it exists.
@@ -55,22 +76,49 @@ void DeleteRegistryKey(const std::wstring& key) {
     RegDeleteKeyW(HKEY_CURRENT_USER, key.c_str());
 }
 
-// Where each browser looks for native hosts, under HKCU; Firefox reads its
-// own kind of manifest.
+// The key of each browser under HKCU: `<key>\NativeMessagingHosts` is where
+// it looks for hosts, `<key>\Extensions` where it reads the extensions to
+// install. Firefox reads its own kind of manifest, and takes its extensions
+// as values under `Software\Mozilla\Firefox\Extensions`.
 struct KnownBrowser {
     bridge::Browser browser;
     const wchar_t* key;
     bool firefox;
 };
 const KnownBrowser kBrowsers[] = {
-    {{"chrome", L"Google Chrome"}, L"Software\\Google\\Chrome\\NativeMessagingHosts", false},
-    {{"edge", L"Microsoft Edge"}, L"Software\\Microsoft\\Edge\\NativeMessagingHosts", false},
-    {{"brave", L"Brave"}, L"Software\\BraveSoftware\\Brave-Browser\\NativeMessagingHosts", false},
-    {{"chromium", L"Chromium"}, L"Software\\Chromium\\NativeMessagingHosts", false},
-    {{"vivaldi", L"Vivaldi"}, L"Software\\Vivaldi\\NativeMessagingHosts", false},
-    {{"opera", L"Opera"}, L"Software\\Opera Software\\NativeMessagingHosts", false},
-    {{"firefox", L"Mozilla Firefox"}, L"Software\\Mozilla\\NativeMessagingHosts", true},
+    {{"chrome", L"Google Chrome"}, L"Software\\Google\\Chrome", false},
+    {{"edge", L"Microsoft Edge"}, L"Software\\Microsoft\\Edge", false},
+    {{"brave", L"Brave"}, L"Software\\BraveSoftware\\Brave-Browser", false},
+    {{"chromium", L"Chromium"}, L"Software\\Chromium", false},
+    {{"vivaldi", L"Vivaldi"}, L"Software\\Vivaldi", false},
+    {{"opera", L"Opera"}, L"Software\\Opera Software", false},
+    {{"firefox", L"Mozilla Firefox"}, L"Software\\Mozilla", true},
 };
+constexpr wchar_t kFirefoxInstallKey[] = L"Software\\Mozilla\\Firefox\\Extensions";
+
+// Asks a browser to install the extension, or takes the request back. A
+// Chromium browser installs from the Web Store at its next start and asks
+// the user to enable it; Firefox does the same with the signed package,
+// which is only declared when it ships with the application.
+void RegisterExtension(const KnownBrowser& known, const std::wstring& exe, bool wanted) {
+    if (known.firefox) {
+        std::wstring package = exe + L"\\" + bridge::kFirefoxPackage;
+        std::wstring id = Widen(bridge::kFirefoxExtensionId);
+        if (wanted && IsFile(package)) {
+            SetRegistryString(kFirefoxInstallKey, id.c_str(), package);
+        } else {
+            DeleteRegistryValue(kFirefoxInstallKey, id.c_str());
+        }
+        return;
+    }
+    std::wstring key =
+        std::wstring(known.key) + L"\\Extensions\\" + Widen(bridge::kChromiumExtensionId);
+    if (wanted) {
+        SetRegistryString(key, L"update_url", bridge::kChromiumUpdateUrl);
+    } else {
+        DeleteRegistryKey(key);
+    }
+}
 
 }  // namespace
 
@@ -158,14 +206,21 @@ void RegisterHost(const std::vector<std::string>& enabled) {
         return;
     }
     for (const KnownBrowser& known : kBrowsers) {
-        std::wstring key = std::wstring(known.key) + L"\\" + Widen(name);
+        std::wstring key =
+            std::wstring(known.key) + L"\\NativeMessagingHosts\\" + Widen(name);
         bool wanted = std::find(enabled.begin(), enabled.end(), known.browser.id) != enabled.end();
         if (wanted) {
             SetRegistryDefault(key, known.firefox ? firefoxFile : chromiumFile);
         } else {
             DeleteRegistryKey(key);
         }
+        RegisterExtension(known, exe, wanted);
     }
+}
+
+// Opens the store page in whatever browser the user made the default.
+void OpenStorePage() {
+    ShellExecuteW(nullptr, L"open", kChromiumStoreUrl, nullptr, nullptr, SW_SHOWNORMAL);
 }
 
 }  // namespace bridge

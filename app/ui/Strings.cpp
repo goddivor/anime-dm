@@ -191,6 +191,7 @@ constexpr Translation kTable[STR_COUNT] = {
      L"transfers."},
     {L"Panneau de téléchargement dans les navigateurs :", L"Download panel in the browsers:"},
     {L"Éditer…", L"Edit…"},
+    {L"Installer l'extension…", L"Install the extension…"},
     {L"Personnalisation du panneau de téléchargement", L"Download panel customisation"},
     {L"Aspect du panneau :", L"Look of the panel:"},
     {L"Mode complet", L"Full mode"},

@@ -73,6 +73,7 @@ void InitGeneral(HWND page, Screen& screen) {
     SetDialogText(page, IDC_SET_BROWSERS_HINT, STR_SET_BROWSERS_HINT);
     SetDialogText(page, IDC_SET_LBL_PANEL, STR_SET_PANEL);
     SetDialogText(page, IDC_SET_PANEL_EDIT, STR_SET_PANEL_EDIT);
+    SetDialogText(page, IDC_SET_INSTALL, STR_SET_INSTALL);
 
     HICON icon = static_cast<HICON>(LoadImageW(screen.instance, MAKEINTRESOURCEW(IDI_APP),
                                                IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR));
@@ -262,6 +263,9 @@ INT_PTR CALLBACK PageProc(HWND page, UINT msg, WPARAM wParam, LPARAM lParam) {
         switch (LOWORD(wParam)) {
         case IDC_SET_FOLDER_ICONS:
             SyncTemplateState(page);
+            return TRUE;
+        case IDC_SET_INSTALL:
+            bridge::OpenStorePage();
             return TRUE;
         case IDC_SET_PANEL_EDIT: {
             auto* screen = reinterpret_cast<Screen*>(GetWindowLongPtrW(page, GWLP_USERDATA));

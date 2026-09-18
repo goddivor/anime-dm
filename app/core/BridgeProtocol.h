@@ -13,6 +13,15 @@ constexpr char kHostName[] = "com.animedm.host";
 constexpr char kChromiumExtensionId[] = "kajalpjiomebkclalgjggcgjeiibkfcg";
 constexpr char kFirefoxExtensionId[] = "adm@animedm.app";
 
+// Where the browsers fetch the extension once it is published: the Chrome
+// Web Store serves the whole Chromium family, and its update service is what
+// an install key names; Firefox takes a signed package, shipped with the
+// application under `resources\extension`.
+constexpr wchar_t kChromiumStoreUrl[] =
+    L"https://chromewebstore.google.com/detail/kajalpjiomebkclalgjggcgjeiibkfcg";
+constexpr wchar_t kChromiumUpdateUrl[] = L"https://clients2.google.com/service/update2/crx";
+constexpr wchar_t kFirefoxPackage[] = L"resources\\extension\\adm@animedm.app.xpi";
+
 // The class of the main window of the application.
 constexpr wchar_t kWindowClass[] = L"AnimeDmMainWindow";
 

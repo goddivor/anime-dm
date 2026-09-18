@@ -38,7 +38,12 @@ std::vector<std::string> AllBrowsers();
 // Declares the native messaging host to the browsers named by `enabled` and
 // withdraws it from the others: the manifests go under `<data>/host`, the
 // keys under HKCU. The host executable is looked for next to the running
-// executable.
+// executable. The same browsers are asked to install the extension: the
+// Chromium family from the Chrome Web Store, Firefox from the signed
+// package shipped with the application, when it is there.
 void RegisterHost(const std::vector<std::string>& enabled);
+
+// Opens the page of the extension on the store in the default browser.
+void OpenStorePage();
 
 }  // namespace bridge

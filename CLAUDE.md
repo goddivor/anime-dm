@@ -202,6 +202,15 @@ longueur puis un document JSON). L'hôte répond à trois requêtes : `ping`, `s
   navigateurs cochés dans Options ; les autres sont retirées. L'identifiant Chromium est fixé
   par la `key` du manifeste (`kajalpjiomebkclalgjggcgjeiibkfcg`, clé privée hors dépôt),
   celui de Firefox vaut `adm@animedm.app` (`BridgeProtocol.h`).
+- **Installation de l'extension** : les mêmes cases demandent au navigateur d'installer
+  l'extension, comme IDM. Famille Chromium : clé `<navigateur>\Extensions\<id>` avec
+  l'`update_url` du Chrome Web Store ; le navigateur la télécharge à son prochain démarrage et
+  demande à l'utilisateur de l'activer. Firefox : valeur `<id>` sous
+  `Software\Mozilla\Firefox\Extensions` pointant sur le XPI **signé** livré dans
+  `resources\extension\adm@animedm.app.xpi`, écrite seulement si le fichier existe. Tant que
+  l'extension n'est pas publiée sur le Web Store ni signée par Mozilla, ces clés ne produisent
+  rien : Chrome ignore sur Windows toute extension hors magasin, Firefox tout XPI non signé.
+  Le bouton *Installer l'extension…* d'Options ouvre la page du magasin (`kChromiumStoreUrl`).
 - **Les sites servis** : `bridge::WriteSources` charge chaque source hors du fil d'interface
   et écrit `sources.json` (id, nom, langue, `site`, `animePattern`, `episodePattern`,
   `animeFromEpisode`). Les deux motifs sont des expressions régulières sur le chemin de la
