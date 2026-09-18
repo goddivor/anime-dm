@@ -667,16 +667,22 @@ void MainWindow::DrawRow(NMLVCUSTOMDRAW* draw) {
     const DownloadItem* item = Find(id);
     int icon = item != nullptr ? fileicons::IndexOf(item->outPath) : -1;
     int iconSize = icon >= 0 ? fileicons::Size() : 0;
-    // The highlight leaves the picture of the file type outside, the way a
-    // list of Windows does and IDM after it.
-    if (selected) {
-        RECT highlight = bounds;
-        if (icon >= 0) {
-            highlight.left = std::min<LONG>(bounds.right, bounds.left + kIconGap * 2 + iconSize);
-        }
-        HBRUSH fill = CreateSolidBrush(colors.accent);
-        FillRect(dc, &highlight, fill);
+    // The whole row lights up, picture included. The row under the pointer
+    // gets the softer light of Explorer; the row the keyboard stands on, as
+    // Ctrl and the arrows move it without selecting, gets a dotted outline,
+    // and so does the one under the pointer.
+    bool hot = !selected && row == downloads_.HotRow();
+    bool focused = GetFocus() == list &&
+                   (ListView_GetItemState(list, row, LVIS_FOCUSED) & LVIS_FOCUSED) != 0;
+    if (selected || hot) {
+        HBRUSH fill = CreateSolidBrush(selected ? colors.accent : colors.hover);
+        FillRect(dc, &bounds, fill);
         DeleteObject(fill);
+    }
+    if (hot || focused) {
+        RECT outline = bounds;
+        outline.right = std::min<LONG>(outline.right, client.right - 1);
+        DrawFocusRect(dc, &outline);
     }
 
     HFONT font = reinterpret_cast<HFONT>(SendMessageW(list, WM_GETFONT, 0, 0));

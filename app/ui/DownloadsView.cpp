@@ -83,11 +83,58 @@ bool WheelIsOver(HWND window, LPARAM lParam) {
 // with the header for a moment and smears them; a full repaint through the
 // double buffer costs nothing visible and settles it. Ctrl or Shift with the
 // wheel travels sideways, which the control does not do by itself.
+constexpr wchar_t kHotProperty[] = L"AnimeDm.HotRow";
+
+// The row under the pointer, kept as a property of the list; -1 for none.
+int HotRowOf(HWND list) {
+    return static_cast<int>(reinterpret_cast<intptr_t>(GetPropW(list, kHotProperty))) - 1;
+}
+
+// Remembers the row under the pointer and repaints the rows that change.
+void SetHotRow(HWND list, int row) {
+    int previous = HotRowOf(list);
+    if (previous == row) {
+        return;
+    }
+    SetPropW(list, kHotProperty, reinterpret_cast<HANDLE>(static_cast<intptr_t>(row + 1)));
+    for (int changed : {previous, row}) {
+        if (changed >= 0) {
+            RECT bounds = {};
+            if (ListView_GetItemRect(list, changed, &bounds, LVIR_BOUNDS)) {
+                InvalidateRect(list, &bounds, FALSE);
+            }
+        }
+    }
+}
+
 LRESULT CALLBACK KeepScrollBar(HWND list, UINT msg, WPARAM wParam, LPARAM lParam,
                                UINT_PTR, DWORD_PTR) {
     if (msg == WM_NCDESTROY) {
+        RemovePropW(list, kHotProperty);
         RemoveWindowSubclass(list, KeepScrollBar, 1);
         return DefSubclassProc(list, msg, wParam, lParam);
+    }
+    // The row under the pointer lights up, as in Explorer; the pointer
+    // leaving the list puts it out.
+    if (msg == WM_MOUSEMOVE) {
+        LVHITTESTINFO hit = {};
+        hit.pt = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+        ListView_SubItemHitTest(list, &hit);
+        SetHotRow(list, hit.iItem);
+        TRACKMOUSEEVENT track = {sizeof(track), TME_LEAVE, list, 0};
+        TrackMouseEvent(&track);
+    } else if (msg == WM_MOUSELEAVE) {
+        SetHotRow(list, -1);
+    }
+    // The dotted outline of the keyboard row shows only while the list has
+    // the focus: the rows repaint when it comes and goes.
+    if (msg == WM_SETFOCUS || msg == WM_KILLFOCUS) {
+        InvalidateRect(list, nullptr, FALSE);
+    }
+    // Ctrl+A takes every row, as in Explorer.
+    if (msg == WM_KEYDOWN && wParam == 'A' && (GetKeyState(VK_CONTROL) & 0x8000) != 0) {
+        ListView_SetItemState(list, -1, LVIS_SELECTED, LVIS_SELECTED);
+        return 0;
     }
     if ((msg == WM_MOUSEWHEEL || msg == WM_MOUSEHWHEEL) && !WheelIsOver(list, lParam)) {
         return SendMessageW(GetParent(list), msg, wParam, lParam);
@@ -142,6 +189,11 @@ LRESULT CALLBACK KeepScrollBar(HWND list, UINT msg, WPARAM wParam, LPARAM lParam
 }  // namespace
 
 // The text of the status cell.
+// The row under the pointer, or -1.
+int DownloadsView::HotRow() const {
+    return HotRowOf(hwnd_);
+}
+
 std::wstring StatusText(const DownloadItem& item) {
     switch (item.status) {
     case DownloadStatus::Queued:
