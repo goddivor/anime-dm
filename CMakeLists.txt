@@ -14,6 +14,7 @@ add_executable(anime-dm WIN32
     app/main.cpp
     app/core/Addon.cpp
     app/core/AddonStore.cpp
+    app/core/Autostart.cpp
     app/core/Bridge.cpp
     app/core/Cipher.cpp
     app/core/Digest.cpp
@@ -30,6 +31,7 @@ add_executable(anime-dm WIN32
     app/core/Text.cpp
     app/ui/ConfirmDialog.cpp
     app/ui/FileIcons.cpp
+    app/ui/FolderPicker.cpp
     app/ui/Format.cpp
     app/ui/MainWindow.cpp
     app/ui/MenuBar.cpp

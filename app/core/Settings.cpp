@@ -5,14 +5,25 @@
 #include <filesystem>
 #include <fstream>
 
+#include "core/Bridge.h"
 #include "core/Paths.h"
 #include "third_party/json.hpp"
+
+namespace {
+
+// Keeps a limit between its bounds.
+int Clamp(int value, int low, int high) {
+    return value < low ? low : (value > high ? high : value);
+}
+
+}  // namespace
 
 namespace settings {
 
 // Reads the file back; the defaults stand in for whatever is missing.
 Settings Load() {
     Settings settings;
+    settings.browsers = bridge::AllBrowsers();
     std::wstring path = paths::SettingsFile();
     if (path.empty()) {
         return settings;
@@ -34,6 +45,18 @@ Settings Load() {
     settings.clipboardUrl = root.value("clipboardUrl", settings.clipboardUrl);
     settings.rememberPath = root.value("rememberPath", settings.rememberPath);
     settings.savePath = root.value("savePath", settings.savePath);
+    settings.startWithWindows = root.value("startWithWindows", settings.startWithWindows);
+    if (root.contains("browsers") && root["browsers"].is_array()) {
+        settings.browsers.clear();
+        for (const nlohmann::json& id : root["browsers"]) {
+            if (id.is_string()) {
+                settings.browsers.push_back(id.get<std::string>());
+            }
+        }
+    }
+    settings.maxRunning = Clamp(root.value("maxRunning", settings.maxRunning), kMinRunning, kMaxRunning);
+    settings.connections =
+        Clamp(root.value("connections", settings.connections), kMinConnections, kMaxConnections);
     if (settings.folderTemplate.empty()) {
         settings.folderTemplate = "none";
     }
@@ -56,6 +79,10 @@ void Save(const Settings& settings) {
         {"clipboardUrl", settings.clipboardUrl},
         {"rememberPath", settings.rememberPath},
         {"savePath", settings.savePath},
+        {"startWithWindows", settings.startWithWindows},
+        {"browsers", settings.browsers},
+        {"maxRunning", settings.maxRunning},
+        {"connections", settings.connections},
     };
     std::wstring temp = path + L".tmp";
     {

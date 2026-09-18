@@ -47,6 +47,7 @@ private:
     void OnAddDownload(const std::string& initialUrl = std::string(),
                        const std::string& initialEpisode = std::string());
     void PublishSources();
+    void ApplySettings();
     void OnDownloadEvent(std::unique_ptr<DownloadEvent> event);
     void OnPosterEvent(std::unique_ptr<PosterPayload> payload);
     void OnIconEvent(std::unique_ptr<IconPayload> payload);

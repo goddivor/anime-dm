@@ -12,6 +12,7 @@
 #include <thread>
 
 #include "core/Addon.h"
+#include "core/Autostart.h"
 #include "core/Bridge.h"
 #include "core/BridgeProtocol.h"
 #include "core/Digest.h"
@@ -396,10 +397,17 @@ void MainWindow::OnCreate() {
 // Tells the browsers where the native host is, and writes what the extension
 // needs to know of the sources; the libraries are asked off this thread.
 void MainWindow::PublishSources() {
-    bridge::RegisterHost();
+    bridge::RegisterHost(settings_.browsers);
     const AddonStore* store = &store_;
     Http* http = &http_;
     std::thread([store, http] { bridge::WriteSources(*store, *http); }).detach();
+}
+
+// Pushes onto the system and the engine what the options decide.
+void MainWindow::ApplySettings() {
+    autostart::Set(settings_.startWithWindows);
+    bridge::RegisterHost(settings_.browsers);
+    downloader_.SetLimits(settings_.maxRunning, settings_.connections);
 }
 
 // Stops the transfers, keeps their parts, and records the queue as it stands.
@@ -1756,6 +1764,7 @@ void MainWindow::OnCommand(int commandId) {
     case ID_VIEW_SETTINGS:
         if (ShowSettingsDialog(hwnd_, instance, &settings_)) {
             settings::Save(settings_);
+            ApplySettings();
         }
         break;
     case ID_HELP_SHORTCUTS:

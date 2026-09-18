@@ -36,9 +36,10 @@ public:
 
     void Attach(HWND window, UINT message);
 
-    // How many connections one video may open, and how many videos run at once.
-    static constexpr int kConnections = 8;
-    static constexpr int kMaxRunning = 3;
+    // How many videos run at once, and how many connections one may open;
+    // the first applies as soon as a slot frees up, the second to the next
+    // transfer that starts.
+    void SetLimits(int running, int connections);
 
     // Queues an item; it starts as soon as a slot frees up.
     void Start(const DownloadTask& task);
@@ -57,6 +58,9 @@ public:
 
 private:
     struct Job;
+
+    std::atomic<int> maxRunning_{3};
+    std::atomic<int> connections_{8};
 
     void Pump();
     void Run(std::shared_ptr<Job> job);

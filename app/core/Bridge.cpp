@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -49,16 +50,27 @@ void SetRegistryDefault(const std::wstring& key, const std::wstring& value) {
     RegCloseKey(handle);
 }
 
-// Where each browser family looks for native hosts, under HKCU.
-const wchar_t* const kChromiumKeys[] = {
-    L"Software\\Google\\Chrome\\NativeMessagingHosts",
-    L"Software\\Microsoft\\Edge\\NativeMessagingHosts",
-    L"Software\\BraveSoftware\\Brave-Browser\\NativeMessagingHosts",
-    L"Software\\Chromium\\NativeMessagingHosts",
-    L"Software\\Vivaldi\\NativeMessagingHosts",
-    L"Software\\Opera Software\\NativeMessagingHosts",
+// Removes a key under HKCU, when it exists.
+void DeleteRegistryKey(const std::wstring& key) {
+    RegDeleteKeyW(HKEY_CURRENT_USER, key.c_str());
+}
+
+// Where each browser looks for native hosts, under HKCU; Firefox reads its
+// own kind of manifest.
+struct KnownBrowser {
+    bridge::Browser browser;
+    const wchar_t* key;
+    bool firefox;
 };
-constexpr wchar_t kFirefoxKey[] = L"Software\\Mozilla\\NativeMessagingHosts";
+const KnownBrowser kBrowsers[] = {
+    {{"chrome", L"Google Chrome"}, L"Software\\Google\\Chrome\\NativeMessagingHosts", false},
+    {{"edge", L"Microsoft Edge"}, L"Software\\Microsoft\\Edge\\NativeMessagingHosts", false},
+    {{"brave", L"Brave"}, L"Software\\BraveSoftware\\Brave-Browser\\NativeMessagingHosts", false},
+    {{"chromium", L"Chromium"}, L"Software\\Chromium\\NativeMessagingHosts", false},
+    {{"vivaldi", L"Vivaldi"}, L"Software\\Vivaldi\\NativeMessagingHosts", false},
+    {{"opera", L"Opera"}, L"Software\\Opera Software\\NativeMessagingHosts", false},
+    {{"firefox", L"Mozilla Firefox"}, L"Software\\Mozilla\\NativeMessagingHosts", true},
+};
 
 }  // namespace
 
@@ -88,8 +100,29 @@ void WriteSources(const AddonStore& store, Http& http) {
     }
 }
 
-// Declares the native messaging host to every browser that reads the registry.
-void RegisterHost() {
+// Every browser the application knows.
+const std::vector<Browser>& Browsers() {
+    static const std::vector<Browser> browsers = [] {
+        std::vector<Browser> list;
+        for (const KnownBrowser& known : kBrowsers) {
+            list.push_back(known.browser);
+        }
+        return list;
+    }();
+    return browsers;
+}
+
+// The ids of every browser.
+std::vector<std::string> AllBrowsers() {
+    std::vector<std::string> ids;
+    for (const KnownBrowser& known : kBrowsers) {
+        ids.push_back(known.browser.id);
+    }
+    return ids;
+}
+
+// Declares the host to the chosen browsers and withdraws it from the others.
+void RegisterHost(const std::vector<std::string>& enabled) {
     std::wstring dir = paths::HostDir();
     std::wstring exe = ExeDir();
     if (dir.empty() || exe.empty()) {
@@ -120,10 +153,15 @@ void RegisterHost() {
     if (!WriteText(chromiumFile, chromium.dump(2)) || !WriteText(firefoxFile, firefox.dump(2))) {
         return;
     }
-    for (const wchar_t* key : kChromiumKeys) {
-        SetRegistryDefault(std::wstring(key) + L"\\" + Widen(name), chromiumFile);
+    for (const KnownBrowser& known : kBrowsers) {
+        std::wstring key = std::wstring(known.key) + L"\\" + Widen(name);
+        bool wanted = std::find(enabled.begin(), enabled.end(), known.browser.id) != enabled.end();
+        if (wanted) {
+            SetRegistryDefault(key, known.firefox ? firefoxFile : chromiumFile);
+        } else {
+            DeleteRegistryKey(key);
+        }
     }
-    SetRegistryDefault(std::wstring(kFirefoxKey) + L"\\" + Widen(name), firefoxFile);
 }
 
 }  // namespace bridge
