@@ -102,6 +102,7 @@ private:
     void StartQueue(QueueKind queue);
     void StopQueue(QueueKind queue);
     void MoveSelectedTo(QueueKind queue);
+    void MoveAnimeTo(const std::string& url, QueueKind queue);
     void OpenScheduler();
     void OnScheduleTick();
     void FinishScheduledRun(QueueKind queue);

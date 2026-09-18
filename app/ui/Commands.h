@@ -77,6 +77,8 @@ enum CommandId : int {
     ID_ANIME_ANIYOMI,
     ID_ANIME_DELETE,
     ID_ANIME_FOLLOW,
+    ID_ANIME_QUEUE_MAIN,
+    ID_ANIME_QUEUE_SCHEDULER,
 
     // One entry per folder-icon recipe follows this id.
     ID_ICON_TEMPLATE_FIRST = 3000,

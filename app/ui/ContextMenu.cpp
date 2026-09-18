@@ -76,6 +76,15 @@ int ShowAnimeContextMenu(HWND owner, int x, int y, const AnimeMenuOptions& optio
     AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(templates), Str(STR_ICON_CHANGE));
     AppendMenuW(menu, MF_STRING | (options.followed ? MF_CHECKED : 0), ID_ANIME_FOLLOW,
                 Str(STR_ANIME_FOLLOW));
+
+    // The queue of the whole anime; a tick shows where its episodes are, both
+    // when they are split.
+    HMENU queues = CreatePopupMenu();
+    AppendMenuW(queues, MF_STRING | (options.anyMain ? MF_CHECKED : 0), ID_ANIME_QUEUE_MAIN,
+                Str(STR_QUEUE_MAIN));
+    AppendMenuW(queues, MF_STRING | (options.anyScheduler ? MF_CHECKED : 0),
+                ID_ANIME_QUEUE_SCHEDULER, Str(STR_QUEUE_SCHEDULER));
+    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(queues), Str(STR_CTX_QUEUE));
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, ID_ANIME_DELETE, Str(STR_ANIME_DELETE));
 

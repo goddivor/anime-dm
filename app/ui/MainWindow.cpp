@@ -1228,6 +1228,12 @@ void MainWindow::OnSidebarContext() {
         options.offerAniyomi = !folder.empty() && !foldericon::HasAniyomiFiles(folder);
         options.followed = std::any_of(follows_.begin(), follows_.end(),
                                        [&](const FollowedAnime& f) { return f.animeUrl == url; });
+        for (const DownloadItem& item : items_) {
+            if (item.animeUrl == url) {
+                options.anyMain = options.anyMain || item.queue == QueueKind::Main;
+                options.anyScheduler = options.anyScheduler || item.queue == QueueKind::Scheduler;
+            }
+        }
 
         int command = ShowAnimeContextMenu(hwnd_, screen.x, screen.y, options);
         if (command >= ID_ICON_TEMPLATE_FIRST &&
@@ -1251,6 +1257,12 @@ void MainWindow::OnSidebarContext() {
             break;
         case ID_ANIME_FOLLOW:
             FollowAnime(url);
+            break;
+        case ID_ANIME_QUEUE_MAIN:
+            MoveAnimeTo(url, QueueKind::Main);
+            break;
+        case ID_ANIME_QUEUE_SCHEDULER:
+            MoveAnimeTo(url, QueueKind::Scheduler);
             break;
         default:
             break;
@@ -1698,6 +1710,18 @@ void MainWindow::MoveSelectedTo(QueueKind queue) {
     for (uint64_t id : downloads_.Selected()) {
         if (DownloadItem* item = Find(id)) {
             item->queue = queue;
+        }
+    }
+    Persist();
+    FillList();
+    RebuildSidebar();
+}
+
+// Puts every episode of an anime in a queue.
+void MainWindow::MoveAnimeTo(const std::string& url, QueueKind queue) {
+    for (DownloadItem& item : items_) {
+        if (item.animeUrl == url) {
+            item.queue = queue;
         }
     }
     Persist();
