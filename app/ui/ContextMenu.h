@@ -27,6 +27,8 @@ struct AnimeMenuOptions {
     std::string currentTemplate;         // the one ticked, if any
     bool offerAniyomi = false;           // when the folder lacks the Aniyomi files
     bool followed = false;               // its new episodes are fetched on their own
+    bool anyMain = false;                // some of its episodes wait in the main queue
+    bool anyScheduler = false;           // some wait in the scheduler queue
 };
 
 // Shows the right-click menu of an anime of the categories panel. A recipe

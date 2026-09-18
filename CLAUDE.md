@@ -207,7 +207,8 @@ sélecteurs de fichiers vivent dans `ui/FilePicker`. Le tableur reste au CSV : `
 ## Le Planificateur
 
 Deux **files** : la *principale* et celle du *planificateur* ; chaque épisode appartient à l'une
-(`queue` dans `downloads.json`, clic droit *Mettre dans la file*). **« Plus tard »** dépose
+(`queue` dans `downloads.json`, clic droit *Mettre dans la file* sur des épisodes de la liste,
+ou sur un animé du panneau pour tous ses épisodes, la coche montrant où ils sont). **« Plus tard »** dépose
 l'épisode *arrêté* dans la file principale, comme « Télécharger plus tard » d'IDM ; *Démarrer la
 file* reprend les épisodes arrêtés ou en échec de la file, *Arrêter la file* stoppe ceux qui
 tournent. Une session coupée net ne laisse rien *En attente* : au chargement, tout ce qui
