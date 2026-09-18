@@ -37,6 +37,14 @@ int ShowDownloadsContextMenu(HWND owner, int x, int y, const DownloadMenuOptions
                 reinterpret_cast<UINT_PTR>(players), Str(STR_TB_RESUME));
     AppendMenuW(menu, when(options.canStop), ID_FILE_STOP, Str(STR_TB_STOP));
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+
+    HMENU queues = CreatePopupMenu();
+    AppendMenuW(queues, options.inScheduler ? MF_STRING : (MF_STRING | MF_CHECKED),
+                ID_CTX_QUEUE_MAIN, Str(STR_QUEUE_MAIN));
+    AppendMenuW(queues, options.inScheduler ? (MF_STRING | MF_CHECKED) : MF_STRING,
+                ID_CTX_QUEUE_SCHEDULER, Str(STR_QUEUE_SCHEDULER));
+    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(queues), Str(STR_CTX_QUEUE));
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, ID_FILE_REMOVE, Str(STR_TB_REMOVE));
 
     int command = static_cast<int>(TrackPopupMenu(

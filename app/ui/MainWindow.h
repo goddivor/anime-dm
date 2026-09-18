@@ -9,6 +9,7 @@
 #include "core/Download.h"
 #include "core/Downloader.h"
 #include "core/Http.h"
+#include "core/Schedule.h"
 #include "core/Settings.h"
 #include "ui/DownloadsView.h"
 #include "ui/MenuBar.h"
@@ -90,6 +91,13 @@ private:
     void RemoveSelected();
     void StopAll();
     void DeleteAll();
+    // --- the queues and their clock ---
+    void StartQueue(QueueKind queue);
+    void StopQueue(QueueKind queue);
+    void MoveSelectedTo(QueueKind queue);
+    void OpenScheduler();
+    void OnScheduleTick();
+    void FinishScheduledRun(QueueKind queue);
     void RemoveCompleted();
     void OpenSelected(bool folder);
     // Selects an item in the list, lifting the filter when it hides it.
@@ -125,6 +133,8 @@ private:
     std::vector<ToolbarSkin> skins_;
     ListFilter filter_;
     Settings settings_;
+    Scheduler scheduler_;
+    bool scheduledRun_[2] = {false, false};
     int sortColumn_ = -1;  // the column the rows follow, or none
     bool sortAscending_ = true;
     uint64_t nextId_ = 1;

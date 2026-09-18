@@ -13,6 +13,7 @@ struct DownloadMenuOptions {
     bool canOpen = false;       // a finished file is selected
     bool canResume = false;     // a stopped, failed or finished item is selected
     bool canStop = false;       // a running item is selected
+    bool inScheduler = false;   // the first selected item waits in the scheduler queue
 };
 
 // Shows the downloads right-click menu at screen coordinates. A player

@@ -28,6 +28,13 @@ enum class DownloadError {
     Disk,      // a file could not be written
 };
 
+// The two queues an episode may wait in: the main one, started by hand, and
+// the scheduler's, started at the hours it plans.
+enum class QueueKind {
+    Main,
+    Scheduler,
+};
+
 // One episode of the queue, as the interface keeps and persists it.
 struct DownloadItem {
     uint64_t id = 0;
@@ -50,6 +57,7 @@ struct DownloadItem {
     std::string detail;  // what the engine adds to the error, when it can
     std::time_t addedAt = 0;
     std::time_t lastTry = 0;
+    QueueKind queue = QueueKind::Main;
 };
 
 // One anime of the queue, as the categories panel shows it.
