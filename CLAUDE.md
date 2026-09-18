@@ -427,12 +427,5 @@ de l'utilisateur est la **session 2**. Conséquences :
 
 ## Ce qui manque encore
 
-- **L'extension n'est ni publiée sur le Chrome Web Store ni signée par Mozilla** : les clés
-  d'installation qu'écrit Options restent sans effet. À reprendre quand l'utilisateur aura
-  ouvert les comptes développeur (zip Chromium avec la `key` du manifeste, zip Firefox pour la
-  signature auto-distribuée, XPI signé à livrer dans `resources\extension`).
-- Aucune **limitation de débit** : les entrées de menu existent, pas le comportement.
-- Seules les actions de téléchargement (reprendre, arrêter, supprimer…) sont grisées selon
-  l'état ; le reste du menu ne l'est pas encore.
-- Les **superpositions** note, genre et logo des gabarits (qui lisent un `.nfo`) ne sont pas
-  portées, comme dans l'application Tauri.
+La liste vit dans **`TODO.md`** à la racine ; la tenir à jour quand une entrée de menu prend
+vie ou qu'un chantier s'ouvre.
