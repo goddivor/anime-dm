@@ -1,39 +1,40 @@
-# Extension de navigateur
+<div align="center">
 
-Sur un site servi par une source installée, l'extension pose un bouton
-« Télécharger avec ADM » ; un clic envoie la page à Anime Download Manager,
-qui ouvre sa fenêtre d'ajout avec l'adresse et lit la page. L'icône de la barre
-d'outils porte un badge « ADM » sur ces sites, et un clic dessus envoie la page
-de l'onglet.
+<img src="icons/adm-128.png" alt="Anime Download Manager" width="140" />
 
-L'extension ne parle jamais au réseau : elle passe par le hôte natif
-`adm-host.exe`, que l'application déclare aux navigateurs à son démarrage
-(manifestes dans `%APPDATA%\anime-dm\host`, clés sous `HKCU`). Une même base de
-code sert Chromium et Firefox ; le manifeste porte les deux formes de page
-d'arrière-plan et chaque navigateur ignore celle de l'autre.
+# Anime Download Manager Extension
 
-## Installer en mode développeur
+**Download anime in one click** — the browser side of Anime Download Manager.
+On any site served by an installed source, a button hands the page to the app.
 
-L'application doit avoir été lancée au moins une fois, pour que le hôte soit
-déclaré.
+[![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=black&style=flat)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
+[![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?style=flat)](https://developer.chrome.com/docs/extensions/develop/migrate/what-is-mv3)
+[![Chrome](https://img.shields.io/badge/Chrome-4285F4?logo=googlechrome&logoColor=white&style=flat)](https://www.google.com/chrome/)
+[![Edge](https://img.shields.io/badge/Edge-0078D7?logo=microsoftedge&logoColor=white&style=flat)](https://www.microsoft.com/edge)
+[![Brave](https://img.shields.io/badge/Brave-FB542B?logo=brave&logoColor=white&style=flat)](https://brave.com/)
+[![Opera](https://img.shields.io/badge/Opera-FF1B2D?logo=opera&logoColor=white&style=flat)](https://www.opera.com/)
+[![Firefox](https://img.shields.io/badge/Firefox-FF7139?logo=firefoxbrowser&logoColor=white&style=flat)](https://www.mozilla.org/firefox/)
 
-- **Chrome, Edge, Brave, Opera, Vivaldi** : page des extensions
-  (`chrome://extensions`, `edge://extensions`, `brave://extensions`), activer le
-  mode développeur, « Charger l'extension non empaquetée », choisir ce dossier.
-  L'identifiant est fixé par la clé du manifeste
-  (`kajalpjiomebkclalgjggcgjeiibkfcg`), c'est lui que le hôte autorise.
-- **Firefox** : `about:debugging#/runtime/this-firefox`, « Charger un module
-  complémentaire temporaire », choisir `manifest.json`. Le module disparaît à la
-  fermeture de Firefox tant qu'il n'est pas signé.
+</div>
 
-## Fichiers
+## What it does
 
-- `manifest.json` : permissions `nativeMessaging`, `storage`, `tabs` ; script de
-  contenu sur toutes les pages, qui ne fait rien tant que le site n'est pas
-  reconnu.
-- `background.js` : demande la liste des sites au hôte (`{"kind":"sources"}`),
-  la garde cinq minutes, répond aux scripts de contenu, envoie les adresses
-  (`{"kind":"add","url":…}`), pose le badge.
-- `content.js` : le bouton flottant, dans une racine fantôme pour rester à
-  l'écart des styles de la page.
-- `_locales` : les libellés en français et en anglais.
+- On a site served by one of the sources installed in the app, a floating **Download with ADM** button appears. One click sends the page to Anime Download Manager, which opens its add window with the address filled in and reads the page, exactly as if the link had been pasted.
+- The toolbar icon carries an **ADM** badge on those sites; clicking it sends the current tab.
+- Nothing goes over the network. The extension talks to the app through the native messaging host `adm-host.exe`, which the app registers with every browser when it starts (manifests under `%APPDATA%\anime-dm\host`, keys under `HKCU`).
+
+One code base serves Chromium and Firefox: the manifest declares both kinds of background page and each browser ignores the other one.
+
+## Install in developer mode
+
+Start the app at least once first, so that the host is registered.
+
+- **Chrome, Edge, Brave, Opera, Vivaldi**: open the extensions page (`chrome://extensions`, `edge://extensions`, `brave://extensions`), turn on developer mode, choose *Load unpacked* and pick this folder. The id is fixed by the `key` of the manifest (`kajalpjiomebkclalgjggcgjeiibkfcg`); that is the id the host allows.
+- **Firefox**: open `about:debugging#/runtime/this-firefox`, choose *Load Temporary Add-on* and pick `manifest.json`. A temporary add-on goes away when Firefox closes, until the extension is signed.
+
+## Files
+
+- `manifest.json` — permissions `nativeMessaging`, `storage` and `tabs`; a content script on every page, which does nothing until the site is recognised.
+- `background.js` — asks the host for the list of sites (`{"kind":"sources"}`), keeps it for five minutes, answers the content scripts, sends the addresses (`{"kind":"add","url":…}`) and sets the badge.
+- `content.js` — the floating button, inside a shadow root so the styles of the page cannot reach it.
+- `_locales` — the captions, in English and in French.

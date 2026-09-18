@@ -3,7 +3,7 @@
   "name": "Anime Download Manager",
   "short_name": "ADM",
   "version": "0.1.0",
-  "description": "Envoie les animés des sites reconnus à Anime Download Manager en un clic.",
+  "description": "Download anime in one click with Anime Download Manager.",
   "default_locale": "fr",
   "icons": {
     "16": "icons/adm-16.png",
