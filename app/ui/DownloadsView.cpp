@@ -126,6 +126,11 @@ LRESULT CALLBACK KeepScrollBar(HWND list, UINT msg, WPARAM wParam, LPARAM lParam
     } else if (msg == WM_MOUSELEAVE) {
         SetHotRow(list, -1);
     }
+    // The dotted outline of the keyboard row shows only while the list has
+    // the focus: the rows repaint when it comes and goes.
+    if (msg == WM_SETFOCUS || msg == WM_KILLFOCUS) {
+        InvalidateRect(list, nullptr, FALSE);
+    }
     // Ctrl+A takes every row, as in Explorer.
     if (msg == WM_KEYDOWN && wParam == 'A' && (GetKeyState(VK_CONTROL) & 0x8000) != 0) {
         ListView_SetItemState(list, -1, LVIS_SELECTED, LVIS_SELECTED);
