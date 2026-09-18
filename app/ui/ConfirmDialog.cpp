@@ -51,6 +51,7 @@ INT_PTR CALLBACK ConfirmDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM 
         }
         SetDialogText(dialog, IDOK, confirm->okLabel);
         SetDialogText(dialog, IDCANCEL, STR_DLG_CANCEL);
+        FitButtonToCaption(dialog, IDOK);
         HWND check = GetDlgItem(dialog, IDC_CONFIRM_CHECK);
         if (confirm->checkLabel == STR_COUNT) {
             ShowWindow(check, SW_HIDE);
