@@ -34,6 +34,8 @@ public:
     int RowOf(uint64_t id) const;
     uint64_t IdAt(int row) const;
     int Count() const;
+    // The row under the pointer, lit up by the custom draw, or -1.
+    int HotRow() const;
 
     HWND Handle() const { return hwnd_; }
 
