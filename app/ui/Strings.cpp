@@ -26,11 +26,11 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Vers un fichier d'exportation d'ADM", L"To an ADM export file"},
     {L"Vers un fichier texte (.txt)", L"To a text file (.txt)"},
     {L"Vers un fichier JSON (.json)", L"To a JSON file (.json)"},
-    {L"Vers un tableur (.xlsx, .csv, .ods)", L"To a spreadsheet (.xlsx, .csv, .ods)"},
+    {L"Vers un tableur (.csv)", L"To a spreadsheet (.csv)"},
     {L"Depuis un fichier d'exportation d'ADM", L"From an ADM export file"},
     {L"Depuis un fichier texte (.txt)", L"From a text file (.txt)"},
     {L"Depuis un fichier JSON (.json)", L"From a JSON file (.json)"},
-    {L"Depuis un tableur (.xlsx, .csv, .ods)", L"From a spreadsheet (.xlsx, .csv, .ods)"},
+    {L"Depuis un tableur (.csv)", L"From a spreadsheet (.csv)"},
     {L"Quitter", L"Quit"},
 
     {L"Démarrer le téléchargement", L"Start download"},
@@ -354,6 +354,20 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Suivre les nouveaux épisodes…", L"Follow the new episodes…"},
     {L"Lundi|Mardi|Mercredi|Jeudi|Vendredi|Samedi|Dimanche",
      L"Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday"},
+    {L"Fichier d'exportation d'ADM", L"ADM export file"},
+    {L"Fichier texte", L"Text file"},
+    {L"Fichier JSON", L"JSON file"},
+    {L"Tableur CSV", L"CSV spreadsheet"},
+    {L"%d épisode(s) exporté(s).", L"%d episode(s) exported."},
+    {L"Rien à exporter : la liste est vide.", L"Nothing to export: the list is empty."},
+    {L"Le fichier n'a pas pu être écrit.", L"The file could not be written."},
+    {L"%d épisode(s) importé(s), %d déjà dans la liste, %d adresse(s) ignorée(s) (aucune "
+     L"source ne les sert, ou la page n'a pas pu être lue). Les épisodes importés attendent "
+     L"dans la file principale.",
+     L"%d episode(s) imported, %d already in the list, %d address(es) skipped (no source "
+     L"serves them, or the page could not be read). The imported episodes wait in the main "
+     L"queue."},
+    {L"Aucune adresse trouvée dans ce fichier.", L"No address found in this file."},
     {L"%d résultat(s)", L"%d result(s)"},
     {L"Double-clic ou Entrée : afficher dans la liste", L"Double-click or Enter: show in the list"},
 };
