@@ -628,6 +628,12 @@ void MainWindow::ApplySort() {
             return lower.speed < upper.speed;
         case 5:
             return lower.lastTry < upper.lastTry;
+        case 7:
+            return lstrcmpiW(FolderOf(lower.outPath).c_str(), FolderOf(upper.outPath).c_str()) < 0;
+        case 8:
+            return lower.pageUrl < upper.pageUrl;
+        case 9:
+            return lower.animeUrl < upper.animeUrl;
         default:
             return lower.addedAt < upper.addedAt;
         }
@@ -2241,6 +2247,21 @@ void MainWindow::OnCommand(int commandId) {
     case ID_DOWNLOAD_SCHEDULE:
         OpenScheduler();
         break;
+    case ID_SORT_DATE_ADDED:
+    case ID_SORT_NAME:
+    case ID_SORT_SIZE:
+    case ID_SORT_STATUS:
+    case ID_SORT_TIME_LEFT:
+    case ID_SORT_SPEED:
+    case ID_SORT_LAST_TRY:
+    case ID_SORT_LOCATION:
+    case ID_SORT_ADDRESS:
+    case ID_SORT_PARENT_PAGE: {
+        // The menu lists the date first, the columns keep it seventh.
+        static const int kColumnOf[] = {6, 0, 1, 2, 3, 4, 5, 7, 8, 9};
+        OnColumnClick(kColumnOf[commandId - ID_SORT_DATE_ADDED]);
+        break;
+    }
     case ID_TASK_EXPORT_ADM:
     case ID_TASK_EXPORT_TXT:
     case ID_TASK_EXPORT_JSON:

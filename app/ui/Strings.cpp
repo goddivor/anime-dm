@@ -105,6 +105,9 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Débit de téléchargement", L"Download speed"},
     {L"Date du dernier essai", L"Last try date"},
     {L"Date d'ajout", L"Date added"},
+    {L"Emplacement", L"Location"},
+    {L"Adresse", L"Address"},
+    {L"Page web parente", L"Parent web page"},
 
     {L"Nom", L"Name"},
     {L"Langue", L"Language"},
