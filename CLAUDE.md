@@ -324,7 +324,7 @@ configuration ; l'application les stocke dans `config.json` et les réinjecte au
   `remove-all`, `options`, `schedule`, `addons`, `search`). Chaque sprite joue vers sa dernière
   image au survol et se grise quand le bouton est désactivé : le premier pas part dès le survol,
   chaque image reste le temps que lui donne `durationsMs` (une durée par image, sinon
-  `durationMs` pour toutes). Le pack **Classique Rem** est celui par défaut (dessiné avec la
+  `durationMs` pour toutes). Le pack **Classique Rem v2** (`resources\toolbar\classique-rem-v2`) est celui par défaut (dessiné avec la
   ligne de commande de sprite-animator, les sources dans `~/Bureau/rem-icons`) ; l'ancien reste
   choisissable sous le nom **Classique Rem v1** (`resources\toolbar\classique-rem-v1`). Le pack
   par défaut prête ses sprites Addons et Rechercher à tout autre choix (peaux IDM, police), et un
