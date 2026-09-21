@@ -1,0 +1,32 @@
+{
+  "name": "stop-all",
+  "frameWidth": 128,
+  "frameHeight": 128,
+  "frameCount": 6,
+  "frames": [
+    "rest",
+    "snap",
+    "wave",
+    "frost",
+    "frozen",
+    "wink"
+  ],
+  "durationMs": 40,
+  "durationsMs": [
+    40,
+    40,
+    50,
+    50,
+    60,
+    80
+  ],
+  "colourKey": "#C0C0C0",
+  "palette": "rgb24",
+  "edges": "hard",
+  "files": {
+    "bmp": "stop-all.bmp",
+    "png": "stop-all.png"
+  },
+  "generator": "sprite-animator",
+  "note": "BMP is 24-bit; call Bitmap.MakeTransparent(colourKey) or set ImageList.TransparentColor."
+}

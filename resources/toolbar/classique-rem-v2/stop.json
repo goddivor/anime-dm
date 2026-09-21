@@ -1,0 +1,28 @@
+{
+  "name": "stop",
+  "frameWidth": 128,
+  "frameHeight": 128,
+  "frameCount": 4,
+  "frames": [
+    "rest",
+    "step",
+    "push",
+    "halt"
+  ],
+  "durationMs": 30,
+  "durationsMs": [
+    30,
+    30,
+    40,
+    60
+  ],
+  "colourKey": "#C0C0C0",
+  "palette": "rgb24",
+  "edges": "hard",
+  "files": {
+    "bmp": "stop.bmp",
+    "png": "stop.png"
+  },
+  "generator": "sprite-animator",
+  "note": "BMP is 24-bit; call Bitmap.MakeTransparent(colourKey) or set ImageList.TransparentColor."
+}

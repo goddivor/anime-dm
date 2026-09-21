@@ -1,0 +1,36 @@
+{
+  "name": "remove-all",
+  "frameWidth": 128,
+  "frameHeight": 128,
+  "frameCount": 8,
+  "frames": [
+    "rest",
+    "twirl",
+    "overhead",
+    "whirl",
+    "tornado",
+    "confetti",
+    "settle",
+    "clean"
+  ],
+  "durationMs": 50,
+  "durationsMs": [
+    50,
+    50,
+    40,
+    40,
+    40,
+    50,
+    60,
+    80
+  ],
+  "colourKey": "#C0C0C0",
+  "palette": "rgb24",
+  "edges": "hard",
+  "files": {
+    "bmp": "remove-all.bmp",
+    "png": "remove-all.png"
+  },
+  "generator": "sprite-animator",
+  "note": "BMP is 24-bit; call Bitmap.MakeTransparent(colourKey) or set ImageList.TransparentColor."
+}

@@ -50,7 +50,11 @@ private:
         HBITMAP disabled = nullptr;
         int frame = 0;
         int target = 0;
+        ULONGLONG due = 0;
     };
+
+    // Moves one sprite a frame toward its target and schedules the next step.
+    void Advance(ButtonSprite& button, ULONGLONG now);
 
     void LoadSprites();
     void RenderSprites(int width, int height);

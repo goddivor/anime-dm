@@ -1,0 +1,32 @@
+{
+  "name": "search",
+  "frameWidth": 128,
+  "frameHeight": 128,
+  "frameCount": 6,
+  "frames": [
+    "rest",
+    "drop",
+    "sweep-left",
+    "sweep-right",
+    "peer",
+    "found"
+  ],
+  "durationMs": 50,
+  "durationsMs": [
+    50,
+    40,
+    40,
+    40,
+    60,
+    80
+  ],
+  "colourKey": "#C0C0C0",
+  "palette": "rgb24",
+  "edges": "hard",
+  "files": {
+    "bmp": "search.bmp",
+    "png": "search.png"
+  },
+  "generator": "sprite-animator",
+  "note": "BMP is 24-bit; call Bitmap.MakeTransparent(colourKey) or set ImageList.TransparentColor."
+}
