@@ -1,19 +1,33 @@
 {
-  "name": "sprite",
+  "name": "addons",
   "frameWidth": 128,
   "frameHeight": 128,
-  "frameCount": 3,
+  "frameCount": 7,
   "frames": [
-    "start",
-    "middle",
-    "end"
+    "rest",
+    "shake",
+    "pop",
+    "spring",
+    "peak",
+    "bounce",
+    "present"
   ],
-  "durationMs": 120,
+  "durationMs": 60,
+  "durationsMs": [
+    60,
+    40,
+    40,
+    40,
+    50,
+    50,
+    80
+  ],
   "colourKey": "#C0C0C0",
   "palette": "rgb24",
+  "edges": "hard",
   "files": {
-    "bmp": "sprite.bmp",
-    "png": "sprite.png"
+    "bmp": "addons.bmp",
+    "png": "addons.png"
   },
   "generator": "sprite-animator",
   "note": "BMP is 24-bit; call Bitmap.MakeTransparent(colourKey) or set ImageList.TransparentColor."

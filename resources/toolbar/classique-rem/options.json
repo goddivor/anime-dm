@@ -1,20 +1,31 @@
 {
-  "name": "option2",
+  "name": "options",
   "frameWidth": 128,
   "frameHeight": 128,
-  "frameCount": 3,
+  "frameCount": 6,
   "frames": [
-    "start",
-    "middle",
-    "end"
+    "rest",
+    "climb",
+    "push",
+    "turn",
+    "spin",
+    "seated"
   ],
-  "durationMs": 120,
+  "durationMs": 50,
+  "durationsMs": [
+    50,
+    50,
+    50,
+    50,
+    60,
+    80
+  ],
   "colourKey": "#C0C0C0",
   "palette": "rgb24",
   "edges": "hard",
   "files": {
-    "bmp": "option2.bmp",
-    "png": "option2.png"
+    "bmp": "options.bmp",
+    "png": "options.png"
   },
   "generator": "sprite-animator",
   "note": "BMP is 24-bit; call Bitmap.MakeTransparent(colourKey) or set ImageList.TransparentColor."

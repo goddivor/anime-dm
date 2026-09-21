@@ -2,28 +2,13 @@
   "name": "resume",
   "frameWidth": 128,
   "frameHeight": 128,
-  "frameCount": 8,
+  "frameCount": 3,
   "frames": [
-    "asleep",
-    "one-eye",
-    "sit-up",
-    "stretch",
-    "ready",
-    "dash",
-    "sprint",
-    "go"
+    "start",
+    "middle",
+    "end"
   ],
-  "durationMs": 60,
-  "durationsMs": [
-    60,
-    50,
-    50,
-    50,
-    40,
-    40,
-    40,
-    80
-  ],
+  "durationMs": 120,
   "colourKey": "#C0C0C0",
   "palette": "rgb24",
   "edges": "hard",

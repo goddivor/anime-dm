@@ -12,6 +12,7 @@
 
 namespace {
 constexpr UINT_PTR kSpriteTimer = 1;
+constexpr UINT kSpriteTickMs = 10;
 constexpr int kCellSize = 36;  // the picture of a button, a little under the IDM skins
 constexpr int kPaddingX = 18;
 constexpr int kPaddingY = 10;
@@ -232,38 +233,54 @@ void Toolbar::ShowSpriteFrame(const ButtonSprite& button) {
 }
 
 // Heads the sprite under the pointer for its last frame and every other one
-// back to its first.
+// back to its first. A sprite at rest takes its first step at once, so the
+// button answers the pointer without waiting a frame.
 void Toolbar::OnHotItem(const NMTBHOTITEM* hot) {
     int hovered = (hot->dwFlags & HICF_LEAVING) == 0 ? hot->idNew : -1;
+    ULONGLONG now = GetTickCount64();
     bool moving = false;
-    UINT interval = 0;
     for (const std::unique_ptr<ButtonSprite>& button : sprites_) {
         if (button->frames.empty()) {
             continue;
         }
         button->target =
             button->command == hovered ? static_cast<int>(button->frames.size()) - 1 : 0;
-        if (button->target != button->frame) {
-            moving = true;
-            UINT duration = static_cast<UINT>(button->sprite.DurationMs());
-            interval = interval == 0 ? duration : std::min(interval, duration);
+        if (button->target != button->frame && button->due == 0) {
+            Advance(*button, now);
         }
+        moving = moving || button->due != 0;
     }
     if (moving) {
-        SetTimer(hwnd_, kSpriteTimer, interval, nullptr);
+        SetTimer(hwnd_, kSpriteTimer, kSpriteTickMs, nullptr);
     }
 }
 
-// Moves every sprite one frame toward where it is heading.
+// Moves one sprite a frame toward its target; the frame it lands on stays
+// for its own duration, and a sprite that arrived rests.
+void Toolbar::Advance(ButtonSprite& button, ULONGLONG now) {
+    button.frame += button.target > button.frame ? 1 : -1;
+    ShowSpriteFrame(button);
+    button.due = button.frame == button.target
+                     ? 0
+                     : now + static_cast<ULONGLONG>(button.sprite.DurationOf(button.frame));
+}
+
+// Steps every sprite whose frame has lasted long enough.
 void Toolbar::StepSprite() {
+    ULONGLONG now = GetTickCount64();
     bool moving = false;
     for (const std::unique_ptr<ButtonSprite>& button : sprites_) {
-        if (button->frames.empty() || button->frame == button->target) {
+        if (button->frames.empty()) {
             continue;
         }
-        button->frame += button->target > button->frame ? 1 : -1;
-        ShowSpriteFrame(*button);
-        moving = moving || button->frame != button->target;
+        if (button->frame == button->target) {
+            button->due = 0;
+            continue;
+        }
+        if (button->due == 0 || now >= button->due) {
+            Advance(*button, now);
+        }
+        moving = moving || button->due != 0;
     }
     if (!moving) {
         KillTimer(hwnd_, kSpriteTimer);

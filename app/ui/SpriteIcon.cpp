@@ -64,6 +64,7 @@ bool Sprite::Load(const std::wstring& bmpPath) {
     int count = width / std::max(1, height);
     uint32_t key = pixels.front() & 0x00FFFFFF;
     durationMs_ = 120;
+    durations_.clear();
 
     std::filesystem::path descriptor(bmpPath);
     descriptor.replace_extension(L".json");
@@ -75,6 +76,12 @@ bool Sprite::Load(const std::wstring& bmpPath) {
             frameHeight_ = meta.value("frameHeight", frameHeight_);
             count = meta.value("frameCount", count);
             durationMs_ = meta.value("durationMs", durationMs_);
+            auto each = meta.find("durationsMs");
+            if (each != meta.end() && each->is_array()) {
+                for (const nlohmann::json& ms : *each) {
+                    durations_.push_back(ms.is_number_integer() ? ms.get<int>() : durationMs_);
+                }
+            }
             ParseColour(meta.value("colourKey", std::string()), &key);
         }
     }
@@ -95,6 +102,15 @@ bool Sprite::Load(const std::wstring& bmpPath) {
         frames_.push_back(std::move(cell));
     }
     return !frames_.empty();
+}
+
+// The duration of one frame: its own when the descriptor lists them, the
+// common one otherwise, never under 10 ms.
+int Sprite::DurationOf(int frame) const {
+    int ms = frame >= 0 && static_cast<size_t>(frame) < durations_.size()
+                 ? durations_[static_cast<size_t>(frame)]
+                 : durationMs_;
+    return std::max(10, ms);
 }
 
 // Renders one frame fitted into a cell, centred, the colour key made clear.

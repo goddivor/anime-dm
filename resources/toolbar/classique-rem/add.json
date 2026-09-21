@@ -2,13 +2,24 @@
   "name": "add",
   "frameWidth": 128,
   "frameHeight": 128,
-  "frameCount": 3,
+  "frameCount": 6,
   "frames": [
-    "start",
-    "middle",
-    "end"
+    "rest",
+    "notice",
+    "wind-up",
+    "raise",
+    "overshoot",
+    "hold"
   ],
-  "durationMs": 120,
+  "durationMs": 40,
+  "durationsMs": [
+    40,
+    40,
+    50,
+    50,
+    60,
+    60
+  ],
   "colourKey": "#C0C0C0",
   "palette": "rgb24",
   "edges": "hard",

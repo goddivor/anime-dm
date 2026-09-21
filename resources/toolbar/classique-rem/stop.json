@@ -2,13 +2,20 @@
   "name": "stop",
   "frameWidth": 128,
   "frameHeight": 128,
-  "frameCount": 3,
+  "frameCount": 4,
   "frames": [
-    "start",
-    "middle",
-    "end"
+    "rest",
+    "step",
+    "push",
+    "halt"
   ],
-  "durationMs": 120,
+  "durationMs": 30,
+  "durationsMs": [
+    30,
+    30,
+    40,
+    60
+  ],
   "colourKey": "#C0C0C0",
   "palette": "rgb24",
   "edges": "hard",

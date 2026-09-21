@@ -1,27 +1,19 @@
 {
-  "name": "remove",
+  "name": "sprite",
   "frameWidth": 128,
   "frameHeight": 128,
-  "frameCount": 4,
+  "frameCount": 3,
   "frames": [
-    "rest",
-    "swing-up",
-    "smash",
-    "shatter"
+    "start",
+    "middle",
+    "end"
   ],
-  "durationMs": 40,
-  "durationsMs": [
-    40,
-    40,
-    40,
-    80
-  ],
+  "durationMs": 120,
   "colourKey": "#C0C0C0",
   "palette": "rgb24",
-  "edges": "hard",
   "files": {
-    "bmp": "remove.bmp",
-    "png": "remove.png"
+    "bmp": "sprite.bmp",
+    "png": "sprite.png"
   },
   "generator": "sprite-animator",
   "note": "BMP is 24-bit; call Bitmap.MakeTransparent(colourKey) or set ImageList.TransparentColor."
