@@ -32,13 +32,14 @@ bool ParseColour(const std::string& text, uint32_t* colour) {
 
 }  // namespace
 
-// Reads the BMP, cuts it into frames and clears the colour key.
-bool Sprite::Load(const std::wstring& bmpPath) {
+// Reads the strip, cuts it into frames and makes the background clear: the
+// transparency of a PNG is kept, a BMP loses its colour key.
+bool Sprite::Load(const std::wstring& stripPath) {
     frames_.clear();
-    if (bmpPath.empty()) {
+    if (stripPath.empty()) {
         return false;
     }
-    Gdiplus::Bitmap source(bmpPath.c_str(), FALSE);
+    Gdiplus::Bitmap source(stripPath.c_str(), FALSE);
     if (source.GetLastStatus() != Gdiplus::Ok || source.GetWidth() == 0) {
         return false;
     }
@@ -66,7 +67,10 @@ bool Sprite::Load(const std::wstring& bmpPath) {
     durationMs_ = 120;
     durations_.clear();
 
-    std::filesystem::path descriptor(bmpPath);
+    bool translucent = std::any_of(pixels.begin(), pixels.end(),
+                                   [](uint32_t pixel) { return (pixel >> 24) != 0xFF; });
+
+    std::filesystem::path descriptor(stripPath);
     descriptor.replace_extension(L".json");
     std::ifstream file(descriptor, std::ios::binary);
     if (file) {
@@ -96,7 +100,7 @@ bool Sprite::Load(const std::wstring& bmpPath) {
             for (int x = 0; x < frameWidth_; ++x) {
                 uint32_t pixel = pixels[static_cast<size_t>(y) * width + frame * frameWidth_ + x];
                 cell[static_cast<size_t>(y) * frameWidth_ + x] =
-                    (pixel & 0x00FFFFFF) == key ? 0 : (pixel | 0xFF000000);
+                    translucent ? pixel : ((pixel & 0x00FFFFFF) == key ? 0 : (pixel | 0xFF000000));
             }
         }
         frames_.push_back(std::move(cell));
@@ -114,7 +118,8 @@ int Sprite::DurationOf(int frame) const {
 }
 
 // Renders one frame fitted into a cell, centred, the colour key made clear.
-HBITMAP Sprite::Render(int frame, int width, int height, bool disabled) const {
+HBITMAP Sprite::Render(int frame, int width, int height,
+                       std::optional<COLORREF> greyTo) const {
     if (frames_.empty() || width <= 0 || height <= 0) {
         return nullptr;
     }
@@ -154,16 +159,23 @@ HBITMAP Sprite::Render(int frame, int width, int height, bool disabled) const {
                                                drawnWidth, drawnHeight));
     graphics.Flush();
 
-    if (disabled) {
+    if (greyTo) {
+        uint32_t shade = (GetRValue(*greyTo) * 299 + GetGValue(*greyTo) * 587 +
+                          GetBValue(*greyTo) * 114) / 1000;
         auto* pixels = static_cast<uint32_t*>(bits);
         for (size_t i = 0; i < static_cast<size_t>(width) * height; ++i) {
             uint32_t p = pixels[i];
             uint32_t a = (p >> 24) & 0xFF;
+            if (a == 0) {
+                continue;
+            }
             uint32_t luma = (((p >> 16) & 0xFF) * 299 + ((p >> 8) & 0xFF) * 587 + (p & 0xFF) * 114) /
                             1000;
-            a = a * 2 / 5;
-            luma = luma * 2 / 5;
-            pixels[i] = (a << 24) | (luma << 16) | (luma << 8) | luma;
+            luma = std::min<uint32_t>(255, luma * 255 / a);
+            uint32_t grey = (luma + shade) / 2;
+            a = a * 3 / 4;
+            grey = grey * a / 255;
+            pixels[i] = (a << 24) | (grey << 16) | (grey << 8) | grey;
         }
     }
     return bitmap;

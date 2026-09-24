@@ -57,7 +57,7 @@ private:
     void Advance(ButtonSprite& button, ULONGLONG now);
 
     void LoadSprites();
-    void RenderSprites(int width, int height);
+    void RenderSprites(int width, int height, COLORREF muted);
     void ShowSpriteFrame(const ButtonSprite& button);
     void DropSpriteFrames();
 

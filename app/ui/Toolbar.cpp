@@ -21,20 +21,20 @@ struct ButtonSpec {
     int command;
     int icon;
     StringId text;
-    const wchar_t* sprite;  // file name looked up in resources\sprites
+    const wchar_t* sprite;
 };
 
 constexpr ButtonSpec kButtons[] = {
-    {ID_TASK_ADD, ICON_ADD_URL, STR_TB_ADD, L"add.bmp"},
-    {ID_FILE_START, ICON_RESUME, STR_TB_RESUME, L"resume.bmp"},
-    {ID_FILE_STOP, ICON_STOP, STR_TB_STOP, L"stop.bmp"},
-    {ID_DOWNLOAD_STOP_ALL, ICON_STOP_ALL, STR_TB_STOP_ALL, L"stop-all.bmp"},
-    {ID_FILE_REMOVE, ICON_REMOVE, STR_TB_REMOVE, L"remove.bmp"},
-    {ID_DOWNLOAD_DELETE_ALL, ICON_REMOVE_ALL, STR_TB_REMOVE_ALL, L"remove-all.bmp"},
-    {ID_VIEW_SETTINGS, ICON_OPTIONS, STR_TB_OPTIONS, L"options.bmp"},
-    {ID_DOWNLOAD_SCHEDULE, ICON_SCHEDULE, STR_TB_SCHEDULE, L"schedule.bmp"},
-    {ID_VIEW_ADDONS, ICON_ADDONS, STR_TB_ADDONS, L"addons.bmp"},
-    {ID_DOWNLOAD_SEARCH, ICON_SEARCH, STR_TB_SEARCH, L"search.bmp"},
+    {ID_TASK_ADD, ICON_ADD_URL, STR_TB_ADD, L"add"},
+    {ID_FILE_START, ICON_RESUME, STR_TB_RESUME, L"resume"},
+    {ID_FILE_STOP, ICON_STOP, STR_TB_STOP, L"stop"},
+    {ID_DOWNLOAD_STOP_ALL, ICON_STOP_ALL, STR_TB_STOP_ALL, L"stop-all"},
+    {ID_FILE_REMOVE, ICON_REMOVE, STR_TB_REMOVE, L"remove"},
+    {ID_DOWNLOAD_DELETE_ALL, ICON_REMOVE_ALL, STR_TB_REMOVE_ALL, L"remove-all"},
+    {ID_VIEW_SETTINGS, ICON_OPTIONS, STR_TB_OPTIONS, L"options"},
+    {ID_DOWNLOAD_SCHEDULE, ICON_SCHEDULE, STR_TB_SCHEDULE, L"schedule"},
+    {ID_VIEW_ADDONS, ICON_ADDONS, STR_TB_ADDONS, L"addons"},
+    {ID_DOWNLOAD_SEARCH, ICON_SEARCH, STR_TB_SEARCH, L"search"},
 };
 
 // The scale of the display the toolbar is on, 1.0 at 96 dpi.
@@ -52,6 +52,22 @@ double ScaleOf(HWND window) {
 bool Exists(const std::wstring& path) {
     DWORD attributes = GetFileAttributesW(path.c_str());
     return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+
+// The strip of a button in a pack folder: the PNG first, whose transparency
+// carries a halo, then the BMP of a colour-keyed pack. Empty when neither is
+// there.
+std::wstring StripIn(const std::wstring& folder, const wchar_t* button) {
+    if (folder.empty()) {
+        return std::wstring();
+    }
+    for (const wchar_t* extension : {L".png", L".bmp"}) {
+        std::wstring path = folder + L"\\" + button + extension;
+        if (Exists(path)) {
+            return path;
+        }
+    }
+    return std::wstring();
 }
 
 // Builds a list of font glyphs laid out in cells of any size.
@@ -137,12 +153,9 @@ void Toolbar::LoadSprites() {
                               : std::wstring();
     std::wstring fallback = skins::DefaultPackFolder();
     for (const ButtonSpec& spec : kButtons) {
-        std::wstring path;
-        if (!active.empty() && Exists(active + L"\\" + spec.sprite)) {
-            path = active + L"\\" + spec.sprite;
-        } else if ((spec.icon == ICON_ADDONS || spec.icon == ICON_SEARCH) && !fallback.empty() &&
-                   Exists(fallback + L"\\" + spec.sprite)) {
-            path = fallback + L"\\" + spec.sprite;
+        std::wstring path = StripIn(active, spec.sprite);
+        if (path.empty() && (spec.icon == ICON_ADDONS || spec.icon == ICON_SEARCH)) {
+            path = StripIn(fallback, spec.sprite);
         }
         auto button = std::make_unique<ButtonSprite>();
         button->command = spec.command;
@@ -169,7 +182,7 @@ void Toolbar::RebuildImages(const Theme& theme) {
         SendMessageW(hwnd_, TB_SETHOTIMAGELIST, 0, reinterpret_cast<LPARAM>(strips_.hot));
         SendMessageW(hwnd_, TB_SETDISABLEDIMAGELIST, 0,
                      reinterpret_cast<LPARAM>(strips_.disabled));
-        RenderSprites(strips_.width, strips_.height);
+        RenderSprites(strips_.width, strips_.height, colors.muted);
         return;
     }
 
@@ -180,7 +193,7 @@ void Toolbar::RebuildImages(const Theme& theme) {
     SendMessageW(hwnd_, TB_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(imageList_));
     SendMessageW(hwnd_, TB_SETHOTIMAGELIST, 0, 0);
     SendMessageW(hwnd_, TB_SETDISABLEDIMAGELIST, 0, reinterpret_cast<LPARAM>(disabledList_));
-    RenderSprites(cell, cell);
+    RenderSprites(cell, cell, colors.muted);
 }
 
 // Frees the rendered frames of every sprite.
@@ -199,13 +212,13 @@ void Toolbar::DropSpriteFrames() {
 
 // Renders every frame of every sprite at the size of a button picture, then
 // puts the current frame of each in place of its glyph.
-void Toolbar::RenderSprites(int width, int height) {
+void Toolbar::RenderSprites(int width, int height, COLORREF muted) {
     DropSpriteFrames();
     for (const std::unique_ptr<ButtonSprite>& button : sprites_) {
         for (int frame = 0; frame < button->sprite.FrameCount(); ++frame) {
             button->frames.push_back(button->sprite.Render(frame, width, height));
         }
-        button->disabled = button->sprite.Render(0, width, height, true);
+        button->disabled = button->sprite.Render(0, width, height, muted);
         ShowSpriteFrame(*button);
     }
 }

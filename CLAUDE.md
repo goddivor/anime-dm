@@ -328,6 +328,10 @@ configuration ; l'application les stocke dans `config.json` et les réinjecte au
   ses sprites Addons et Rechercher à tout autre choix (peaux IDM, police), et un
   bouton qu'il n'a pas encore garde son glyphe. Glyphes et sprites partagent une case de
   36 pixels. Exporter en bords **hard** : le mode matte laisse un liseré gris.
+  Une planche peut aussi être un **PNG à transparence réelle** (cherché avant le BMP), seul
+  moyen de garder un halo : c'est le cas du pack **Néon**, tiré des SVG de l'auteur. Le
+  grisé d'un sprite désactivé tend vers la couleur `muted` du thème, sinon il disparaît sur
+  la barre sombre.
 - **Commentaires** : code auto-documenté ; un commentaire **uniquement sur une fonction**,
   court et précis. Pas de `//` en fin de ligne.
 - **Traduction** : tout texte visible passe par `Str(STR_…)`. La table vit dans
