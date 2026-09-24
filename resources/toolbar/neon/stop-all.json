@@ -1,0 +1,28 @@
+{
+  "name": "stop-all",
+  "frameWidth": 128,
+  "frameHeight": 128,
+  "frameCount": 5,
+  "frames": [
+    "off",
+    "warm",
+    "half",
+    "bright",
+    "lit"
+  ],
+  "durationMs": 30,
+  "durationsMs": [
+    30,
+    30,
+    35,
+    40,
+    60
+  ],
+  "palette": "rgba",
+  "edges": "soft",
+  "files": {
+    "png": "stop-all.png"
+  },
+  "generator": "neon-toolbar",
+  "note": "PNG strip with alpha; the halo needs more than a colour key."
+}
