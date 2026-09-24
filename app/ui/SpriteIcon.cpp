@@ -32,13 +32,14 @@ bool ParseColour(const std::string& text, uint32_t* colour) {
 
 }  // namespace
 
-// Reads the BMP, cuts it into frames and clears the colour key.
-bool Sprite::Load(const std::wstring& bmpPath) {
+// Reads the strip, cuts it into frames and makes the background clear: the
+// transparency of a PNG is kept, a BMP loses its colour key.
+bool Sprite::Load(const std::wstring& stripPath) {
     frames_.clear();
-    if (bmpPath.empty()) {
+    if (stripPath.empty()) {
         return false;
     }
-    Gdiplus::Bitmap source(bmpPath.c_str(), FALSE);
+    Gdiplus::Bitmap source(stripPath.c_str(), FALSE);
     if (source.GetLastStatus() != Gdiplus::Ok || source.GetWidth() == 0) {
         return false;
     }
@@ -66,7 +67,10 @@ bool Sprite::Load(const std::wstring& bmpPath) {
     durationMs_ = 120;
     durations_.clear();
 
-    std::filesystem::path descriptor(bmpPath);
+    bool translucent = std::any_of(pixels.begin(), pixels.end(),
+                                   [](uint32_t pixel) { return (pixel >> 24) != 0xFF; });
+
+    std::filesystem::path descriptor(stripPath);
     descriptor.replace_extension(L".json");
     std::ifstream file(descriptor, std::ios::binary);
     if (file) {
@@ -96,7 +100,7 @@ bool Sprite::Load(const std::wstring& bmpPath) {
             for (int x = 0; x < frameWidth_; ++x) {
                 uint32_t pixel = pixels[static_cast<size_t>(y) * width + frame * frameWidth_ + x];
                 cell[static_cast<size_t>(y) * frameWidth_ + x] =
-                    (pixel & 0x00FFFFFF) == key ? 0 : (pixel | 0xFF000000);
+                    translucent ? pixel : ((pixel & 0x00FFFFFF) == key ? 0 : (pixel | 0xFF000000));
             }
         }
         frames_.push_back(std::move(cell));

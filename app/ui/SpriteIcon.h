@@ -6,15 +6,17 @@
 
 #include <windows.h>
 
-// An animated picture whose frames lie side by side in one 24-bit BMP, one
-// colour standing for transparency, the way the sprite-animator tool writes
-// them. A JSON descriptor of the same name, when present, gives the frame
+// An animated picture whose frames lie side by side in one strip: a 24-bit
+// BMP with one colour standing for transparency, the way the sprite-animator
+// tool writes them, or a PNG, whose own transparency is kept as it is (a
+// halo needs more than a colour key). A JSON descriptor of the same name,
+// when present, gives the frame
 // size, the frame count, the frame durations (one for all, or one per frame)
 // and the colour key; without it the frames are taken square and the corner
 // pixel is the key.
 class Sprite {
 public:
-    bool Load(const std::wstring& bmpPath);
+    bool Load(const std::wstring& stripPath);
     bool Loaded() const { return !frames_.empty(); }
     int FrameCount() const { return static_cast<int>(frames_.size()); }
     // How long a frame stays on screen before the next one.

@@ -21,20 +21,20 @@ struct ButtonSpec {
     int command;
     int icon;
     StringId text;
-    const wchar_t* sprite;  // file name looked up in resources\sprites
+    const wchar_t* sprite;
 };
 
 constexpr ButtonSpec kButtons[] = {
-    {ID_TASK_ADD, ICON_ADD_URL, STR_TB_ADD, L"add.bmp"},
-    {ID_FILE_START, ICON_RESUME, STR_TB_RESUME, L"resume.bmp"},
-    {ID_FILE_STOP, ICON_STOP, STR_TB_STOP, L"stop.bmp"},
-    {ID_DOWNLOAD_STOP_ALL, ICON_STOP_ALL, STR_TB_STOP_ALL, L"stop-all.bmp"},
-    {ID_FILE_REMOVE, ICON_REMOVE, STR_TB_REMOVE, L"remove.bmp"},
-    {ID_DOWNLOAD_DELETE_ALL, ICON_REMOVE_ALL, STR_TB_REMOVE_ALL, L"remove-all.bmp"},
-    {ID_VIEW_SETTINGS, ICON_OPTIONS, STR_TB_OPTIONS, L"options.bmp"},
-    {ID_DOWNLOAD_SCHEDULE, ICON_SCHEDULE, STR_TB_SCHEDULE, L"schedule.bmp"},
-    {ID_VIEW_ADDONS, ICON_ADDONS, STR_TB_ADDONS, L"addons.bmp"},
-    {ID_DOWNLOAD_SEARCH, ICON_SEARCH, STR_TB_SEARCH, L"search.bmp"},
+    {ID_TASK_ADD, ICON_ADD_URL, STR_TB_ADD, L"add"},
+    {ID_FILE_START, ICON_RESUME, STR_TB_RESUME, L"resume"},
+    {ID_FILE_STOP, ICON_STOP, STR_TB_STOP, L"stop"},
+    {ID_DOWNLOAD_STOP_ALL, ICON_STOP_ALL, STR_TB_STOP_ALL, L"stop-all"},
+    {ID_FILE_REMOVE, ICON_REMOVE, STR_TB_REMOVE, L"remove"},
+    {ID_DOWNLOAD_DELETE_ALL, ICON_REMOVE_ALL, STR_TB_REMOVE_ALL, L"remove-all"},
+    {ID_VIEW_SETTINGS, ICON_OPTIONS, STR_TB_OPTIONS, L"options"},
+    {ID_DOWNLOAD_SCHEDULE, ICON_SCHEDULE, STR_TB_SCHEDULE, L"schedule"},
+    {ID_VIEW_ADDONS, ICON_ADDONS, STR_TB_ADDONS, L"addons"},
+    {ID_DOWNLOAD_SEARCH, ICON_SEARCH, STR_TB_SEARCH, L"search"},
 };
 
 // The scale of the display the toolbar is on, 1.0 at 96 dpi.
@@ -52,6 +52,22 @@ double ScaleOf(HWND window) {
 bool Exists(const std::wstring& path) {
     DWORD attributes = GetFileAttributesW(path.c_str());
     return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+
+// The strip of a button in a pack folder: the PNG first, whose transparency
+// carries a halo, then the BMP of a colour-keyed pack. Empty when neither is
+// there.
+std::wstring StripIn(const std::wstring& folder, const wchar_t* button) {
+    if (folder.empty()) {
+        return std::wstring();
+    }
+    for (const wchar_t* extension : {L".png", L".bmp"}) {
+        std::wstring path = folder + L"\\" + button + extension;
+        if (Exists(path)) {
+            return path;
+        }
+    }
+    return std::wstring();
 }
 
 // Builds a list of font glyphs laid out in cells of any size.
@@ -137,12 +153,9 @@ void Toolbar::LoadSprites() {
                               : std::wstring();
     std::wstring fallback = skins::DefaultPackFolder();
     for (const ButtonSpec& spec : kButtons) {
-        std::wstring path;
-        if (!active.empty() && Exists(active + L"\\" + spec.sprite)) {
-            path = active + L"\\" + spec.sprite;
-        } else if ((spec.icon == ICON_ADDONS || spec.icon == ICON_SEARCH) && !fallback.empty() &&
-                   Exists(fallback + L"\\" + spec.sprite)) {
-            path = fallback + L"\\" + spec.sprite;
+        std::wstring path = StripIn(active, spec.sprite);
+        if (path.empty() && (spec.icon == ICON_ADDONS || spec.icon == ICON_SEARCH)) {
+            path = StripIn(fallback, spec.sprite);
         }
         auto button = std::make_unique<ButtonSprite>();
         button->command = spec.command;
