@@ -1,6 +1,7 @@
 #include "ui/MainWindow.h"
 
 #include <commctrl.h>
+#include <commdlg.h>
 #include <shellapi.h>
 #include <uxtheme.h>
 #include <windowsx.h>
@@ -26,6 +27,7 @@
 #include "ui/AddDialog.h"
 #include "ui/AddonsDialog.h"
 #include "ui/Commands.h"
+#include "ui/ColumnsDialog.h"
 #include "ui/ConfirmDialog.h"
 #include "ui/ContextMenu.h"
 #include "ui/FileIcons.h"
@@ -323,7 +325,7 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
             } else if (notify->code == NM_DBLCLK) {
                 OpenSelected(false);
             } else if (notify->code == LVN_COLUMNCLICK) {
-                OnColumnClick(reinterpret_cast<NMLISTVIEW*>(lParam)->iSubItem);
+                OnColumnClick(downloads_.ColumnAt(reinterpret_cast<NMLISTVIEW*>(lParam)->iSubItem));
             }
         }
         if (notify->hwndFrom == sidebar_.Handle()) {
@@ -399,6 +401,7 @@ void MainWindow::OnCreate() {
 
     downloads_.Create(hwnd_, instance);
     downloads_.SetWidths(settings_.columnWidths);
+    downloads_.SetShown(settings_.columns);
     downloads_.OnColumnsResized([this] {
         settings_.columnWidths = downloads_.Widths();
         settings::Save(settings_);
@@ -717,7 +720,8 @@ void MainWindow::DrawRow(NMLVCUSTOMDRAW* draw) {
         if (cell.right <= client.left || cell.left >= client.right) {
             continue;
         }
-        if (column == kStatusColumn && DrawProgressCell(dc, cell, id, selected)) {
+        int shown = downloads_.ColumnAt(column);
+        if (shown == kStatusColumn && DrawProgressCell(dc, cell, id, selected)) {
             continue;
         }
         wchar_t text[512] = {};
@@ -725,7 +729,7 @@ void MainWindow::DrawRow(NMLVCUSTOMDRAW* draw) {
         RECT label = cell;
         label.left += 6;
         label.right -= 6;
-        if (column == kNameColumn && icon >= 0) {
+        if (shown == kNameColumn && icon >= 0) {
             ImageList_Draw(fileicons::SmallList(), icon, dc, cell.left + kIconGap,
                            (cell.top + cell.bottom - iconSize) / 2, ILD_TRANSPARENT);
             label.left = cell.left + kIconGap * 2 + iconSize;
@@ -2373,6 +2377,17 @@ void MainWindow::OnCommand(int commandId) {
         settings_.language = commandId == ID_LANG_EN ? "en" : "fr";
         settings::Save(settings_);
         break;
+    case ID_VIEW_COLUMNS:
+        ChooseColumns();
+        break;
+    case ID_FONT_SELECT:
+        ChooseUiFont();
+        break;
+    case ID_FONT_RESET:
+        settings_.fontFace.clear();
+        settings::Save(settings_);
+        ApplyUiFont();
+        break;
     case ID_TASK_QUIT:
         DestroyWindow(hwnd_);
         break;
@@ -2469,17 +2484,74 @@ void MainWindow::ResumeSelectedWith(const std::string& player) {
     UpdateActions();
 }
 
-// Applies the system message font to the child controls for a native look.
+// Applies the font of the interface to the child controls: the one the user
+// chose, or the system message font for a native look.
 void MainWindow::ApplyUiFont() {
-    NONCLIENTMETRICSW metrics = {};
-    metrics.cbSize = sizeof(metrics);
-    if (!SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(metrics), &metrics, 0)) {
-        return;
+    LOGFONTW font = {};
+    if (!settings_.fontFace.empty()) {
+        HDC dc = GetDC(hwnd_);
+        font.lfHeight = -MulDiv(settings_.fontSize, GetDeviceCaps(dc, LOGPIXELSY), 720);
+        ReleaseDC(hwnd_, dc);
+        font.lfWeight = settings_.fontWeight;
+        font.lfItalic = settings_.fontItalic ? TRUE : FALSE;
+        font.lfCharSet = DEFAULT_CHARSET;
+        font.lfQuality = CLEARTYPE_QUALITY;
+        lstrcpynW(font.lfFaceName, Widen(settings_.fontFace).c_str(), LF_FACESIZE);
+    } else {
+        NONCLIENTMETRICSW metrics = {};
+        metrics.cbSize = sizeof(metrics);
+        if (!SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(metrics), &metrics, 0)) {
+            return;
+        }
+        font = metrics.lfMessageFont;
     }
 
-    uiFont_ = CreateFontIndirectW(&metrics.lfMessageFont);
-    SendMessageW(toolbar_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
+    HFONT previous = uiFont_;
+    uiFont_ = CreateFontIndirectW(&font);
+    toolbar_.SetFont(uiFont_);
     SendMessageW(sidebar_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(sidebar_.HeaderHandle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
     SendMessageW(downloads_.Handle(), WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_), TRUE);
+    if (previous != nullptr) {
+        DeleteObject(previous);
+        Relayout();
+        InvalidateRect(hwnd_, nullptr, TRUE);
+    }
+}
+
+// Lets the user pick the font of the interface, starting from the one in use.
+void MainWindow::ChooseUiFont() {
+    LOGFONTW font = {};
+    GetObjectW(uiFont_, sizeof(font), &font);
+    CHOOSEFONTW choice = {};
+    choice.lStructSize = sizeof(choice);
+    choice.hwndOwner = hwnd_;
+    choice.lpLogFont = &font;
+    choice.Flags = CF_SCREENFONTS | CF_INITTOLOGFONTSTRUCT | CF_NOVERTFONTS | CF_NOSCRIPTSEL;
+    if (!ChooseFontW(&choice)) {
+        return;
+    }
+    settings_.fontFace = Narrow(font.lfFaceName);
+    settings_.fontSize = choice.iPointSize;
+    settings_.fontWeight = static_cast<int>(font.lfWeight);
+    settings_.fontItalic = font.lfItalic != 0;
+    settings::Save(settings_);
+    ApplyUiFont();
+}
+
+// Lets the user choose the columns of the file list and their order, then
+// rebuilds the list on them.
+void MainWindow::ChooseColumns() {
+    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+    std::vector<int> shown = downloads_.Shown();
+    if (!ShowColumnsDialog(hwnd_, instance, &shown)) {
+        return;
+    }
+    downloads_.SetShown(shown);
+    FillList();
+    ApplySort();
+    downloads_.SetSortMark(sortColumn_, sortAscending_);
+    settings_.columns = downloads_.Shown();
+    settings_.columnWidths = downloads_.Widths();
+    settings::Save(settings_);
 }

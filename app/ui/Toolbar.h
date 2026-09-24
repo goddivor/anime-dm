@@ -21,6 +21,8 @@ public:
     bool Create(HWND parent, HINSTANCE instance);
     void Resize();
     void Retranslate();
+    // Sets the font of the captions and sizes the buttons again around them.
+    void SetFont(HFONT font);
     void ApplyTheme(const Theme& theme);
     void Enable(int command, bool enabled);
 

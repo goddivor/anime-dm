@@ -342,6 +342,14 @@ void Toolbar::Retranslate() {
     SendMessageW(hwnd_, TB_AUTOSIZE, 0, 0);
 }
 
+// Sets the font of the captions; the buttons are laid out again so that
+// each one takes the width of its caption in the new font.
+void Toolbar::SetFont(HFONT font) {
+    SendMessageW(hwnd_, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+    RebuildButtons();
+    InvalidateRect(hwnd_, nullptr, TRUE);
+}
+
 // Redraws the pictures in the colours of the active palette.
 void Toolbar::ApplyTheme(const Theme& theme) {
     // A themed toolbar paints its own background over the custom draw pass, so

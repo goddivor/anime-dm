@@ -80,6 +80,8 @@ private:
     void CancelSplitterDrag();
     void DrawTracker(int x);
     void ApplyUiFont();
+    void ChooseUiFont();
+    void ChooseColumns();
 
     // --- the queue ---
     DownloadItem* Find(uint64_t id);
