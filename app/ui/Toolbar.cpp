@@ -182,7 +182,7 @@ void Toolbar::RebuildImages(const Theme& theme) {
         SendMessageW(hwnd_, TB_SETHOTIMAGELIST, 0, reinterpret_cast<LPARAM>(strips_.hot));
         SendMessageW(hwnd_, TB_SETDISABLEDIMAGELIST, 0,
                      reinterpret_cast<LPARAM>(strips_.disabled));
-        RenderSprites(strips_.width, strips_.height);
+        RenderSprites(strips_.width, strips_.height, colors.muted);
         return;
     }
 
@@ -193,7 +193,7 @@ void Toolbar::RebuildImages(const Theme& theme) {
     SendMessageW(hwnd_, TB_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(imageList_));
     SendMessageW(hwnd_, TB_SETHOTIMAGELIST, 0, 0);
     SendMessageW(hwnd_, TB_SETDISABLEDIMAGELIST, 0, reinterpret_cast<LPARAM>(disabledList_));
-    RenderSprites(cell, cell);
+    RenderSprites(cell, cell, colors.muted);
 }
 
 // Frees the rendered frames of every sprite.
@@ -212,13 +212,13 @@ void Toolbar::DropSpriteFrames() {
 
 // Renders every frame of every sprite at the size of a button picture, then
 // puts the current frame of each in place of its glyph.
-void Toolbar::RenderSprites(int width, int height) {
+void Toolbar::RenderSprites(int width, int height, COLORREF muted) {
     DropSpriteFrames();
     for (const std::unique_ptr<ButtonSprite>& button : sprites_) {
         for (int frame = 0; frame < button->sprite.FrameCount(); ++frame) {
             button->frames.push_back(button->sprite.Render(frame, width, height));
         }
-        button->disabled = button->sprite.Render(0, width, height, true);
+        button->disabled = button->sprite.Render(0, width, height, muted);
         ShowSpriteFrame(*button);
     }
 }

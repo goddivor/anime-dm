@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -23,8 +24,11 @@ public:
     int DurationOf(int frame) const;
 
     // Renders one frame fitted into a cell, centred, the colour key made
-    // clear; `disabled` greys it out and fades it. The caller owns the bitmap.
-    HBITMAP Render(int frame, int width, int height, bool disabled = false) const;
+    // clear; `greyTo` greys it out, halfway toward that theme colour so it
+    // stays readable on a dark toolbar as on a light one. The caller owns the
+    // bitmap.
+    HBITMAP Render(int frame, int width, int height,
+                   std::optional<COLORREF> greyTo = std::nullopt) const;
 
 private:
     std::vector<std::vector<uint32_t>> frames_;  // straight ARGB, row after row

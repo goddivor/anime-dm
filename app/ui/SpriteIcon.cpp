@@ -118,7 +118,8 @@ int Sprite::DurationOf(int frame) const {
 }
 
 // Renders one frame fitted into a cell, centred, the colour key made clear.
-HBITMAP Sprite::Render(int frame, int width, int height, bool disabled) const {
+HBITMAP Sprite::Render(int frame, int width, int height,
+                       std::optional<COLORREF> greyTo) const {
     if (frames_.empty() || width <= 0 || height <= 0) {
         return nullptr;
     }
@@ -158,16 +159,23 @@ HBITMAP Sprite::Render(int frame, int width, int height, bool disabled) const {
                                                drawnWidth, drawnHeight));
     graphics.Flush();
 
-    if (disabled) {
+    if (greyTo) {
+        uint32_t shade = (GetRValue(*greyTo) * 299 + GetGValue(*greyTo) * 587 +
+                          GetBValue(*greyTo) * 114) / 1000;
         auto* pixels = static_cast<uint32_t*>(bits);
         for (size_t i = 0; i < static_cast<size_t>(width) * height; ++i) {
             uint32_t p = pixels[i];
             uint32_t a = (p >> 24) & 0xFF;
+            if (a == 0) {
+                continue;
+            }
             uint32_t luma = (((p >> 16) & 0xFF) * 299 + ((p >> 8) & 0xFF) * 587 + (p & 0xFF) * 114) /
                             1000;
-            a = a * 2 / 5;
-            luma = luma * 2 / 5;
-            pixels[i] = (a << 24) | (luma << 16) | (luma << 8) | luma;
+            luma = std::min<uint32_t>(255, luma * 255 / a);
+            uint32_t grey = (luma + shade) / 2;
+            a = a * 3 / 4;
+            grey = grey * a / 255;
+            pixels[i] = (a << 24) | (grey << 16) | (grey << 8) | grey;
         }
     }
     return bitmap;
