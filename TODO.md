@@ -20,13 +20,6 @@ qui existe déjà sans comportement, ou un chantier ouvert ailleurs.
 - [ ] **Booster de téléchargement** : à définir, ou à retirer du menu ; IDM y met un mode qui
       pousse le nombre de connexions.
 
-## Menu Affichage
-
-- [ ] **Police** (choisir, réinitialiser) : `ChooseFont` sur la police de l'interface,
-      appliquée par `ApplyUiFont` et gardée dans `settings.json`.
-- [ ] **Colonnes…** : choisir les colonnes visibles et leur ordre (les largeurs sont déjà
-      retenues entre deux sessions, dans `settings.json`).
-
 ## Menu Aide
 
 - [ ] **Aide** (F1) : ouvrir une page d'aide, en ligne ou embarquée.

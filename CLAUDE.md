@@ -124,7 +124,19 @@ Une `ListView` en mode rapport dont les lignes sont **peintes à la main**
 pâle sur la ligne choisie. Chaque cellule est découpée sur la colonne que décrit l'en-tête,
 la cellule d'état d'un transfert en cours devient une barre de progression, et le nom du
 fichier est précédé de l'icône de son type. Le surlignage démarre après cette icône, comme
-dans une liste de Windows. Les traits de grille sont tracés au post-dessin, par-dessus.
+dans une liste de Windows. Les traits de grille sont tracés au post-dessin, par-dessus, jusqu'en
+bas même quand la liste est vide.
+
+Les colonnes se désignent par leur **identifiant** (leur rang dans `kColumns`, affichées ou
+non) ; seules les colonnes affichées existent dans la `ListView`, et `DownloadsView` traduit
+la position à l'écran en identifiant (`ColumnAt`, `PositionOf`). Une colonne masquée est
+vraiment retirée : une colonne de largeur nulle capterait la prise des séparateurs voisins.
+Affichage › Personnaliser les colonnes (`ColumnsDialog`) choisit lesquelles et leur ordre, le
+nom de fichier restant toujours en tête ; `settings.json` garde la liste (`columns`) et les
+largeurs de toutes les colonnes (`columnWidths`), enregistrées dès qu'un séparateur est lâché.
+Affichage › Police passe par `ChooseFontW` ; la police choisie (`fontFace`, `fontSize` en
+dixièmes de point, `fontWeight`, `fontItalic`) remplace la police des messages du système sur la
+barre d'outils, le panneau et la liste.
 
 Les icônes de type viennent de la **liste d'images du shell** (`FileIcons`), celle
 d'Explorer : `SHGetFileInfoW` avec `SHGFI_USEFILEATTRIBUTES | SHGFI_SYSICONINDEX`, donc
