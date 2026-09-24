@@ -24,8 +24,8 @@ qui existe déjà sans comportement, ou un chantier ouvert ailleurs.
 
 - [ ] **Police** (choisir, réinitialiser) : `ChooseFont` sur la police de l'interface,
       appliquée par `ApplyUiFont` et gardée dans `settings.json`.
-- [ ] **Colonnes…** : choisir les colonnes visibles et leur ordre, et retenir leurs largeurs
-      entre deux sessions.
+- [ ] **Colonnes…** : choisir les colonnes visibles et leur ordre (les largeurs sont déjà
+      retenues entre deux sessions, dans `settings.json`).
 
 ## Menu Aide
 
