@@ -54,6 +54,11 @@ Settings Load() {
             }
         }
     }
+    if (root.contains("columnWidths") && root["columnWidths"].is_array()) {
+        for (const nlohmann::json& width : root["columnWidths"]) {
+            settings.columnWidths.push_back(width.is_number_integer() ? width.get<int>() : 0);
+        }
+    }
     settings.panelMode = root.value("panelMode", settings.panelMode);
     settings.panelOnPage = root.value("panelOnPage", settings.panelOnPage);
     settings.panelOnLinks = root.value("panelOnLinks", settings.panelOnLinks);
@@ -92,6 +97,7 @@ void Save(const Settings& settings) {
         {"panelMode", settings.panelMode},
         {"panelOnPage", settings.panelOnPage},
         {"panelOnLinks", settings.panelOnLinks},
+        {"columnWidths", settings.columnWidths},
     };
     std::wstring temp = path + L".tmp";
     {

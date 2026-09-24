@@ -398,6 +398,11 @@ void MainWindow::OnCreate() {
     sidebar_.Create(hwnd_, instance);
 
     downloads_.Create(hwnd_, instance);
+    downloads_.SetWidths(settings_.columnWidths);
+    downloads_.OnColumnsResized([this] {
+        settings_.columnWidths = downloads_.Widths();
+        settings::Save(settings_);
+    });
     ApplyUiFont();
 
     queue::State state = queue::Load();

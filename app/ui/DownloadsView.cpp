@@ -3,6 +3,8 @@
 #include <commctrl.h>
 #include <windowsx.h>
 
+#include <iterator>
+
 #include "core/Text.h"
 #include "ui/Format.h"
 #include "ui/Strings.h"
@@ -25,6 +27,9 @@ constexpr Column kColumns[] = {
     {STR_COL_ADDRESS, 280},
     {STR_COL_PARENT_PAGE, 260},
 };
+
+// Posted to the list itself once a column has been resized by hand.
+constexpr UINT kColumnsSettled = WM_APP + 1;
 
 enum ColumnIndex {
     COL_FILENAME,
@@ -108,7 +113,7 @@ void SetHotRow(HWND list, int row) {
 }
 
 LRESULT CALLBACK KeepScrollBar(HWND list, UINT msg, WPARAM wParam, LPARAM lParam,
-                               UINT_PTR, DWORD_PTR) {
+                               UINT_PTR, DWORD_PTR data) {
     if (msg == WM_NCDESTROY) {
         RemovePropW(list, kHotProperty);
         RemoveWindowSubclass(list, KeepScrollBar, 1);
@@ -139,8 +144,22 @@ LRESULT CALLBACK KeepScrollBar(HWND list, UINT msg, WPARAM wParam, LPARAM lParam
     if ((msg == WM_MOUSEWHEEL || msg == WM_MOUSEHWHEEL) && !WheelIsOver(list, lParam)) {
         return SendMessageW(GetParent(list), msg, wParam, lParam);
     }
+    if (msg == kColumnsSettled) {
+        auto* view = reinterpret_cast<DownloadsView*>(data);
+        if (view != nullptr) {
+            view->ColumnsResized();
+        }
+        return 0;
+    }
     if (msg == WM_NOTIFY) {
         auto* header = reinterpret_cast<NMHEADERW*>(lParam);
+        // The header applies the new width after these: the list reads it
+        // once the message has gone through.
+        UINT code = header->hdr.code;
+        if (code == HDN_ENDTRACKW || code == HDN_ENDTRACKA || code == HDN_DIVIDERDBLCLICKW ||
+            code == HDN_DIVIDERDBLCLICKA) {
+            PostMessageW(list, kColumnsSettled, 0, 0);
+        }
         if ((header->hdr.code == HDN_ITEMCHANGINGW || header->hdr.code == HDN_ITEMCHANGINGA) &&
             header->pitem != nullptr && (header->pitem->mask & HDI_WIDTH) != 0) {
             // A column being dragged narrower stops at the minimum instead of
@@ -238,7 +257,7 @@ bool DownloadsView::Create(HWND parent, HINSTANCE instance) {
     ListView_SetExtendedListViewStyle(
         hwnd_, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES | LVS_EX_DOUBLEBUFFER);
     AddColumns();
-    SetWindowSubclass(hwnd_, KeepScrollBar, 1, 0);
+    SetWindowSubclass(hwnd_, KeepScrollBar, 1, reinterpret_cast<DWORD_PTR>(this));
     return true;
 }
 
@@ -253,6 +272,34 @@ void DownloadsView::AddColumns() {
         col.pszText = const_cast<wchar_t*>(Str(column.title));
         ListView_InsertColumn(hwnd_, index, &col);
         ++index;
+    }
+}
+
+// Gives the columns the widths kept from an earlier session; a missing or
+// absurd width leaves the column as declared.
+void DownloadsView::SetWidths(const std::vector<int>& widths) {
+    int count = static_cast<int>(std::size(kColumns));
+    for (int index = 0; index < count && index < static_cast<int>(widths.size()); ++index) {
+        int width = widths[static_cast<size_t>(index)];
+        if (width >= kMinColumnWidth && width <= 4000) {
+            ListView_SetColumnWidth(hwnd_, index, width);
+        }
+    }
+}
+
+// The width of every column, in declaration order.
+std::vector<int> DownloadsView::Widths() const {
+    std::vector<int> widths;
+    for (int index = 0; index < static_cast<int>(std::size(kColumns)); ++index) {
+        widths.push_back(ListView_GetColumnWidth(hwnd_, index));
+    }
+    return widths;
+}
+
+// Tells the owner that the user has settled a column on a new width.
+void DownloadsView::ColumnsResized() {
+    if (onResized_) {
+        onResized_();
     }
 }
 

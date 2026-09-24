@@ -21,6 +21,7 @@ struct Settings {
     std::string panelMode = "full";       // the browser panel, "full" with its label or "mini"
     bool panelOnPage = true;              // show it on the page of an anime or an episode
     bool panelOnLinks = true;             // show it over the links that lead to one
+    std::vector<int> columnWidths;        // the file list's columns, empty for their defaults
 };
 
 namespace settings {
