@@ -39,11 +39,19 @@ public:
 
     HWND Handle() const { return hwnd_; }
 
+    // The widths the columns take, kept between two sessions.
+    void SetWidths(const std::vector<int>& widths);
+    std::vector<int> Widths() const;
+    // Called once a column has been resized by hand.
+    void OnColumnsResized(std::function<void()> callback) { onResized_ = std::move(callback); }
+    void ColumnsResized();
+
 private:
     void AddColumns();
     void Fill(int row, const DownloadItem& item);
 
     HWND hwnd_ = nullptr;
+    std::function<void()> onResized_;
 };
 
 // The text of the status cell, shared with the custom draw of the window.
