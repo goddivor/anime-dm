@@ -557,14 +557,25 @@ LRESULT MainWindow::OnListCustomDraw(NMLVCUSTOMDRAW* draw) {
     }
 
     // One rule under every row, existing or not, so the grid reaches the
-    // bottom of the list the way the built-in one does.
+    // bottom of the list the way the built-in one does, and fills an empty
+    // list as IDM's does.
     RECT first = {};
+    int top = 0;
+    int height = 0;
     if (ListView_GetItemCount(list) > 0 && ListView_GetItemRect(list, 0, &first, LVIR_BOUNDS)) {
-        int height = first.bottom - first.top;
-        for (int y = first.bottom - 1; height > 0 && y < client.bottom; y += height) {
-            MoveToEx(dc, client.left, y, nullptr);
-            LineTo(dc, client.right, y);
-        }
+        top = first.top;
+        height = first.bottom - first.top;
+    } else {
+        RECT bar = {};
+        GetWindowRect(header, &bar);
+        MapWindowPoints(nullptr, list, reinterpret_cast<POINT*>(&bar), 2);
+        top = bar.bottom;
+        height = HIWORD(ListView_ApproximateViewRect(list, -1, -1, 2)) -
+                 HIWORD(ListView_ApproximateViewRect(list, -1, -1, 1));
+    }
+    for (int y = top + height - 1; height > 0 && y < client.bottom; y += height) {
+        MoveToEx(dc, client.left, y, nullptr);
+        LineTo(dc, client.right, y);
     }
 
     SelectObject(dc, previous);
