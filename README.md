@@ -4,8 +4,8 @@
 
 # Anime Download Manager
 
-**An IDM-style download manager for anime sites** — built with Tauri 2 (Rust) and React 19.
-Every source lives in a sandboxed WebAssembly addon, so the app stays small, generic and fast.
+**An IDM-style download manager for anime sites** — a native Windows application in C++ and Win32.
+Every source lives in an add-on, a native library loaded at run time, so the app stays small, generic and fast.
 
 [![C++](https://img.shields.io/badge/C%2B%2B-00599C?logo=cplusplus&logoColor=white&style=flat)](https://isocpp.org/)
 [![Win32](https://img.shields.io/badge/Win32-0078D6?logo=windows&logoColor=white&style=flat)](https://learn.microsoft.com/windows/win32/)
