@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <thread>
@@ -98,6 +99,7 @@ struct Flow {
 
     bool busy = false;
     bool filling = false;  // the rows are being written, their state means nothing
+    std::wstring caption;  // the title of the episodes window, when not the add flow's
 };
 
 std::wstring ReadText(HWND dialog, int control) {
@@ -310,8 +312,13 @@ void ApplyChecks(HWND dialog, const Flow& flow) {
 
 // Reads the typed ranges into the picked set.
 void ReadTyped(HWND dialog, Flow& flow) {
-    std::vector<int> numbers = selection::Parse(ReadText(dialog, IDC_ADD_SELECTION),
-                                                static_cast<int>(flow.episodes.size()));
+    // The ranges are bounded by the highest number on offer, not by the count:
+    // a list of missing episodes skips numbers.
+    int highest = 0;
+    for (const Episode& episode : flow.episodes) {
+        highest = std::max(highest, RoundNumber(episode.number));
+    }
+    std::vector<int> numbers = selection::Parse(ReadText(dialog, IDC_ADD_SELECTION), highest);
     std::set<int> wanted(numbers.begin(), numbers.end());
 
     flow.picked.clear();
@@ -422,7 +429,11 @@ INT_PTR CALLBACK EpisodesProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lPara
         SetWindowLongPtrW(dialog, GWLP_USERDATA, lParam);
         flow = reinterpret_cast<Flow*>(lParam);
 
-        SetDialogTitle(dialog, STR_DLG_ADD_EPISODES_TITLE);
+        if (flow->caption.empty()) {
+            SetDialogTitle(dialog, STR_DLG_ADD_EPISODES_TITLE);
+        } else {
+            SetWindowTextW(dialog, flow->caption.c_str());
+        }
         SetDialogText(dialog, IDC_ADD_LBL_EPISODES, STR_DLG_ADD_EPISODES);
         SetDialogText(dialog, IDC_ADD_LBL_SELECTION, STR_ADD_SELECTION_LABEL);
         SetDialogText(dialog, IDC_ADD_HINT, STR_ADD_PLAYER_HINT);
@@ -1037,4 +1048,42 @@ INT_PTR ShowAddDialog(HWND owner, HINSTANCE instance, const AddonStore& store, H
         DeleteObject(flow.poster);
     }
     return answer;
+}
+
+// Offers episodes in the episodes window of the add flow, the ticked ones
+// first, and hands back those the user keeps, each with its player.
+bool PickEpisodes(HWND owner, HINSTANCE instance, const AddonStore& store, Http& http,
+                  const std::string& addonId, const std::wstring& caption,
+                  const std::vector<AddRequestEpisode>& offered, const std::vector<bool>& ticked,
+                  std::vector<AddRequestEpisode>* chosen) {
+    Flow flow;
+    flow.store = &store;
+    flow.http = &http;
+    flow.caption = caption;
+    std::optional<InstalledAddon> source = store.Read(addonId);
+    if (source) {
+        flow.sources.push_back(*source);
+        flow.source = 0;
+    }
+    for (size_t index = 0; index < offered.size(); ++index) {
+        flow.episodes.push_back({offered[index].number, offered[index].name, offered[index].url});
+        if (index < ticked.size() && ticked[index]) {
+            flow.picked.insert(static_cast<int>(index));
+        }
+    }
+
+    if (DialogBoxParamW(instance, MAKEINTRESOURCEW(IDD_ADD_EPISODES), owner, EpisodesProc,
+                        reinterpret_cast<LPARAM>(&flow)) != IDOK) {
+        return false;
+    }
+    chosen->clear();
+    for (int index : flow.picked) {
+        AddRequestEpisode episode = offered[static_cast<size_t>(index)];
+        auto tuned = flow.playerByEpisode.find(index);
+        if (tuned != flow.playerByEpisode.end()) {
+            episode.player = tuned->second;
+        }
+        chosen->push_back(std::move(episode));
+    }
+    return !chosen->empty();
 }

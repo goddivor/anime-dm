@@ -2015,8 +2015,10 @@ void MainWindow::CheckFollow(const FollowedAnime& follow) {
     }).detach();
 }
 
-// Takes the episodes a check found: the first check only records them, the
-// next ones queue whatever is new and plan the check after.
+// Takes the episodes a check found. The first check offers the episodes
+// already out that the list lacks, those after the last one downloaded ticked,
+// and queues the ones the user keeps; the next checks queue whatever is new on
+// their own and plan the check after.
 void MainWindow::OnFollowEvent(std::unique_ptr<FollowPayload> payload) {
     checking_.erase(std::remove(checking_.begin(), checking_.end(), payload->animeUrl),
                     checking_.end());
@@ -2057,21 +2059,69 @@ void MainWindow::OnFollowEvent(std::unique_ptr<FollowPayload> payload) {
             request.episodes.push_back(episode);
         }
     }
+    bool first = !follow->primed;
+    if (first) {
+        // Primed before the offer is shown: the clock keeps ticking behind
+        // the modal window and must not start a second first check.
+        follow->primed = true;
+        follow->nextCheck = follow::NextRelease(*follow, now);
+        follow::Save(follows_);
+        FollowedAnime offered = *follow;
+        OfferMissing(offered, payload->episodes, &request);
+        follow = nullptr;
+        for (FollowedAnime& candidate : follows_) {
+            if (candidate.animeUrl == payload->animeUrl) {
+                follow = &candidate;
+            }
+        }
+    }
     bool found = !request.episodes.empty();
     if (found) {
-        AddEpisodes(request, follow->queue, follow->startAtOnce);
+        QueueKind queue = follow != nullptr ? follow->queue : QueueKind::Scheduler;
+        bool start = follow != nullptr && follow->startAtOnce;
+        AddEpisodes(request, queue, start);
         ApplySort();
         Persist();
         RebuildSidebar();
         UpdateActions();
     }
-    if (!follow->primed) {
-        follow->primed = true;
-        follow->nextCheck = follow::NextRelease(*follow, now);
-    } else {
+    if (!first && follow != nullptr) {
         follow::Plan(follow, now, found);
+        follow::Save(follows_);
     }
-    follow::Save(follows_);
+}
+
+// Offers the episodes of a newly followed anime that are out but missing
+// from the list, and puts the ones the user keeps into the request. The
+// episodes after the last one downloaded come ticked, the older ones not: a
+// follow started in the middle of a long series does not fetch its past.
+void MainWindow::OfferMissing(const FollowedAnime& follow,
+                              const std::vector<AddRequestEpisode>& episodes,
+                              AddRequest* request) {
+    double last = -1.0;
+    for (const DownloadItem& item : items_) {
+        if (url::SamePage(item.animeUrl, follow.animeUrl) && item.episodeNumber > last) {
+            last = item.episodeNumber;
+        }
+    }
+    std::vector<AddRequestEpisode> missing;
+    std::vector<bool> ticked;
+    for (const AddRequestEpisode& episode : episodes) {
+        bool listed = std::any_of(items_.begin(), items_.end(), [&](const DownloadItem& item) {
+            return url::SamePage(item.pageUrl, episode.url);
+        });
+        if (!listed) {
+            missing.push_back(episode);
+            ticked.push_back(episode.number > last);
+        }
+    }
+    if (missing.empty()) {
+        return;
+    }
+    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+    std::wstring caption = std::wstring(Str(STR_FOLLOW_MISSING)) + L" : " + Widen(follow.title);
+    PickEpisodes(hwnd_, instance, store_, http_, follow.addonId, caption, missing, ticked,
+                 &request->episodes);
 }
 
 // Carries out what the schedules name as due, once every tick.

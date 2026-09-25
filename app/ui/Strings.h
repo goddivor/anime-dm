@@ -345,6 +345,7 @@ enum StringId {
     STR_COLUMNS_UP,
     STR_COLUMNS_DOWN,
     STR_COLUMNS_RESET,
+    STR_FOLLOW_MISSING,
 
     STR_COUNT,
 };
