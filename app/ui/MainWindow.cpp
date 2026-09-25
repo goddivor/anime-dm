@@ -2796,9 +2796,7 @@ void MainWindow::OnCommand(int commandId) {
     case ID_HELP_AUTHORS:
     case ID_HELP_LICENSE:
     case ID_HELP_CREDITS:
-        if (ShowAboutDialog(hwnd_, instance) == IDC_ABOUT_ADDONS) {
-            OnCommand(ID_VIEW_ADDONS);
-        }
+        ShowAboutDialog(hwnd_, instance);
         break;
     case ID_VIEW_ADDONS:
         ShowAddonsDialog(hwnd_, instance, store_, http_);

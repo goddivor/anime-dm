@@ -99,7 +99,49 @@ HFONT DerivedFont(HWND control, int scale, bool bold, bool underline) {
 }
 
 bool IsLink(int id) {
-    return id == IDC_ABOUT_WEBSITE || id == IDC_ABOUT_SUPPORT;
+    return id == IDC_ABOUT_WEBSITE || id == IDC_ABOUT_SUPPORT || id == IDC_ABOUT_SOURCE;
+}
+
+// Gives a read-only box the height of its text, so that no scroll bar
+// appears, and moves what lies under it, and the dialog, by the difference.
+void FitBoxToText(HWND dialog, int id) {
+    HWND box = GetDlgItem(dialog, id);
+    int lines = static_cast<int>(SendMessageW(box, EM_GETLINECOUNT, 0, 0));
+    HDC dc = GetDC(box);
+    HFONT previous = static_cast<HFONT>(
+        SelectObject(dc, reinterpret_cast<HFONT>(SendMessageW(box, WM_GETFONT, 0, 0))));
+    TEXTMETRICW metrics = {};
+    GetTextMetricsW(dc, &metrics);
+    SelectObject(dc, previous);
+    ReleaseDC(box, dc);
+
+    RECT frame = {};
+    GetWindowRect(box, &frame);
+    MapWindowPoints(nullptr, dialog, reinterpret_cast<POINT*>(&frame), 2);
+    RECT client = {};
+    GetClientRect(box, &client);
+    int border = (frame.bottom - frame.top) - (client.bottom - client.top);
+    int wanted = lines * metrics.tmHeight + border + 4;
+    int delta = wanted - (frame.bottom - frame.top);
+    if (delta == 0) {
+        return;
+    }
+    SetWindowPos(box, nullptr, 0, 0, frame.right - frame.left, wanted,
+                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+    for (HWND child = GetWindow(dialog, GW_CHILD); child != nullptr;
+         child = GetWindow(child, GW_HWNDNEXT)) {
+        RECT rect = {};
+        GetWindowRect(child, &rect);
+        MapWindowPoints(nullptr, dialog, reinterpret_cast<POINT*>(&rect), 2);
+        if (child != box && rect.top >= frame.bottom) {
+            SetWindowPos(child, nullptr, rect.left, rect.top + delta, 0, 0,
+                         SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+    }
+    RECT window = {};
+    GetWindowRect(dialog, &window);
+    SetWindowPos(dialog, nullptr, 0, 0, window.right - window.left,
+                 window.bottom - window.top + delta, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 void Open(HWND dialog, const wchar_t* address) {
@@ -115,13 +157,13 @@ void InitAbout(HWND dialog, AboutState& state) {
     SetDialogText(dialog, IDC_ABOUT_UPDATE, STR_ABOUT_UPDATE);
     SetDialogText(dialog, IDC_ABOUT_LBL_PROJECT, STR_ABOUT_PROJECT);
     SetDialogText(dialog, IDC_ABOUT_TAGLINE, STR_DLG_ABOUT_TAGLINE);
-    SetDialogText(dialog, IDC_ABOUT_ADDONS, STR_VIEW_ADDONS);
-    SetDialogText(dialog, IDC_ABOUT_SOURCE, STR_ABOUT_SOURCE);
     SetDialogText(dialog, IDC_ABOUT_NOTICE, STR_ABOUT_NOTICE);
     SetDialogText(dialog, IDC_ABOUT_LBL_WEBSITE, STR_ABOUT_WEBSITE);
     SetDlgItemTextW(dialog, IDC_ABOUT_WEBSITE, kWebsite);
     SetDialogText(dialog, IDC_ABOUT_LBL_SUPPORT, STR_ABOUT_SUPPORT);
     SetDlgItemTextW(dialog, IDC_ABOUT_SUPPORT, kSupport);
+    SetDialogText(dialog, IDC_ABOUT_LBL_SOURCE, STR_ABOUT_SOURCE);
+    SetDlgItemTextW(dialog, IDC_ABOUT_SOURCE, kSource);
     SetDialogText(dialog, IDC_ABOUT_COPYRIGHT, STR_ABOUT_COPYRIGHT);
     SetDialogText(dialog, IDOK, STR_DLG_CLOSE);
 
@@ -131,13 +173,15 @@ void InitAbout(HWND dialog, AboutState& state) {
     state.title = DerivedFont(GetDlgItem(dialog, IDC_ABOUT_NAME), 160, true, false);
     SendDlgItemMessageW(dialog, IDC_ABOUT_NAME, WM_SETFONT, reinterpret_cast<WPARAM>(state.title), TRUE);
     state.link = DerivedFont(GetDlgItem(dialog, IDC_ABOUT_WEBSITE), 100, false, true);
-    for (int id : {IDC_ABOUT_WEBSITE, IDC_ABOUT_SUPPORT}) {
+    for (int id : {IDC_ABOUT_WEBSITE, IDC_ABOUT_SUPPORT, IDC_ABOUT_SOURCE}) {
         SendDlgItemMessageW(dialog, id, WM_SETFONT, reinterpret_cast<WPARAM>(state.link), TRUE);
     }
+    FitBoxToText(dialog, IDC_ABOUT_TAGLINE);
+    FitBoxToText(dialog, IDC_ABOUT_NOTICE);
 }
 
-// The about dialog: the name and version, the community, the notice, the
-// links, and the Addon Store handed back to the caller.
+// The about dialog: the name and version, the community, the notice and the
+// links.
 INT_PTR CALLBACK AboutDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
     auto* state = reinterpret_cast<AboutState*>(GetWindowLongPtrW(dialog, GWLP_USERDATA));
     if (msg == WM_CTLCOLORSTATIC && IsLink(GetDlgCtrlID(reinterpret_cast<HWND>(lParam)))) {
@@ -181,9 +225,6 @@ INT_PTR CALLBACK AboutDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lP
         case IDC_ABOUT_SOURCE:
             Open(dialog, kSource);
             return TRUE;
-        case IDC_ABOUT_ADDONS:
-            EndDialog(dialog, IDC_ABOUT_ADDONS);
-            return TRUE;
         case IDOK:
         case IDCANCEL:
             EndDialog(dialog, IDOK);
@@ -210,8 +251,8 @@ INT_PTR CALLBACK AboutDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lP
 }  // namespace
 
 // Runs the about dialog modally.
-INT_PTR ShowAboutDialog(HWND owner, HINSTANCE instance) {
-    return DialogBoxParamW(instance, MAKEINTRESOURCEW(IDD_ABOUT), owner, AboutDialogProc, 0);
+void ShowAboutDialog(HWND owner, HINSTANCE instance) {
+    DialogBoxParamW(instance, MAKEINTRESOURCEW(IDD_ABOUT), owner, AboutDialogProc, 0);
 }
 
 // Runs the shortcuts dialog modally.

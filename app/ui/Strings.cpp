@@ -395,7 +395,7 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Version : %ls (%ls)", L"Version: %ls (%ls)"},
     {L"Vérifier les mises à jour", L"Check for updates"},
     {L"Ce projet est communautaire :", L"A community project:"},
-    {L"Code source", L"Source code"},
+    {L"Code source :", L"Source code:"},
     {L"Anime Download Manager n'héberge ni ne fournit aucun contenu : il télécharge ce que les "
      L"sites servent, par les add-ons que vous installez. Il vous revient de vérifier que vous avez "
      L"le droit de télécharger ce que vous téléchargez, selon les lois de votre pays et les "
