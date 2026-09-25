@@ -3,14 +3,6 @@
 État au 18 septembre 2026, branche `feature/win32-cpp`. Chaque point est une entrée de menu
 qui existe déjà sans comportement, ou un chantier ouvert ailleurs.
 
-## Menu Téléchargement
-
-- [ ] **Limitation de débit** (activer, désactiver, paramètres) : un plafond en octets par
-      seconde partagé par les connexions de `Transfer`, réglable dans un petit dialogue et
-      rappelé dans `settings.json`.
-- [ ] **Booster de téléchargement** : à définir, ou à retirer du menu ; IDM y met un mode qui
-      pousse le nombre de connexions.
-
 ## Menu Aide
 
 - [ ] **Aide** (F1) : ouvrir une page d'aide, en ligne ou embarquée.
@@ -21,9 +13,6 @@ qui existe déjà sans comportement, ou un chantier ouvert ailleurs.
 
 - [ ] **Choix de la file dans la fenêtre d'ajout** : *Plus tard* met toujours dans la file
       principale ; offrir la file du planificateur, comme le « Télécharger plus tard » d'IDM.
-- [ ] **Choix de la file depuis l'extension** : le panneau envoie toujours dans la file
-      principale ; une option dans *Personnalisation du panneau* pourrait viser le
-      planificateur.
 - [ ] **Ajouter et retirer des fichiers depuis l'onglet Files** du Planificateur, comme IDM.
 
 ## Publication de l'extension

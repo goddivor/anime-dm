@@ -97,17 +97,10 @@ HMENU BuildDownloadMenu() {
         {ID_QUEUE_STOP_MAIN, Str(STR_QUEUE_MAIN)},
         {ID_QUEUE_STOP_SCHEDULER, Str(STR_QUEUE_SCHEDULER)},
     };
-    const Entry limiter[] = {
-        {ID_LIMITER_ENABLE, Str(STR_LIMITER_ENABLE)},
-        {ID_LIMITER_DISABLE, Str(STR_LIMITER_DISABLE)},
-        {ID_LIMITER_SETTINGS, Str(STR_LIMITER_SETTINGS)},
-    };
 
     HMENU menu = BuildPopup(head, ARRAYSIZE(head));
     AppendSubMenu(menu, STR_DL_START_QUEUE, startQueue, ARRAYSIZE(startQueue));
     AppendSubMenu(menu, STR_DL_STOP_QUEUE, stopQueue, ARRAYSIZE(stopQueue));
-    AppendSubMenu(menu, STR_LIMITER, limiter, ARRAYSIZE(limiter));
-    AppendMenuW(menu, MF_STRING, ID_DOWNLOAD_BOOSTER, Str(STR_BOOSTER));
     return menu;
 }
 

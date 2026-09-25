@@ -373,14 +373,7 @@ void MainWindow::ShowTrayMenu(int x, int y) {
         {ID_DOWNLOAD_SCHEDULE, Str(STR_DL_SCHEDULE)},
         {0, nullptr},
     };
-    const Entry limiter[] = {
-        {ID_LIMITER_ENABLE, Str(STR_LIMITER_ENABLE)},
-        {ID_LIMITER_DISABLE, Str(STR_LIMITER_DISABLE)},
-        {ID_LIMITER_SETTINGS, Str(STR_LIMITER_SETTINGS)},
-    };
     const Entry bottom[] = {
-        {ID_DOWNLOAD_BOOSTER, Str(STR_BOOSTER)},
-        {0, nullptr},
         {ID_VIEW_SETTINGS, Str(STR_TB_OPTIONS)},
         {ID_VIEW_ADDONS, Str(STR_VIEW_ADDONS)},
         {0, nullptr},
@@ -407,13 +400,6 @@ void MainWindow::ShowTrayMenu(int x, int y) {
     for (const Entry& entry : top) {
         append(menu, entry);
     }
-    HMENU speed = CreatePopupMenu();
-    bool anySpeed = false;
-    for (const Entry& entry : limiter) {
-        anySpeed = append(speed, entry) || anySpeed;
-    }
-    AppendMenuW(menu, MF_POPUP | (anySpeed ? 0 : MF_GRAYED), reinterpret_cast<UINT_PTR>(speed),
-                Str(STR_LIMITER));
     for (const Entry& entry : bottom) {
         append(menu, entry);
     }
@@ -1977,10 +1963,6 @@ void MainWindow::UpdateActions() {
         {ID_TASK_EXPORT_SHEET, anyItem},
         {ID_TASK_EXPORT_XLSX, anyItem},
         {ID_TASK_EXPORT_ODS, anyItem},
-        {ID_LIMITER_ENABLE, false},
-        {ID_LIMITER_DISABLE, false},
-        {ID_LIMITER_SETTINGS, false},
-        {ID_DOWNLOAD_BOOSTER, false},
         {ID_HELP_HELP, false},
         {ID_HELP_UPDATE, false},
     };
@@ -1994,7 +1976,7 @@ void MainWindow::UpdateActions() {
         EnableMenuItem(menu, command, MF_BYCOMMAND | (anyItem ? MF_ENABLED : MF_GRAYED));
     }
     // A sub-menu whose every entry is grey goes grey itself.
-    for (int child : {ID_TASK_EXPORT_ADM, ID_SORT_NAME, ID_LIMITER_ENABLE, ID_QUEUE_START_MAIN,
+    for (int child : {ID_TASK_EXPORT_ADM, ID_SORT_NAME, ID_QUEUE_START_MAIN,
                       ID_QUEUE_STOP_MAIN}) {
         GreyEmptyPopup(menu, child);
     }
