@@ -23,6 +23,7 @@
 struct PosterPayload;
 struct IconPayload;
 struct FollowPayload;
+struct BatchPayload;
 struct ImportPayload;
 
 // Which items the list shows, as chosen in the categories panel.
@@ -51,7 +52,11 @@ private:
     void OnCommand(int commandId);
     void ShowSoon(int commandId);
     void OnAddDownload(const std::string& initialUrl = std::string(),
-                       const std::string& initialEpisode = std::string());
+                       const std::vector<std::string>& initialEpisodes = {},
+                       const std::string& sourceId = std::string());
+    void OnAddAccepted(std::unique_ptr<AddRequest> request);
+    void OnBatchAdd();
+    void OnBatchReady(std::unique_ptr<BatchPayload> payload);
     void PublishSources();
     void ApplySettings();
     void OnDownloadEvent(std::unique_ptr<DownloadEvent> event);

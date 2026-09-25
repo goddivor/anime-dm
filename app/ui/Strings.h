@@ -351,6 +351,8 @@ enum StringId {
     STR_IMPORT_ODS,
     STR_KIND_XLSX,
     STR_KIND_ODS,
+    STR_BATCH_EMPTY,
+    STR_BATCH_UNKNOWN,
 
     STR_COUNT,
 };

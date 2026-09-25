@@ -3,12 +3,6 @@
 État au 18 septembre 2026, branche `feature/win32-cpp`. Chaque point est une entrée de menu
 qui existe déjà sans comportement, ou un chantier ouvert ailleurs.
 
-## Menu Tâches
-
-- [ ] **Téléchargement par lot depuis presse-papiers** (Ctrl+Maj+V) : lire toutes les adresses
-      du presse-papiers et les passer à l'import (`importing::Parse` puis `Resolve`), comme un
-      fichier texte ; l'accélérateur est déjà déclaré.
-
 ## Menu Téléchargement
 
 - [ ] **Limitation de débit** (activer, désactiver, paramètres) : un plafond en octets par

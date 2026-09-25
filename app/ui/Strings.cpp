@@ -384,6 +384,9 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Depuis un classeur OpenDocument (.ods)", L"From an OpenDocument workbook (.ods)"},
     {L"Classeur Excel", L"Excel workbook"},
     {L"Classeur OpenDocument", L"OpenDocument workbook"},
+    {L"Le presse-papiers ne contient aucune adresse.", L"The clipboard holds no address."},
+    {L"%d adresse(s) ignorée(s) : aucune source installée ne sert leur site.",
+     L"%d address(es) skipped: no installed source serves their site."},
 };
 
 Language g_language = Language::French;

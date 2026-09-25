@@ -194,6 +194,42 @@ std::string AnimeOf(const Source& source, const std::string& pageUrl, bool* isEp
     return url::OriginOf(pageUrl) + animePath;
 }
 
+// Loads every installed source with what tells its site and pages apart.
+std::vector<Source> LoadSources(const AddonStore& store, Http& http) {
+    std::vector<Source> sources;
+    for (const InstalledAddon& installed : store.Installed()) {
+        Source source;
+        source.id = installed.id;
+        source.addon = Addon::Load(store.LibraryPath(installed.id), http,
+                                   store.ReadConfig(installed.id));
+        if (!source.addon) {
+            continue;
+        }
+        const AddonMetadata& meta = source.addon->Meta();
+        source.host = url::HostOf(meta.baseUrl);
+        if (!meta.episodePattern.empty()) {
+            try {
+                source.episodePattern = std::regex(meta.episodePattern);
+            } catch (const std::regex_error&) {
+            }
+        }
+        source.animeFromEpisode = meta.animeFromEpisode;
+        sources.push_back(std::move(source));
+    }
+    return sources;
+}
+
+// The source that serves the site of an address, or none.
+const Source* SourceOf(const std::vector<Source>& sources, const std::string& address) {
+    std::string host = url::HostOf(address);
+    for (const Source& candidate : sources) {
+        if (url::SameSite(host, candidate.host)) {
+            return &candidate;
+        }
+    }
+    return nullptr;
+}
+
 }  // namespace
 
 namespace importing {
@@ -234,26 +270,7 @@ std::vector<ImportEntry> Parse(const std::string& text) {
 ImportResult Resolve(const std::vector<ImportEntry>& entries, const AddonStore& store,
                      Http& http) {
     ImportResult result;
-    std::vector<Source> sources;
-    for (const InstalledAddon& installed : store.Installed()) {
-        Source source;
-        source.id = installed.id;
-        source.addon = Addon::Load(store.LibraryPath(installed.id), http,
-                                   store.ReadConfig(installed.id));
-        if (!source.addon) {
-            continue;
-        }
-        const AddonMetadata& meta = source.addon->Meta();
-        source.host = url::HostOf(meta.baseUrl);
-        if (!meta.episodePattern.empty()) {
-            try {
-                source.episodePattern = std::regex(meta.episodePattern);
-            } catch (const std::regex_error&) {
-            }
-        }
-        source.animeFromEpisode = meta.animeFromEpisode;
-        sources.push_back(std::move(source));
-    }
+    std::vector<Source> sources = LoadSources(store, http);
 
     // The animes to build, each with the pages asked of it: every episode
     // when the anime page itself was given, the named ones otherwise.
@@ -284,14 +301,7 @@ ImportResult Resolve(const std::vector<ImportEntry>& entries, const AddonStore& 
             item.described.push_back(entry);
             continue;
         }
-        std::string host = url::HostOf(entry.url);
-        const Source* source = nullptr;
-        for (const Source& candidate : sources) {
-            if (url::SameSite(host, candidate.host)) {
-                source = &candidate;
-                break;
-            }
-        }
+        const Source* source = SourceOf(sources, entry.url);
         if (source == nullptr) {
             result.unknown += 1;
             continue;
@@ -364,6 +374,45 @@ ImportResult Resolve(const std::vector<ImportEntry>& entries, const AddonStore& 
             item.anime.title = item.anime.animeUrl;
         }
         result.animes.push_back(std::move(item.anime));
+    }
+    return result;
+}
+
+// Gathers addresses by the anime they belong to, as the sources tell pages
+// apart, without reading any page: the add windows read them.
+Grouping Group(const std::vector<std::string>& addresses, const AddonStore& store, Http& http) {
+    Grouping result;
+    std::vector<Source> sources = LoadSources(store, http);
+    std::vector<bool> whole;
+    for (const std::string& address : addresses) {
+        const Source* source = SourceOf(sources, address);
+        if (source == nullptr) {
+            result.unknown += 1;
+            continue;
+        }
+        bool isEpisode = false;
+        std::string animeUrl = AnimeOf(*source, address, &isEpisode);
+        auto found = std::find_if(result.groups.begin(), result.groups.end(),
+                                  [&](const AddressGroup& group) {
+                                      return url::SamePage(group.animeUrl, animeUrl);
+                                  });
+        if (found == result.groups.end()) {
+            result.groups.push_back({source->id, animeUrl, {}});
+            whole.push_back(false);
+            found = result.groups.end() - 1;
+        }
+        size_t index = static_cast<size_t>(found - result.groups.begin());
+        if (isEpisode) {
+            found->episodes.push_back(address);
+        } else {
+            whole[index] = true;
+        }
+    }
+    // An anime whose own page came along is taken whole.
+    for (size_t index = 0; index < result.groups.size(); ++index) {
+        if (whole[index]) {
+            result.groups[index].episodes.clear();
+        }
     }
     return result;
 }

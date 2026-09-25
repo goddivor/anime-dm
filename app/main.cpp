@@ -9,6 +9,7 @@
 #include "core/BridgeProtocol.h"
 #include "core/Text.h"
 #include "third_party/json.hpp"
+#include "ui/AddDialog.h"
 #include "ui/IconFactory.h"
 #include "ui/MainWindow.h"
 
@@ -99,7 +100,14 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int cmdSho
     HACCEL accel = window.Accelerator();
     MSG msg = {};
     while (GetMessageW(&msg, nullptr, 0, 0)) {
-        if (!TranslateAcceleratorW(window.Handle(), accel, &msg)) {
+        // The add windows take their keyboard first; the shortcuts of the
+        // main window apply to it alone, or Delete typed in an address would
+        // remove the selected downloads.
+        if (IsAddWindowMessage(&msg)) {
+            continue;
+        }
+        bool mine = GetAncestor(msg.hwnd, GA_ROOT) == window.Handle();
+        if (!mine || !TranslateAcceleratorW(window.Handle(), accel, &msg)) {
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
         }
