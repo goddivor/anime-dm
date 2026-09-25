@@ -387,6 +387,13 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Le presse-papiers ne contient aucune adresse.", L"The clipboard holds no address."},
     {L"%d adresse(s) ignorée(s) : aucune source installée ne sert leur site.",
      L"%d address(es) skipped: no installed source serves their site."},
+    {L"Restaurer Anime Download Manager", L"Restore Anime Download Manager"},
+    {L"Démarrer la file principale", L"Start the main queue"},
+    {L"Anime Download Manager : %d téléchargement(s) en cours",
+     L"Anime Download Manager: %d download(s) running"},
+    {L"Téléchargement terminé", L"Download complete"},
+    {L"Fermer la fenêtre la garde dans la zone de notification",
+     L"Closing the window keeps it in the notification area"},
 };
 
 Language g_language = Language::French;

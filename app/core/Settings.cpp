@@ -43,6 +43,7 @@ Settings Load() {
     settings.language = root.value("lang", settings.language);
     settings.toolbarSkin = root.value("toolbarSkin", settings.toolbarSkin);
     settings.clipboardUrl = root.value("clipboardUrl", settings.clipboardUrl);
+    settings.closeToTray = root.value("closeToTray", settings.closeToTray);
     settings.rememberPath = root.value("rememberPath", settings.rememberPath);
     settings.savePath = root.value("savePath", settings.savePath);
     settings.startWithWindows = root.value("startWithWindows", settings.startWithWindows);
@@ -109,6 +110,7 @@ void Save(const Settings& settings) {
         {"lang", settings.language},
         {"toolbarSkin", settings.toolbarSkin},
         {"clipboardUrl", settings.clipboardUrl},
+        {"closeToTray", settings.closeToTray},
         {"rememberPath", settings.rememberPath},
         {"savePath", settings.savePath},
         {"startWithWindows", settings.startWithWindows},

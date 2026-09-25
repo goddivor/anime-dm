@@ -50,6 +50,13 @@ private:
     void OnCreate();
     void OnDestroy();
     void RestorePlacement();
+    void AddTrayIcon();
+    void RemoveTrayIcon();
+    void UpdateTrayTip();
+    void NotifyDone(const DownloadItem& item);
+    void OnTrayMessage(UINT event, int x, int y);
+    void ShowTrayMenu(int x, int y);
+    void RestoreFromTray();
     void SavePlacement();
     void OnCommand(int commandId);
     void ShowSoon(int commandId);
@@ -180,6 +187,7 @@ private:
     bool startMaximized_ = false;  // the last session left the window maximised
     bool placementReady_ = false;  // shown: its frame is the user's from now on
     bool wasMaximized_ = false;
+    bool shown_ = false;  // the window has been on screen once
     bool draggingSplitter_ = false;
     int trackX_ = 0;  // where the tracker bar stands during a drag
 };

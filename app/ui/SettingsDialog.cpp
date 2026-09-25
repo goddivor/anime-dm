@@ -61,6 +61,7 @@ void InitGeneral(HWND page, Screen& screen) {
     SetDialogText(page, IDC_SET_HEADING, STR_SET_HEADING);
     SetDialogText(page, IDC_SET_AUTOSTART, STR_SET_AUTOSTART);
     SetDialogText(page, IDC_SET_CLIPBOARD, STR_SET_CLIPBOARD);
+    SetDialogText(page, IDC_SET_CLOSE_TO_TRAY, STR_SET_CLOSE_TO_TRAY);
     SetDialogText(page, IDC_SET_LBL_BROWSERS, STR_SET_BROWSERS);
     SetDialogText(page, IDC_SET_BROWSERS_HINT, STR_SET_BROWSERS_HINT);
     SetDialogText(page, IDC_SET_LBL_PANEL, STR_SET_PANEL);
@@ -74,6 +75,7 @@ void InitGeneral(HWND page, Screen& screen) {
     CheckDlgButton(page, IDC_SET_AUTOSTART,
                    settings.startWithWindows ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(page, IDC_SET_CLIPBOARD, settings.clipboardUrl ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(page, IDC_SET_CLOSE_TO_TRAY, settings.closeToTray ? BST_CHECKED : BST_UNCHECKED);
 
     HWND list = GetDlgItem(page, IDC_SET_BROWSERS);
     ListView_SetExtendedListViewStyle(list, LVS_EX_CHECKBOXES | LVS_EX_FULLROWSELECT);
@@ -176,6 +178,7 @@ void ReadPages(Screen& screen) {
     HWND general = screen.pages[0];
     settings.startWithWindows = IsDlgButtonChecked(general, IDC_SET_AUTOSTART) == BST_CHECKED;
     settings.clipboardUrl = IsDlgButtonChecked(general, IDC_SET_CLIPBOARD) == BST_CHECKED;
+    settings.closeToTray = IsDlgButtonChecked(general, IDC_SET_CLOSE_TO_TRAY) == BST_CHECKED;
     settings.browsers.clear();
     HWND list = GetDlgItem(general, IDC_SET_BROWSERS);
     const std::vector<bridge::Browser>& browsers = bridge::Browsers();

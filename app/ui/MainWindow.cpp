@@ -56,6 +56,8 @@ constexpr UINT kFollowEvent = WM_APP + 24;
 constexpr UINT kImportEvent = WM_APP + 25;
 constexpr UINT kAddDone = WM_APP + 26;
 constexpr UINT kBatchReady = WM_APP + 27;
+constexpr UINT kTrayMessage = WM_APP + 28;
+constexpr UINT kTrayIcon = 1;
 constexpr UINT_PTR kScheduleTimer = 7;
 constexpr UINT kScheduleTickMs = 30000;
 constexpr int kNameColumn = 0;
@@ -248,12 +250,184 @@ void MainWindow::SavePlacement() {
 // Makes the window visible and forces an initial paint, maximised when the
 // last session left it so.
 void MainWindow::Show(int cmdShow) {
+    AddTrayIcon();
+    placementReady_ = true;
+    if (cmdShow == SW_HIDE) {
+        return;
+    }
     if (startMaximized_ && (cmdShow == SW_SHOWNORMAL || cmdShow == SW_SHOWDEFAULT)) {
         cmdShow = SW_SHOWMAXIMIZED;
     }
     ShowWindow(hwnd_, cmdShow);
     UpdateWindow(hwnd_);
-    placementReady_ = true;
+    shown_ = true;
+}
+
+// --- the icon beside the clock ---------------------------------------------
+
+// Puts the icon of the application in the notification area.
+void MainWindow::AddTrayIcon() {
+    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+    NOTIFYICONDATAW data = {};
+    data.cbSize = sizeof(data);
+    data.hWnd = hwnd_;
+    data.uID = kTrayIcon;
+    data.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP | NIF_SHOWTIP;
+    data.uCallbackMessage = kTrayMessage;
+    data.hIcon = static_cast<HICON>(LoadImageW(instance, MAKEINTRESOURCEW(IDI_APP), IMAGE_ICON,
+                                               GetSystemMetrics(SM_CXSMICON),
+                                               GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR));
+    lstrcpynW(data.szTip, L"Anime Download Manager", ARRAYSIZE(data.szTip));
+    Shell_NotifyIconW(NIM_ADD, &data);
+    data.uVersion = NOTIFYICON_VERSION_4;
+    Shell_NotifyIconW(NIM_SETVERSION, &data);
+    UpdateTrayTip();
+}
+
+void MainWindow::RemoveTrayIcon() {
+    NOTIFYICONDATAW data = {};
+    data.cbSize = sizeof(data);
+    data.hWnd = hwnd_;
+    data.uID = kTrayIcon;
+    Shell_NotifyIconW(NIM_DELETE, &data);
+}
+
+// Says in the tooltip of the icon how many downloads are running.
+void MainWindow::UpdateTrayTip() {
+    int running = static_cast<int>(std::count_if(
+        items_.begin(), items_.end(), [](const DownloadItem& item) { return IsActive(item.status); }));
+    NOTIFYICONDATAW data = {};
+    data.cbSize = sizeof(data);
+    data.hWnd = hwnd_;
+    data.uID = kTrayIcon;
+    data.uFlags = NIF_TIP | NIF_SHOWTIP;
+    if (running > 0) {
+        swprintf(data.szTip, ARRAYSIZE(data.szTip), Str(STR_TRAY_TIP_ACTIVE), running);
+    } else {
+        lstrcpynW(data.szTip, L"Anime Download Manager", ARRAYSIZE(data.szTip));
+    }
+    Shell_NotifyIconW(NIM_MODIFY, &data);
+}
+
+// Tells that a download is complete, in a notification of the system, when
+// the window is not there to show it.
+void MainWindow::NotifyDone(const DownloadItem& item) {
+    bool seen = IsWindowVisible(hwnd_) && !IsIconic(hwnd_) && GetForegroundWindow() == hwnd_;
+    if (seen) {
+        return;
+    }
+    NOTIFYICONDATAW data = {};
+    data.cbSize = sizeof(data);
+    data.hWnd = hwnd_;
+    data.uID = kTrayIcon;
+    data.uFlags = NIF_INFO;
+    data.dwInfoFlags = NIIF_INFO;
+    lstrcpynW(data.szInfoTitle, Str(STR_TRAY_DONE), ARRAYSIZE(data.szInfoTitle));
+    lstrcpynW(data.szInfo, FileNameOf(item.outPath).c_str(), ARRAYSIZE(data.szInfo));
+    Shell_NotifyIconW(NIM_MODIFY, &data);
+}
+
+// Brings the window back from the notification area, or from the taskbar.
+void MainWindow::RestoreFromTray() {
+    if (!IsWindowVisible(hwnd_)) {
+        ShowWindow(hwnd_, !shown_ && startMaximized_ ? SW_SHOWMAXIMIZED : SW_SHOW);
+        shown_ = true;
+    }
+    if (IsIconic(hwnd_)) {
+        ShowWindow(hwnd_, SW_RESTORE);
+    }
+    SetForegroundWindow(hwnd_);
+}
+
+// A click on the icon brings the window back; the right button opens its
+// menu; a click on a notification shows the window too.
+void MainWindow::OnTrayMessage(UINT event, int x, int y) {
+    switch (event) {
+    case NIN_SELECT:
+    case NIN_KEYSELECT:
+    case NIN_BALLOONUSERCLICK:
+        RestoreFromTray();
+        break;
+    case WM_CONTEXTMENU:
+        ShowTrayMenu(x, y);
+        break;
+    default:
+        break;
+    }
+}
+
+// The menu of the icon, as IDM has one: the window, the adds, the queue,
+// the settings, and the only way out of the application. Each entry is as
+// grey as the same entry of the menu bar.
+void MainWindow::ShowTrayMenu(int x, int y) {
+    struct Entry {
+        int command;
+        const wchar_t* label;
+    };
+    const Entry top[] = {
+        {ID_TASK_ADD, Str(STR_TASK_ADD)},
+        {ID_TASK_BATCH, Str(STR_TASK_BATCH)},
+        {0, nullptr},
+        {ID_QUEUE_START_MAIN, Str(STR_TRAY_START)},
+        {ID_DOWNLOAD_STOP_ALL, Str(STR_DL_STOP_ALL)},
+        {ID_DOWNLOAD_SCHEDULE, Str(STR_DL_SCHEDULE)},
+        {0, nullptr},
+    };
+    const Entry limiter[] = {
+        {ID_LIMITER_ENABLE, Str(STR_LIMITER_ENABLE)},
+        {ID_LIMITER_DISABLE, Str(STR_LIMITER_DISABLE)},
+        {ID_LIMITER_SETTINGS, Str(STR_LIMITER_SETTINGS)},
+    };
+    const Entry bottom[] = {
+        {ID_DOWNLOAD_BOOSTER, Str(STR_BOOSTER)},
+        {0, nullptr},
+        {ID_VIEW_SETTINGS, Str(STR_TB_OPTIONS)},
+        {ID_VIEW_ADDONS, Str(STR_VIEW_ADDONS)},
+        {0, nullptr},
+        {ID_TASK_QUIT, Str(STR_TASK_QUIT)},
+    };
+
+    HMENU bar = GetMenu(hwnd_);
+    auto append = [bar](HMENU menu, const Entry& entry) {
+        if (entry.command == 0) {
+            AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+            return true;
+        }
+        UINT state = GetMenuState(bar, static_cast<UINT>(entry.command), MF_BYCOMMAND);
+        bool grey = state != static_cast<UINT>(-1) && (state & (MF_GRAYED | MF_DISABLED)) != 0;
+        AppendMenuW(menu, MF_STRING | (grey ? MF_GRAYED : 0), static_cast<UINT_PTR>(entry.command),
+                    entry.label);
+        return !grey;
+    };
+
+    HMENU menu = CreatePopupMenu();
+    AppendMenuW(menu, MF_STRING, ID_TRAY_RESTORE, Str(STR_TRAY_RESTORE));
+    SetMenuDefaultItem(menu, ID_TRAY_RESTORE, FALSE);
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    for (const Entry& entry : top) {
+        append(menu, entry);
+    }
+    HMENU speed = CreatePopupMenu();
+    bool anySpeed = false;
+    for (const Entry& entry : limiter) {
+        anySpeed = append(speed, entry) || anySpeed;
+    }
+    AppendMenuW(menu, MF_POPUP | (anySpeed ? 0 : MF_GRAYED), reinterpret_cast<UINT_PTR>(speed),
+                Str(STR_LIMITER));
+    for (const Entry& entry : bottom) {
+        append(menu, entry);
+    }
+
+    // The menu of an icon closes when the user clicks elsewhere only if its
+    // window stands in front, and a message after it lets it go.
+    SetForegroundWindow(hwnd_);
+    UINT flags = TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY;
+    UINT chosen = static_cast<UINT>(TrackPopupMenu(menu, flags, x, y, 0, hwnd_, nullptr));
+    PostMessageW(hwnd_, WM_NULL, 0, 0);
+    DestroyMenu(menu);
+    if (chosen != 0) {
+        OnCommand(static_cast<int>(chosen));
+    }
 }
 
 // Routes messages to the instance, binding HWND and instance on creation.
@@ -276,7 +450,30 @@ LRESULT CALLBACK MainWindow::WndProcTrampoline(HWND hwnd, UINT msg, WPARAM wPara
 
 // Handles per-window messages for the instance.
 LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
+    // Explorer starting again forgets every icon beside the clock.
+    static const UINT taskbarCreated = RegisterWindowMessageW(L"TaskbarCreated");
+    if (msg == taskbarCreated) {
+        AddTrayIcon();
+        return 0;
+    }
     switch (msg) {
+    case kTrayMessage:
+        OnTrayMessage(LOWORD(lParam), GET_X_LPARAM(wParam), GET_Y_LPARAM(wParam));
+        return 0;
+    case WM_CLOSE:
+        // The close box hides the window: downloads, schedules and the
+        // browser extension go on, and the icon beside the clock brings the
+        // window back or quits.
+        if (settings_.closeToTray) {
+            ShowWindow(hwnd_, SW_HIDE);
+            return 0;
+        }
+        break;
+    case WM_ENDSESSION:
+        if (wParam) {
+            DestroyWindow(hwnd_);
+        }
+        return 0;
     case WM_CREATE:
         OnCreate();
         return 0;
@@ -340,9 +537,12 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         std::string text(static_cast<const char*>(data->lpData), data->cbData);
         nlohmann::json message = nlohmann::json::parse(text, nullptr, false);
-        if (message.is_object() && message.value("kind", std::string()) == "add") {
+        std::string kind = message.is_object() ? message.value("kind", std::string()) : "";
+        if (kind == "add") {
             AddFromOutside(message.value("url", std::string()),
                            message.value("episode", std::string()));
+        } else if (kind == "show") {
+            RestoreFromTray();
         }
         return TRUE;
     }
@@ -552,6 +752,7 @@ void MainWindow::ApplySettings() {
 void MainWindow::OnDestroy() {
     SavePlacement();
     CloseAddWindows();
+    RemoveTrayIcon();
     KillTimer(hwnd_, kScheduleTimer);
     downloader_.Attach(nullptr, 0);
     downloader_.PauseAll();
@@ -1672,6 +1873,9 @@ void MainWindow::OnDownloadEvent(std::unique_ptr<DownloadEvent> event) {
     }
 
     Refresh(*item);
+    if (statusChanged && item->status == DownloadStatus::Completed) {
+        NotifyDone(*item);
+    }
     if (statusChanged) {
         Persist();
         RebuildSidebar();
@@ -1794,6 +1998,7 @@ void MainWindow::UpdateActions() {
                       ID_QUEUE_STOP_MAIN}) {
         GreyEmptyPopup(menu, child);
     }
+    UpdateTrayTip();
 }
 
 // Greys the entry that opens the sub-menu holding `child` when none of that
@@ -2371,7 +2576,7 @@ void MainWindow::FinishScheduledRun(QueueKind queue) {
     scheduledRun_[slot] = false;
     switch (scheduler_.Of(queue).whenDone) {
     case QueueSchedule::WhenDone::Quit:
-        PostMessageW(hwnd_, WM_CLOSE, 0, 0);
+        PostMessageW(hwnd_, WM_COMMAND, ID_TASK_QUIT, 0);
         break;
     case QueueSchedule::WhenDone::Shutdown: {
         HANDLE token = nullptr;
@@ -2660,6 +2865,9 @@ void MainWindow::OnCommand(int commandId) {
         break;
     case ID_TASK_QUIT:
         DestroyWindow(hwnd_);
+        break;
+    case ID_TRAY_RESTORE:
+        RestoreFromTray();
         break;
     default:
         if (commandId >= ID_TOOLBAR_SKIN_FIRST &&
