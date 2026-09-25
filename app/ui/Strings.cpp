@@ -402,6 +402,7 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Site web :", L"Website:"},
     {L"Support technique :", L"Technical support:"},
     {L"Copyright © 2026 goddivor et les contributeurs.", L"Copyright © 2026 goddivor and contributors."},
+    {L"Site web d'Anime Download Manager", L"Anime Download Manager website"},
 };
 
 Language g_language = Language::French;

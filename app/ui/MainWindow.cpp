@@ -2792,6 +2792,9 @@ void MainWindow::OnCommand(int commandId) {
     case ID_HELP_SHORTCUTS:
         ShowShortcutsDialog(hwnd_, instance);
         break;
+    case ID_HELP_WEBSITE:
+        OpenWebsite(hwnd_);
+        break;
     case ID_HELP_ABOUT:
         ShowAboutDialog(hwnd_, instance);
         break;

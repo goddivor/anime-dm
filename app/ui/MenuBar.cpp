@@ -168,6 +168,7 @@ HMENU BuildHelpMenu() {
     const Entry head[] = {
         {ID_HELP_HELP, Str(STR_HELP_HELP)},
         {ID_HELP_SHORTCUTS, Str(STR_HELP_SHORTCUTS)},
+        {ID_HELP_WEBSITE, Str(STR_HELP_WEBSITE)},
         {ID_HELP_UPDATE, Str(STR_HELP_UPDATE)},
         {ID_HELP_ABOUT, Str(STR_HELP_ABOUT)},
     };

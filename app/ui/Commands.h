@@ -59,6 +59,7 @@ enum CommandId : int {
 
     ID_HELP_HELP,
     ID_HELP_SHORTCUTS,
+    ID_HELP_WEBSITE,
     ID_HELP_UPDATE,
     ID_HELP_ABOUT,
 
