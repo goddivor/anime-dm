@@ -34,6 +34,7 @@ add_executable(anime-dm WIN32
     app/core/Settings.cpp
     app/core/Sheet.cpp
     app/core/Transfer.cpp
+    app/core/Update.cpp
     app/core/Url.cpp
     app/core/Http.cpp
     app/core/Image.cpp

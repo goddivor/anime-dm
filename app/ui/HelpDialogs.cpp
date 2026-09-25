@@ -167,9 +167,6 @@ void InitAbout(HWND dialog, AboutState& state) {
     SetDialogText(dialog, IDC_ABOUT_COPYRIGHT, STR_ABOUT_COPYRIGHT);
     SetDialogText(dialog, IDOK, STR_DLG_CLOSE);
 
-    // Checking for updates comes with the first published release.
-    EnableWindow(GetDlgItem(dialog, IDC_ABOUT_UPDATE), FALSE);
-
     state.title = DerivedFont(GetDlgItem(dialog, IDC_ABOUT_NAME), 160, true, false);
     SendDlgItemMessageW(dialog, IDC_ABOUT_NAME, WM_SETFONT, reinterpret_cast<WPARAM>(state.title), TRUE);
     state.link = DerivedFont(GetDlgItem(dialog, IDC_ABOUT_WEBSITE), 100, false, true);
@@ -225,6 +222,9 @@ INT_PTR CALLBACK AboutDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lP
         case IDC_ABOUT_SOURCE:
             Open(dialog, kSource);
             return TRUE;
+        case IDC_ABOUT_UPDATE:
+            EndDialog(dialog, IDC_ABOUT_UPDATE);
+            return TRUE;
         case IDOK:
         case IDCANCEL:
             EndDialog(dialog, IDOK);
@@ -251,8 +251,8 @@ INT_PTR CALLBACK AboutDialogProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lP
 }  // namespace
 
 // Runs the about dialog modally.
-void ShowAboutDialog(HWND owner, HINSTANCE instance) {
-    DialogBoxParamW(instance, MAKEINTRESOURCEW(IDD_ABOUT), owner, AboutDialogProc, 0);
+INT_PTR ShowAboutDialog(HWND owner, HINSTANCE instance) {
+    return DialogBoxParamW(instance, MAKEINTRESOURCEW(IDD_ABOUT), owner, AboutDialogProc, 0);
 }
 
 // Opens the website of the application, the one the about dialog links to.
