@@ -76,10 +76,7 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Aide\tF1", L"Help\tF1"},
     {L"Raccourcis", L"Shortcuts"},
     {L"Mise à jour rapide", L"Quick update"},
-    {L"À propos", L"About"},
-    {L"Auteurs", L"Authors"},
-    {L"Licence", L"Licence"},
-    {L"Crédits", L"Credits"},
+    {L"À propos d'Anime Download Manager", L"About Anime Download Manager"},
 
     {L"Ajout URL", L"Add URL"},
     {L"Reprendre", L"Resume"},
@@ -391,7 +388,6 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Téléchargement terminé", L"Download complete"},
     {L"Fermer la fenêtre la garde dans la zone de notification",
      L"Closing the window keeps it in the notification area"},
-    {L"À propos d'ADM", L"About ADM"},
     {L"Version : %ls (%ls)", L"Version: %ls (%ls)"},
     {L"Vérifier les mises à jour", L"Check for updates"},
     {L"Ce projet est communautaire :", L"A community project:"},
@@ -406,6 +402,7 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Site web :", L"Website:"},
     {L"Support technique :", L"Technical support:"},
     {L"Copyright © 2026 goddivor et les contributeurs.", L"Copyright © 2026 goddivor and contributors."},
+    {L"Site web d'Anime Download Manager", L"Anime Download Manager website"},
 };
 
 Language g_language = Language::French;

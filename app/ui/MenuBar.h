@@ -37,5 +37,4 @@ private:
     COLORREF surface_ = 0;
     COLORREF text_ = 0;
     COLORREF highlight_ = 0;
-    bool dark_ = false;
 };

@@ -255,6 +255,11 @@ void ShowAboutDialog(HWND owner, HINSTANCE instance) {
     DialogBoxParamW(instance, MAKEINTRESOURCEW(IDD_ABOUT), owner, AboutDialogProc, 0);
 }
 
+// Opens the website of the application, the one the about dialog links to.
+void OpenWebsite(HWND owner) {
+    Open(owner, kWebsite);
+}
+
 // Runs the shortcuts dialog modally.
 void ShowShortcutsDialog(HWND owner, HINSTANCE instance) {
     DialogBoxParamW(instance, MAKEINTRESOURCEW(IDD_SHORTCUTS), owner, InfoDialogProc, IDD_SHORTCUTS);
