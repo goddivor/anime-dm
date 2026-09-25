@@ -10,6 +10,7 @@
 #include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <regex>
 #include <thread>
 
 #include "core/Addon.h"
@@ -53,6 +54,8 @@ constexpr UINT kIconEvent = WM_APP + 22;
 constexpr UINT kOutsideAdd = WM_APP + 23;
 constexpr UINT kFollowEvent = WM_APP + 24;
 constexpr UINT kImportEvent = WM_APP + 25;
+constexpr UINT kAddDone = WM_APP + 26;
+constexpr UINT kBatchReady = WM_APP + 27;
 constexpr UINT_PTR kScheduleTimer = 7;
 constexpr UINT kScheduleTickMs = 30000;
 constexpr int kNameColumn = 0;
@@ -156,6 +159,11 @@ struct PosterPayload : PosterPayloadData {};
 struct IconPayload : IconPayloadData {};
 
 // What a worker thread resolved out of an imported file.
+// The addresses of a batch, gathered by anime on a worker thread.
+struct BatchPayload {
+    Grouping grouping;
+};
+
 struct ImportPayload {
     ImportResult result;
 };
@@ -248,9 +256,19 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
     case kOutsideAdd: {
         std::unique_ptr<Handed> handed(reinterpret_cast<Handed*>(lParam));
-        OnAddDownload(handed->url, handed->episode);
+        std::vector<std::string> episodes;
+        if (!handed->episode.empty()) {
+            episodes.push_back(handed->episode);
+        }
+        OnAddDownload(handed->url, episodes);
         return 0;
     }
+    case kAddDone:
+        OnAddAccepted(std::unique_ptr<AddRequest>(reinterpret_cast<AddRequest*>(lParam)));
+        return 0;
+    case kBatchReady:
+        OnBatchReady(std::unique_ptr<BatchPayload>(reinterpret_cast<BatchPayload*>(lParam)));
+        return 0;
     case WM_COPYDATA: {
         // What the native host of the browser extension, or a second
         // instance, hands over: a JSON document marked as ours.
@@ -465,6 +483,7 @@ void MainWindow::ApplySettings() {
 
 // Stops the transfers, keeps their parts, and records the queue as it stands.
 void MainWindow::OnDestroy() {
+    CloseAddWindows();
     KillTimer(hwnd_, kScheduleTimer);
     downloader_.Attach(nullptr, 0);
     downloader_.PauseAll();
@@ -952,49 +971,102 @@ void MainWindow::CancelSplitterDrag() {
     draggingSplitter_ = false;
 }
 
-// Opens the add window on an address handed in from outside. The request
+// Opens an add window on an address handed in from outside. The request
 // arrives inside a message the sender waits on, so the window opens from a
-// message of its own; while another dialog is up, the address is dropped.
+// message of its own. The add window stands on its own: neither another
+// add window nor a dialog of the main window keeps it from opening.
 void MainWindow::AddFromOutside(const std::string& url, const std::string& episode) {
-    if (url.empty() || !IsWindowEnabled(hwnd_)) {
+    if (url.empty()) {
         MessageBeep(MB_ICONWARNING);
         return;
     }
-    if (IsIconic(hwnd_)) {
-        ShowWindow(hwnd_, SW_RESTORE);
-    }
-    SetForegroundWindow(hwnd_);
     auto* copy = new Handed{url, episode};
     if (!PostMessageW(hwnd_, kOutsideAdd, 0, reinterpret_cast<LPARAM>(copy))) {
         delete copy;
     }
 }
 
-// Asks the user for an anime, then queues the episodes it picked.
-void MainWindow::OnAddDownload(const std::string& initialUrl, const std::string& initialEpisode) {
+// Opens an add window of its own; what the user confirms there comes back
+// through kAddDone.
+void MainWindow::OnAddDownload(const std::string& initialUrl,
+                               const std::vector<std::string>& initialEpisodes,
+                               const std::string& sourceId) {
     HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+    OpenAddWindow(instance, store_, http_, settings_, {hwnd_, kAddDone}, initialUrl,
+                  initialEpisodes, sourceId);
+}
 
-    AddRequest request;
-    if (ShowAddDialog(hwnd_, instance, store_, http_, settings_, &request, initialUrl,
-                      initialEpisode) != IDOK) {
-        return;
-    }
-
-    request.animeTitle = TidyText(request.animeTitle);
-    AddEpisodes(request, QueueKind::Main, !request.later);
-    if (request.rememberPath != settings_.rememberPath ||
-        (request.rememberPath && Narrow(request.destination) != settings_.savePath)) {
-        settings_.rememberPath = request.rememberPath;
-        settings_.savePath = request.rememberPath ? Narrow(request.destination) : std::string();
+// Queues the episodes an add window confirmed, and remembers its folder
+// when the user asked to.
+void MainWindow::OnAddAccepted(std::unique_ptr<AddRequest> request) {
+    request->animeTitle = TidyText(request->animeTitle);
+    AddEpisodes(*request, QueueKind::Main, !request->later);
+    if (request->rememberPath != settings_.rememberPath ||
+        (request->rememberPath && Narrow(request->destination) != settings_.savePath)) {
+        settings_.rememberPath = request->rememberPath;
+        settings_.savePath = request->rememberPath ? Narrow(request->destination) : std::string();
         settings::Save(settings_);
     }
-    if (!request.posterBytes.empty()) {
-        DecorateFolder(request.animeUrl, request.folderTemplate);
+    if (!request->posterBytes.empty()) {
+        DecorateFolder(request->animeUrl, request->folderTemplate);
     }
     ApplySort();
     Persist();
     RebuildSidebar();
     UpdateActions();
+}
+
+// Reads every address the clipboard holds and gathers them by anime off the
+// interface thread; one add window per anime follows, through kBatchReady.
+void MainWindow::OnBatchAdd() {
+    std::wstring text;
+    if (IsClipboardFormatAvailable(CF_UNICODETEXT) && OpenClipboard(hwnd_)) {
+        if (HANDLE data = GetClipboardData(CF_UNICODETEXT)) {
+            if (auto* locked = static_cast<const wchar_t*>(GlobalLock(data))) {
+                text = locked;
+                GlobalUnlock(data);
+            }
+        }
+        CloseClipboard();
+    }
+    std::vector<std::string> addresses;
+    std::wregex pattern(LR"(https?://[^\s"'<>]+)");
+    for (std::wsregex_iterator it(text.begin(), text.end(), pattern), end; it != end; ++it) {
+        std::string address = Narrow(it->str());
+        bool seen = std::any_of(addresses.begin(), addresses.end(), [&](const std::string& other) {
+            return url::SamePage(other, address);
+        });
+        if (!seen) {
+            addresses.push_back(address);
+        }
+    }
+    if (addresses.empty()) {
+        ShowNotice(Str(STR_BATCH_EMPTY));
+        return;
+    }
+    const AddonStore* store = &store_;
+    Http* http = &http_;
+    HWND window = hwnd_;
+    std::thread([addresses, store, http, window] {
+        auto* payload = new BatchPayload();
+        payload->grouping = importing::Group(addresses, *store, *http);
+        if (!PostMessageW(window, kBatchReady, 0, reinterpret_cast<LPARAM>(payload))) {
+            delete payload;
+        }
+    }).detach();
+}
+
+// Opens one add window per anime of a batch, its source known and its
+// episodes named, and says which addresses no source serves.
+void MainWindow::OnBatchReady(std::unique_ptr<BatchPayload> payload) {
+    for (const AddressGroup& group : payload->grouping.groups) {
+        OnAddDownload(group.animeUrl, group.episodes, group.addonId);
+    }
+    if (payload->grouping.unknown > 0) {
+        wchar_t message[256] = {};
+        swprintf(message, 256, Str(STR_BATCH_UNKNOWN), payload->grouping.unknown);
+        ShowNotice(message);
+    }
 }
 
 // Puts the episodes of a request in the queue, under the folder of their
@@ -1632,7 +1704,6 @@ void MainWindow::UpdateActions() {
         {ID_TASK_EXPORT_SHEET, anyItem},
         {ID_TASK_EXPORT_XLSX, anyItem},
         {ID_TASK_EXPORT_ODS, anyItem},
-        {ID_TASK_BATCH, false},
         {ID_LIMITER_ENABLE, false},
         {ID_LIMITER_DISABLE, false},
         {ID_LIMITER_SETTINGS, false},
@@ -2376,6 +2447,9 @@ void MainWindow::OnCommand(int commandId) {
     switch (commandId) {
     case ID_TASK_ADD:
         OnAddDownload();
+        break;
+    case ID_TASK_BATCH:
+        OnBatchAdd();
         break;
     case ID_FILE_START:
         ResumeSelected();

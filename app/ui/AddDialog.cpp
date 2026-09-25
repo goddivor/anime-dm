@@ -75,14 +75,16 @@ struct Flow {
     const AddonStore* store = nullptr;
     Http* http = nullptr;
     const Settings* settings = nullptr;
-    AddRequest* request = nullptr;
+    HWND notify = nullptr;  // the window a finished request is posted to
+    UINT doneMessage = 0;
 
     std::vector<InstalledAddon> sources;
     std::vector<std::string> hosts;  // parallel to `sources`, empty until known
     int source = -1;
     std::string url;
     std::string initialUrl;
-    std::string initialEpisode;
+    std::vector<std::string> initialEpisodes;  // the episodes to tick, none for all
+    std::string initialSource;                 // the source already known to serve the address
     bool autoStart = false;
 
     std::string title;
@@ -100,7 +102,65 @@ struct Flow {
     bool busy = false;
     bool filling = false;  // the rows are being written, their state means nothing
     std::wstring caption;  // the title of the episodes window, when not the add flow's
+
+    Flow() = default;
+    Flow(const Flow&) = delete;
+    Flow& operator=(const Flow&) = delete;
+    ~Flow() {
+        if (poster != nullptr) {
+            DeleteObject(poster);
+        }
+    }
 };
+
+// The add windows open at the moment: each is its own top-level window, and
+// the message loop hands them their keyboard through IsDialogMessage.
+std::vector<HWND>& OpenWindows() {
+    static std::vector<HWND> windows;
+    return windows;
+}
+
+// Makes a dialog a window of its own: a button in the taskbar, a minimise
+// box, and a place over the main window, each new one a step lower than the
+// one before so that none hides another.
+void MakeIndependent(HWND dialog, HWND around) {
+    SetWindowLongPtrW(dialog, GWL_EXSTYLE, GetWindowLongPtrW(dialog, GWL_EXSTYLE) | WS_EX_APPWINDOW);
+    SetWindowLongPtrW(dialog, GWL_STYLE, GetWindowLongPtrW(dialog, GWL_STYLE) | WS_MINIMIZEBOX);
+
+    RECT area = {};
+    if (around != nullptr && IsWindowVisible(around) && !IsIconic(around)) {
+        GetWindowRect(around, &area);
+    } else {
+        SystemParametersInfoW(SPI_GETWORKAREA, 0, &area, 0);
+    }
+    RECT box = {};
+    GetWindowRect(dialog, &box);
+    int width = box.right - box.left;
+    int height = box.bottom - box.top;
+    int step = GetSystemMetrics(SM_CYCAPTION) * static_cast<int>(OpenWindows().size() % 8);
+    int x = area.left + (area.right - area.left - width) / 2 + step;
+    int y = area.top + (area.bottom - area.top - height) / 2 + step;
+    SetWindowPos(dialog, nullptr, x, y, 0, 0,
+                 SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+}
+
+void Register(HWND dialog) {
+    OpenWindows().push_back(dialog);
+}
+
+void Unregister(HWND dialog) {
+    std::vector<HWND>& windows = OpenWindows();
+    windows.erase(std::remove(windows.begin(), windows.end(), dialog), windows.end());
+}
+
+// Frees the flow a window owns when it goes; a window that handed its flow
+// on to the next one owns nothing any more.
+void ReleaseFlow(HWND dialog) {
+    Unregister(dialog);
+    auto* flow = reinterpret_cast<Flow*>(GetWindowLongPtrW(dialog, GWLP_USERDATA));
+    SetWindowLongPtrW(dialog, GWLP_USERDATA, 0);
+    delete flow;
+}
 
 std::wstring ReadText(HWND dialog, int control) {
     HWND field = GetDlgItem(dialog, control);
@@ -593,27 +653,26 @@ void RefreshInfo(HWND dialog, const Flow& flow) {
     EnableWindow(GetDlgItem(dialog, IDC_ADD_LATER), ready);
 }
 
-// Gathers what the user chose into the answer handed to the caller.
+// Gathers what the user chose into a request, hands it to the main window
+// and closes.
 void Accept(HWND dialog, Flow& flow, bool later) {
     if (flow.picked.empty() || flow.source < 0) {
         return;
     }
 
-    AddRequest& request = *flow.request;
-    request.addonId = flow.sources[static_cast<size_t>(flow.source)].id;
-    request.animeTitle = flow.title;
-    request.animeUrl = flow.url;
-    request.posterUrl = flow.posterUrl;
-    request.posterBytes = flow.posterBytes;
-    request.destination = ReadText(dialog, IDC_ADD_DEST);
-    request.rememberPath = IsDlgButtonChecked(dialog, IDC_ADD_REMEMBER) == BST_CHECKED;
-    request.later = later;
-    request.folderTemplate.clear();
+    auto request = std::make_unique<AddRequest>();
+    request->addonId = flow.sources[static_cast<size_t>(flow.source)].id;
+    request->animeTitle = flow.title;
+    request->animeUrl = flow.url;
+    request->posterUrl = flow.posterUrl;
+    request->posterBytes = flow.posterBytes;
+    request->destination = ReadText(dialog, IDC_ADD_DEST);
+    request->rememberPath = IsDlgButtonChecked(dialog, IDC_ADD_REMEMBER) == BST_CHECKED;
+    request->later = later;
     int recipe = static_cast<int>(SendDlgItemMessageW(dialog, IDC_ADD_TEMPLATE, CB_GETCURSEL, 0, 0));
     if (recipe > 0 && static_cast<size_t>(recipe) <= flow.templates.size()) {
-        request.folderTemplate = flow.templates[static_cast<size_t>(recipe - 1)];
+        request->folderTemplate = flow.templates[static_cast<size_t>(recipe - 1)];
     }
-    request.episodes.clear();
 
     for (int index : flow.picked) {
         const Episode& chosen = flow.episodes[static_cast<size_t>(index)];
@@ -628,9 +687,12 @@ void Accept(HWND dialog, Flow& flow, bool later) {
         } else if (flow.player != kAuto) {
             episode.player = Narrow(flow.player);
         }
-        request.episodes.push_back(std::move(episode));
+        request->episodes.push_back(std::move(episode));
     }
-    EndDialog(dialog, IDOK);
+    if (PostMessageW(flow.notify, flow.doneMessage, 0, reinterpret_cast<LPARAM>(request.get()))) {
+        request.release();
+    }
+    DestroyWindow(dialog);
 }
 
 INT_PTR CALLBACK InfoProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -674,9 +736,15 @@ INT_PTR CALLBACK InfoProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
 
         ActiveTheme().ApplyToDialog(dialog);
+        MakeIndependent(dialog, flow->notify);
+        Register(dialog);
         RefreshInfo(dialog, *flow);
         return TRUE;
     }
+
+    case WM_NCDESTROY:
+        ReleaseFlow(dialog);
+        return FALSE;
 
     case WM_DRAWITEM: {
         auto* draw = reinterpret_cast<DRAWITEMSTRUCT*>(lParam);
@@ -721,7 +789,7 @@ INT_PTR CALLBACK InfoProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
             Accept(dialog, *flow, false);
             return TRUE;
         case IDCANCEL:
-            EndDialog(dialog, IDCANCEL);
+            DestroyWindow(dialog);
             return TRUE;
         default:
             return FALSE;
@@ -729,7 +797,7 @@ INT_PTR CALLBACK InfoProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
     }
 
     case WM_CLOSE:
-        EndDialog(dialog, IDCANCEL);
+        DestroyWindow(dialog);
         return TRUE;
 
     default:
@@ -912,12 +980,32 @@ INT_PTR CALLBACK UrlProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
                 SetDlgItemTextW(dialog, IDC_ADD_URL, pasted.c_str());
             }
         }
-        StartHosts(dialog, *flow);
 
         ActiveTheme().ApplyToDialog(dialog);
+        MakeIndependent(dialog, flow->notify);
+        Register(dialog);
         EnableWindow(GetDlgItem(dialog, IDOK), !flow->sources.empty());
+
+        // A source already known, as a batch finds it, reads the page at
+        // once; otherwise every source is asked which site it serves.
+        auto known = std::find_if(flow->sources.begin(), flow->sources.end(),
+                                  [&](const InstalledAddon& source) {
+                                      return source.id == flow->initialSource;
+                                  });
+        if (flow->autoStart && known != flow->sources.end()) {
+            flow->autoStart = false;
+            SendDlgItemMessageW(dialog, IDC_ADD_SOURCE, CB_SETCURSEL,
+                                static_cast<WPARAM>(known - flow->sources.begin()), 0);
+            StartLoad(dialog, *flow);
+        } else {
+            StartHosts(dialog, *flow);
+        }
         return TRUE;
     }
+
+    case WM_NCDESTROY:
+        ReleaseFlow(dialog);
+        return FALSE;
 
     case kHosts: {
         std::unique_ptr<Hosts> answer(reinterpret_cast<Hosts*>(lParam));
@@ -956,17 +1044,14 @@ INT_PTR CALLBACK UrlProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
         flow->playerOptions = std::move(listing->players);
         flow->playerByEpisode.clear();
         flow->picked.clear();
-        // A page of one episode picks that episode alone; the trailing slash
-        // of an address does not tell two of them apart.
-        auto trimmed = [](std::string url) {
-            while (!url.empty() && url.back() == '/') {
-                url.pop_back();
-            }
-            return url;
-        };
-        std::string wanted = trimmed(flow->initialEpisode);
+        // Named episodes are picked alone, all of them otherwise; the
+        // trailing slash of an address does not tell two of them apart.
         for (size_t index = 0; index < flow->episodes.size(); ++index) {
-            if (wanted.empty() || trimmed(flow->episodes[index].url) == wanted) {
+            bool named = std::any_of(flow->initialEpisodes.begin(), flow->initialEpisodes.end(),
+                                     [&](const std::string& wanted) {
+                                         return url::SamePage(wanted, flow->episodes[index].url);
+                                     });
+            if (named) {
                 flow->picked.insert(static_cast<int>(index));
             }
         }
@@ -975,7 +1060,20 @@ INT_PTR CALLBACK UrlProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
                 flow->picked.insert(static_cast<int>(index));
             }
         }
-        EndDialog(dialog, IDOK);
+
+        // The flow moves on to the information window, which owns it from
+        // now; this window closes empty-handed.
+        SetWindowLongPtrW(dialog, GWLP_USERDATA, 0);
+        HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(dialog, GWLP_HINSTANCE));
+        HWND info = CreateDialogParamW(instance, MAKEINTRESOURCEW(IDD_ADD_INFO), nullptr, InfoProc,
+                                       reinterpret_cast<LPARAM>(flow));
+        if (info == nullptr) {
+            delete flow;
+        } else {
+            ShowWindow(info, SW_SHOW);
+            SetForegroundWindow(info);
+        }
+        DestroyWindow(dialog);
         return TRUE;
     }
 
@@ -1006,7 +1104,7 @@ INT_PTR CALLBACK UrlProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
             return TRUE;
         }
         if (control == IDCANCEL) {
-            EndDialog(dialog, IDCANCEL);
+            DestroyWindow(dialog);
             return TRUE;
         }
         return FALSE;
@@ -1014,7 +1112,7 @@ INT_PTR CALLBACK UrlProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
 
     case WM_CLOSE:
         if (flow == nullptr || !flow->busy) {
-            EndDialog(dialog, IDCANCEL);
+            DestroyWindow(dialog);
         }
         return TRUE;
 
@@ -1025,29 +1123,49 @@ INT_PTR CALLBACK UrlProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 }  // namespace
 
-// Runs the add flow: the address, then what the source answered about it.
-INT_PTR ShowAddDialog(HWND owner, HINSTANCE instance, const AddonStore& store, Http& http,
-                      const Settings& settings, AddRequest* request,
-                      const std::string& initialUrl, const std::string& initialEpisode) {
-    Flow flow;
-    flow.store = &store;
-    flow.http = &http;
-    flow.settings = &settings;
-    flow.request = request;
-    flow.sources = store.Installed();
-    flow.initialUrl = initialUrl;
-    flow.initialEpisode = initialEpisode;
+// Opens an add window of its own: the address, then what the source
+// answered about it. The request the user confirms is posted to the target.
+void OpenAddWindow(HINSTANCE instance, const AddonStore& store, Http& http,
+                   const Settings& settings, const AddTarget& target,
+                   const std::string& initialUrl, const std::vector<std::string>& initialEpisodes,
+                   const std::string& sourceId) {
+    auto flow = std::make_unique<Flow>();
+    flow->store = &store;
+    flow->http = &http;
+    flow->settings = &settings;
+    flow->notify = target.window;
+    flow->doneMessage = target.doneMessage;
+    flow->sources = store.Installed();
+    flow->initialUrl = initialUrl;
+    flow->initialEpisodes = initialEpisodes;
+    flow->initialSource = sourceId;
 
-    INT_PTR answer = IDCANCEL;
-    if (DialogBoxParamW(instance, MAKEINTRESOURCEW(IDD_ADD_URL), owner, UrlProc,
-                        reinterpret_cast<LPARAM>(&flow)) == IDOK) {
-        answer = DialogBoxParamW(instance, MAKEINTRESOURCEW(IDD_ADD_INFO), owner, InfoProc,
-                                 reinterpret_cast<LPARAM>(&flow));
+    HWND window = CreateDialogParamW(instance, MAKEINTRESOURCEW(IDD_ADD_URL), nullptr, UrlProc,
+                                     reinterpret_cast<LPARAM>(flow.get()));
+    if (window == nullptr) {
+        return;
     }
-    if (flow.poster != nullptr) {
-        DeleteObject(flow.poster);
+    flow.release();
+    ShowWindow(window, SW_SHOW);
+    SetForegroundWindow(window);
+}
+
+bool IsAddWindowMessage(MSG* msg) {
+    // A copy: a key the dialog takes may close it, and it leaves the list.
+    std::vector<HWND> windows = OpenWindows();
+    for (HWND window : windows) {
+        if (IsDialogMessageW(window, msg)) {
+            return true;
+        }
     }
-    return answer;
+    return false;
+}
+
+void CloseAddWindows() {
+    std::vector<HWND> windows = OpenWindows();
+    for (HWND window : windows) {
+        DestroyWindow(window);
+    }
 }
 
 // Offers episodes in the episodes window of the add flow, the ticked ones

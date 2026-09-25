@@ -45,6 +45,19 @@ struct ImportResult {
     int failed = 0;   // pages a source could not read
 };
 
+// One anime a list of addresses asks for: its page, its source, and the
+// episode pages named, none meaning every episode.
+struct AddressGroup {
+    std::string addonId;
+    std::string animeUrl;
+    std::vector<std::string> episodes;
+};
+
+struct Grouping {
+    std::vector<AddressGroup> groups;
+    int unknown = 0;  // addresses no installed source serves
+};
+
 namespace importing {
 
 // Reads a file, whichever of its shapes it has (the file of the application,
@@ -56,5 +69,9 @@ std::vector<ImportEntry> Parse(const std::string& text);
 // thread.
 ImportResult Resolve(const std::vector<ImportEntry>& entries, const AddonStore& store,
                      Http& http);
+
+// Gathers addresses by anime and source, loading the sources but reading no
+// page: off the interface thread.
+Grouping Group(const std::vector<std::string>& addresses, const AddonStore& store, Http& http);
 
 }  // namespace importing
