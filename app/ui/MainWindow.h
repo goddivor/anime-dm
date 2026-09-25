@@ -117,6 +117,8 @@ private:
     std::vector<FollowChoice> FollowChoices() const;
     void CheckFollows();
     void CheckFollow(const FollowedAnime& follow);
+    void OfferMissing(const FollowedAnime& follow,
+                      const std::vector<AddRequestEpisode>& episodes, AddRequest* request);
     void RemoveCompleted();
     void OpenSelected(bool folder);
     // Selects an item in the list, lifting the filter when it hides it.

@@ -350,10 +350,10 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Heure", L"Time"},
     {L"File", L"Queue"},
     {L"Démarrer les nouveaux épisodes aussitôt", L"Start the new episodes at once"},
-    {L"Les épisodes déjà listés ne sont pas repris : seuls ceux qui paraîtront ensuite "
-     L"seront ajoutés, dans le dossier de l'animé.",
-     L"The episodes already listed are not fetched again: only those released from now on "
-     L"are added, into the folder of the anime."},
+    {L"Les épisodes déjà sortis qui manquent à la liste vous sont proposés ; ceux qui "
+     L"paraîtront ensuite seront ajoutés d'eux-mêmes, dans le dossier de l'animé.",
+     L"The episodes already out that the list lacks are offered to you; those released from "
+     L"now on are added on their own, into the folder of the anime."},
     {L"Suivre les nouveaux épisodes…", L"Follow the new episodes…"},
     {L"Lundi|Mardi|Mercredi|Jeudi|Vendredi|Samedi|Dimanche",
      L"Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday"},
@@ -378,6 +378,7 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Monter", L"Move up"},
     {L"Descendre", L"Move down"},
     {L"Par défaut", L"Defaults"},
+    {L"Épisodes manquants", L"Missing episodes"},
 };
 
 Language g_language = Language::French;

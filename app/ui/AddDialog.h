@@ -41,3 +41,12 @@ INT_PTR ShowAddDialog(HWND owner, HINSTANCE instance, const AddonStore& store, H
                       const Settings& settings, AddRequest* request,
                       const std::string& initialUrl = std::string(),
                       const std::string& initialEpisode = std::string());
+
+// Offers a list of episodes in the episodes window of the add flow, those
+// `ticked` names already ticked, under `caption`. On OK, `chosen` holds the
+// episodes kept, each with the player picked for it. True when the user kept
+// at least one.
+bool PickEpisodes(HWND owner, HINSTANCE instance, const AddonStore& store, Http& http,
+                  const std::string& addonId, const std::wstring& caption,
+                  const std::vector<AddRequestEpisode>& offered, const std::vector<bool>& ticked,
+                  std::vector<AddRequestEpisode>* chosen);
