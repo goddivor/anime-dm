@@ -46,11 +46,6 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Arrêter file d'attente", L"Stop queue"},
     {L"File principale", L"Main queue"},
     {L"File du planificateur", L"Scheduler queue"},
-    {L"Limiteur de vitesse", L"Speed limiter"},
-    {L"Activer", L"Enable"},
-    {L"Désactiver", L"Disable"},
-    {L"Paramètres", L"Settings"},
-    {L"Booster de vitesse", L"Speed booster"},
 
     {L"Addon Store", L"Addon Store"},
     {L"Panneau Catégories", L"Categories panel"},

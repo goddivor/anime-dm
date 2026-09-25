@@ -191,7 +191,7 @@ Comme IDM, l'application vit **à côté de l'horloge** (`Shell_NotifyIconW`, ve
 de la fenêtre la cache sans la quitter (réglage `closeToTray`, coché par défaut, Options ›
 Général), et téléchargements, planificateur, suivis et extension continuent. Un clic sur
 l'icône rend la fenêtre (`RestoreFromTray`), le clic droit ouvre un menu (`ShowTrayMenu` :
-Restaurer en gras, ajout, lot, file, Planifier, limiteur, booster, Options, Addons, Quitter),
+Restaurer en gras, ajout, lot, file, Planifier, Options, Addons, Quitter),
 chaque entrée aussi grise que la même dans la barre de menus. **Quitter** (ce menu ou Tâches ›
 Quitter) est la seule sortie ; l'arrêt « Quitter » du planificateur passe par `ID_TASK_QUIT`,
 pas par `WM_CLOSE`. L'infobulle compte les transferts en cours ; une notification annonce un
