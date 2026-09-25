@@ -1,6 +1,7 @@
 #include "ui/Sidebar.h"
 
 #include <commctrl.h>
+#include <shellapi.h>
 #include <windowsx.h>
 
 #include <algorithm>
@@ -10,6 +11,7 @@
 #include "ui/Commands.h"
 #include "ui/FileIcons.h"
 #include "ui/IconFactory.h"
+#include "ui/Paint.h"
 #include "ui/Strings.h"
 #include "ui/Theme.h"
 
@@ -263,13 +265,43 @@ void BlendBitmap(HDC dc, HBITMAP bitmap, int x, int y, int width, int height) {
     SelectObject(memory, previous);
     DeleteDC(memory);
 }
+// One of the icons Windows keeps for its own folders, at the small size;
+// null when the system has none to give.
+HICON StockIcon(SHSTOCKICONID id) {
+    SHSTOCKICONINFO info = {};
+    info.cbSize = sizeof(info);
+    if (FAILED(SHGetStockIconInfo(id, SHGSI_ICON | SHGSI_SMALLICON, &info))) {
+        return nullptr;
+    }
+    return info.hIcon;
+}
+
+// An icon of a system library by its resource number, at the size of the
+// glyphs of the panel; null when this Windows has no such icon.
+HICON SystemIcon(const wchar_t* library, int resource) {
+    HMODULE module = LoadLibraryExW(library, nullptr,
+                                    LOAD_LIBRARY_AS_IMAGE_RESOURCE | LOAD_LIBRARY_AS_DATAFILE);
+    if (module == nullptr) {
+        return nullptr;
+    }
+    auto* icon = static_cast<HICON>(
+        LoadImageW(module, MAKEINTRESOURCEW(resource), IMAGE_ICON, kGlyph, kGlyph, LR_DEFAULTCOLOR));
+    FreeLibrary(module);
+    return icon;
+}
+
 }  // namespace
 
-// Releases the image list and the posters.
+// Releases the image list, the folders and the posters.
 Sidebar::~Sidebar() {
     if (icons_ != nullptr) {
         ImageList_Destroy(icons_);
         icons_ = nullptr;
+    }
+    for (HICON folder : {folderClosed_, folderOpen_, queueMain_, queueScheduler_}) {
+        if (folder != nullptr) {
+            DestroyIcon(folder);
+        }
     }
     for (auto& [url, bitmap] : posters_) {
         DeleteObject(bitmap);
@@ -280,6 +312,10 @@ Sidebar::~Sidebar() {
 // Creates the caption bar and the tree, then shows the fixed categories.
 bool Sidebar::Create(HWND parent, HINSTANCE instance) {
     EnsureHeaderClass(instance);
+    folderClosed_ = StockIcon(SIID_FOLDER);
+    folderOpen_ = StockIcon(SIID_FOLDEROPEN);
+    queueMain_ = SystemIcon(L"shell32.dll", 265);
+    queueScheduler_ = SystemIcon(L"shell32.dll", 16752);
 
     headerState_.surface = GetSysColor(COLOR_BTNFACE);
     headerState_.text = GetSysColor(COLOR_BTNTEXT);
@@ -514,8 +550,9 @@ POINT Sidebar::ExpanderCentre(const RECT& row, int level) const {
 }
 
 // The dotted ties of a row: the trunk of every ancestor that has a sibling
-// below, the elbow of the row itself, and its box when it has children.
-void Sidebar::DrawTies(HDC dc, HTREEITEM item, const RECT& row, int level, bool expander) {
+// below, the elbow of the row itself, and its chevron when it has children.
+void Sidebar::DrawTies(HDC dc, HTREEITEM item, const RECT& row, int level, bool expander,
+                       COLORREF background) {
     const ThemeColors& colors = ActiveTheme().Colors();
     int indent = static_cast<int>(TreeView_GetIndent(tree_));
     POINT centre = ExpanderCentre(row, level);
@@ -545,26 +582,15 @@ void Sidebar::DrawTies(HDC dc, HTREEITEM item, const RECT& row, int level, bool 
     if (!expander) {
         return;
     }
+    // The chevron of IDM, right when closed and down when open, on a patch of
+    // the row's own colour so the dotted ties stop short of it.
     bool open = (TreeView_GetItemState(tree_, item, TVIS_EXPANDED) & TVIS_EXPANDED) != 0;
-    RECT box = {centre.x - kBox / 2, centre.y - kBox / 2, centre.x + kBox / 2 + 1,
-                centre.y + kBox / 2 + 1};
-    HBRUSH fill = CreateSolidBrush(colors.panel);
-    FillRect(dc, &box, fill);
+    RECT patch = {centre.x - kBox / 2 - 1, centre.y - kBox / 2 - 1, centre.x + kBox / 2 + 2,
+                  centre.y + kBox / 2 + 2};
+    HBRUSH fill = CreateSolidBrush(background);
+    FillRect(dc, &patch, fill);
     DeleteObject(fill);
-    HBRUSH edge = CreateSolidBrush(colors.muted);
-    FrameRect(dc, &box, edge);
-    DeleteObject(edge);
-
-    HPEN sign = CreatePen(PS_SOLID, 1, colors.text);
-    previous = static_cast<HPEN>(SelectObject(dc, sign));
-    MoveToEx(dc, box.left + 2, centre.y, nullptr);
-    LineTo(dc, box.right - 2, centre.y);
-    if (!open) {
-        MoveToEx(dc, centre.x, box.top + 2, nullptr);
-        LineTo(dc, centre.x, box.bottom - 2);
-    }
-    SelectObject(dc, previous);
-    DeleteObject(sign);
+    paint::Chevron(dc, centre, kBox - 1, open, colors.text);
 }
 
 // Paints a plain row: ties, glyph and caption.
@@ -590,15 +616,30 @@ void Sidebar::DrawSimpleRow(NMTVCUSTOMDRAW* draw, const Node& node) {
          up = TreeView_GetParent(tree_, up)) {
         ++level;
     }
-    DrawTies(dc, item, row, level, TreeView_GetChild(tree_, item) != nullptr);
+    DrawTies(dc, item, row, level, TreeView_GetChild(tree_, item) != nullptr, background);
 
     // An episode wears the picture Windows gives its file type, as in IDM;
-    // the other rows keep the glyph of the palette.
+    // the two roots wear the folder of Windows, open or closed with the row,
+    // and the two queues an envelope and a clock of Windows; the glyph of the
+    // palette stands in for any of these Windows does not have.
     POINT centre = ExpanderCentre(row, level);
     int glyph = node.fileIcon >= 0 ? fileicons::Size() : kGlyph;
-    HIMAGELIST source = node.fileIcon >= 0 ? fileicons::SmallList() : icons_;
-    ImageList_Draw(source, node.fileIcon >= 0 ? node.fileIcon : node.icon, dc,
-                   centre.x + indent - glyph / 2, centre.y - glyph / 2, ILD_TRANSPARENT);
+    bool root = node.kind == SidebarNodeKind::All || node.kind == SidebarNodeKind::Queues;
+    bool open = (TreeView_GetItemState(tree_, item, TVIS_EXPANDED) & TVIS_EXPANDED) != 0;
+    HICON folder = root ? (open ? folderOpen_ : folderClosed_) : nullptr;
+    if (node.kind == SidebarNodeKind::QueueMain) {
+        folder = queueMain_;
+    } else if (node.kind == SidebarNodeKind::QueueScheduler) {
+        folder = queueScheduler_;
+    }
+    if (folder != nullptr) {
+        DrawIconEx(dc, centre.x + indent - glyph / 2, centre.y - glyph / 2, folder, glyph, glyph, 0,
+                   nullptr, DI_NORMAL);
+    } else {
+        HIMAGELIST source = node.fileIcon >= 0 ? fileicons::SmallList() : icons_;
+        ImageList_Draw(source, node.fileIcon >= 0 ? node.fileIcon : node.icon, dc,
+                       centre.x + indent - glyph / 2, centre.y - glyph / 2, ILD_TRANSPARENT);
+    }
 
     HFONT font = reinterpret_cast<HFONT>(SendMessageW(tree_, WM_GETFONT, 0, 0));
     HFONT previousFont = font != nullptr ? static_cast<HFONT>(SelectObject(dc, font)) : nullptr;
@@ -662,7 +703,7 @@ void Sidebar::DrawAnimeRow(NMTVCUSTOMDRAW* draw, const Node& node) {
     }
     int left = row.left + indent * level;
     int middle = (row.top + row.bottom) / 2;
-    DrawTies(dc, item, row, level, true);
+    DrawTies(dc, item, row, level, true, background);
 
     RECT box = {left + indent + 2, middle - kPosterHeight / 2, 0, 0};
     box.right = box.left + kPosterWidth;
