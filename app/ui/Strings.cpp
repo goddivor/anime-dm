@@ -18,7 +18,6 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Aide", L"Help"},
 
     {L"Ajout URL\tCtrl+N", L"Add URL\tCtrl+N"},
-    {L"Téléchargement manuel", L"Manual download"},
     {L"Téléchargement par lot depuis presse-papiers\tCtrl+Maj+V",
      L"Batch download from clipboard\tCtrl+Shift+V"},
     {L"Exporter", L"Export"},
