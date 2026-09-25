@@ -312,8 +312,13 @@ void ApplyChecks(HWND dialog, const Flow& flow) {
 
 // Reads the typed ranges into the picked set.
 void ReadTyped(HWND dialog, Flow& flow) {
-    std::vector<int> numbers = selection::Parse(ReadText(dialog, IDC_ADD_SELECTION),
-                                                static_cast<int>(flow.episodes.size()));
+    // The ranges are bounded by the highest number on offer, not by the count:
+    // a list of missing episodes skips numbers.
+    int highest = 0;
+    for (const Episode& episode : flow.episodes) {
+        highest = std::max(highest, RoundNumber(episode.number));
+    }
+    std::vector<int> numbers = selection::Parse(ReadText(dialog, IDC_ADD_SELECTION), highest);
     std::set<int> wanted(numbers.begin(), numbers.end());
 
     flow.picked.clear();

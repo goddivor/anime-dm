@@ -5,7 +5,7 @@
 namespace selection {
 
 // Reads "1-20,25" into the numbers it names.
-std::vector<int> Parse(const std::wstring& text, int count) {
+std::vector<int> Parse(const std::wstring& text, int highest) {
     std::vector<int> numbers;
     size_t at = 0;
 
@@ -48,7 +48,7 @@ std::vector<int> Parse(const std::wstring& text, int count) {
             std::swap(first, last);
         }
         for (int value = first; value <= last; ++value) {
-            if (value >= 1 && value <= count) {
+            if (value >= 1 && value <= highest) {
                 numbers.push_back(value);
             }
         }
