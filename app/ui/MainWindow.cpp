@@ -1584,17 +1584,25 @@ void MainWindow::UpdateActions() {
     bool canResume = false;
     bool canStop = false;
     bool anyActive = false;
+    bool anyCompleted = false;
+    bool canStartQueue[2] = {false, false};
+    bool canStopQueue[2] = {false, false};
     std::vector<uint64_t> selected = downloads_.Selected();
     for (const DownloadItem& item : items_) {
         bool chosen = std::find(selected.begin(), selected.end(), item.id) != selected.end();
+        int slot = item.queue == QueueKind::Scheduler ? 1 : 0;
+        bool halted = item.status == DownloadStatus::Stopped ||
+                      item.status == DownloadStatus::Failed;
         if (IsActive(item.status)) {
             anyActive = true;
             canStop = canStop || chosen;
+            canStopQueue[slot] = true;
         }
-        if (chosen && (item.status == DownloadStatus::Stopped ||
-                       item.status == DownloadStatus::Failed)) {
-            canResume = true;
+        if (halted) {
+            canResume = canResume || chosen;
+            canStartQueue[slot] = true;
         }
+        anyCompleted = anyCompleted || item.status == DownloadStatus::Completed;
     }
     bool anySelected = !selected.empty();
     bool anyItem = !items_.empty();
@@ -1603,6 +1611,8 @@ void MainWindow::UpdateActions() {
         int command;
         bool enabled;
     };
+    // The entries that are not written yet stay grey rather than opening a
+    // notice that they will come.
     const Action actions[] = {
         {ID_FILE_START, canResume},
         {ID_FILE_STOP, canStop},
@@ -1610,7 +1620,24 @@ void MainWindow::UpdateActions() {
         {ID_FILE_REMOVE, anySelected},
         {ID_DOWNLOAD_STOP_ALL, anyActive},
         {ID_DOWNLOAD_DELETE_ALL, anyItem},
-        {ID_DOWNLOAD_REMOVE_COMPLETED, anyItem},
+        {ID_DOWNLOAD_REMOVE_COMPLETED, anyCompleted},
+        {ID_DOWNLOAD_SEARCH, anyItem},
+        {ID_QUEUE_START_MAIN, canStartQueue[0]},
+        {ID_QUEUE_START_SCHEDULER, canStartQueue[1]},
+        {ID_QUEUE_STOP_MAIN, canStopQueue[0]},
+        {ID_QUEUE_STOP_SCHEDULER, canStopQueue[1]},
+        {ID_TASK_EXPORT_ADM, anyItem},
+        {ID_TASK_EXPORT_TXT, anyItem},
+        {ID_TASK_EXPORT_JSON, anyItem},
+        {ID_TASK_EXPORT_SHEET, anyItem},
+        {ID_TASK_MANUAL, false},
+        {ID_TASK_BATCH, false},
+        {ID_LIMITER_ENABLE, false},
+        {ID_LIMITER_DISABLE, false},
+        {ID_LIMITER_SETTINGS, false},
+        {ID_DOWNLOAD_BOOSTER, false},
+        {ID_HELP_HELP, false},
+        {ID_HELP_UPDATE, false},
     };
     HMENU menu = GetMenu(hwnd_);
     for (const Action& action : actions) {
@@ -1618,6 +1645,47 @@ void MainWindow::UpdateActions() {
         EnableMenuItem(menu, action.command,
                        MF_BYCOMMAND | (action.enabled ? MF_ENABLED : MF_GRAYED));
     }
+    for (int command = ID_SORT_DATE_ADDED; command <= ID_SORT_PARENT_PAGE; ++command) {
+        EnableMenuItem(menu, command, MF_BYCOMMAND | (anyItem ? MF_ENABLED : MF_GRAYED));
+    }
+    // A sub-menu whose every entry is grey goes grey itself.
+    for (int child : {ID_TASK_EXPORT_ADM, ID_SORT_NAME, ID_LIMITER_ENABLE, ID_QUEUE_START_MAIN,
+                      ID_QUEUE_STOP_MAIN}) {
+        GreyEmptyPopup(menu, child);
+    }
+}
+
+// Greys the entry that opens the sub-menu holding `child` when none of that
+// sub-menu's entries is enabled, and lights it up again otherwise. True once
+// the sub-menu is found.
+bool MainWindow::GreyEmptyPopup(HMENU menu, int child) {
+    int count = GetMenuItemCount(menu);
+    for (int position = 0; position < count; ++position) {
+        HMENU sub = GetSubMenu(menu, position);
+        if (sub == nullptr) {
+            continue;
+        }
+        int entries = GetMenuItemCount(sub);
+        bool holds = false;
+        for (int index = 0; index < entries && !holds; ++index) {
+            holds = GetMenuItemID(sub, index) == static_cast<UINT>(child);
+        }
+        if (!holds) {
+            if (GreyEmptyPopup(sub, child)) {
+                return true;
+            }
+            continue;
+        }
+        bool any = false;
+        for (int index = 0; index < entries && !any; ++index) {
+            UINT state = GetMenuState(sub, static_cast<UINT>(index), MF_BYPOSITION);
+            any = (state & (MF_GRAYED | MF_DISABLED | MF_SEPARATOR)) == 0;
+        }
+        EnableMenuItem(menu, static_cast<UINT>(position),
+                       MF_BYPOSITION | (any ? MF_ENABLED : MF_GRAYED));
+        return true;
+    }
+    return false;
 }
 
 // Hands an item to the engine, from its parts or from nothing.
@@ -1747,6 +1815,7 @@ void MainWindow::MoveSelectedTo(QueueKind queue) {
     Persist();
     FillList();
     RebuildSidebar();
+    UpdateActions();
 }
 
 // Puts every episode of an anime in a queue.
@@ -1759,6 +1828,7 @@ void MainWindow::MoveAnimeTo(const std::string& url, QueueKind queue) {
     Persist();
     FillList();
     RebuildSidebar();
+    UpdateActions();
 }
 
 // Opens the scheduler window on the scheduler queue, or on the queue the
