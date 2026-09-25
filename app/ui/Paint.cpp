@@ -56,4 +56,30 @@ void Label(HDC dc, const RECT& bounds, const std::wstring& text, COLORREF colour
     DrawTextW(dc, text.c_str(), -1, &area, format | DT_SINGLELINE | DT_NOPREFIX);
 }
 
+// Draws the chevron that folds a tree row, its strokes smoothed.
+void Chevron(HDC dc, POINT centre, int size, bool open, COLORREF colour) {
+    Gdiplus::Graphics graphics(dc);
+    graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+    Gdiplus::Pen pen(Of(colour), std::max(1.2f, static_cast<float>(size) / 6.0f));
+    pen.SetLineJoin(Gdiplus::LineJoinRound);
+    pen.SetStartCap(Gdiplus::LineCapRound);
+    pen.SetEndCap(Gdiplus::LineCapRound);
+
+    float x = static_cast<float>(centre.x) + 0.5f;
+    float y = static_cast<float>(centre.y) + 0.5f;
+    float half = static_cast<float>(size) / 2.0f;
+    float quarter = half / 2.0f;
+    Gdiplus::PointF points[3];
+    if (open) {
+        points[0] = Gdiplus::PointF(x - half, y - quarter);
+        points[1] = Gdiplus::PointF(x, y + quarter);
+        points[2] = Gdiplus::PointF(x + half, y - quarter);
+    } else {
+        points[0] = Gdiplus::PointF(x - quarter, y - half);
+        points[1] = Gdiplus::PointF(x + quarter, y);
+        points[2] = Gdiplus::PointF(x - quarter, y + half);
+    }
+    graphics.DrawLines(&pen, points, 3);
+}
+
 }  // namespace paint

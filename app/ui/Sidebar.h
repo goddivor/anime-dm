@@ -98,13 +98,18 @@ private:
     void DrawAnimeRow(NMTVCUSTOMDRAW* draw, const Node& node);
     void DrawSimpleRow(NMTVCUSTOMDRAW* draw, const Node& node);
     void DrawSeparator(NMTVCUSTOMDRAW* draw);
-    void DrawTies(HDC dc, HTREEITEM item, const RECT& row, int level, bool expander);
+    void DrawTies(HDC dc, HTREEITEM item, const RECT& row, int level, bool expander,
+                  COLORREF background);
     POINT ExpanderCentre(const RECT& row, int level) const;
     void RebuildIcons(const Theme& theme);
 
     HWND header_ = nullptr;
     HWND tree_ = nullptr;
     HIMAGELIST icons_ = nullptr;
+    HICON folderClosed_ = nullptr;  // the folders of Windows, for the two roots
+    HICON folderOpen_ = nullptr;
+    HICON queueMain_ = nullptr;       // an envelope and a clock of Windows, for the queues
+    HICON queueScheduler_ = nullptr;
     SidebarHeaderState headerState_ = {};
     std::vector<std::unique_ptr<Node>> nodes_;
     std::map<std::string, HBITMAP> posters_;

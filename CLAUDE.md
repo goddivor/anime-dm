@@ -116,7 +116,13 @@ et `.nomedia`. Tout cela tourne hors du fil d'interface et remonte par `PostMess
 Un `TreeView` dont les lignes d'animé sont **dessinées à la main** (`Sidebar::DrawAnimeRow`,
 sur `CDRF_SKIPDEFAULT`) : chevron, affiche 34 × 48 aux coins arrondis, titre, nombre
 d'épisodes. Les autres lignes sont dessinées de même (`DrawSimpleRow`), une ligne d'épisode
-portant l'icône que Windows donne à son type de fichier. Le panneau est **reconstruit depuis le modèle** à chaque changement de
+portant l'icône que Windows donne à son type de fichier. Une ligne qui a des enfants se plie
+par un **chevron** à la manière d'IDM (`paint::Chevron`, lissé par GDI+, sur une pastille de la
+couleur de la ligne) au lieu du carré + / −. Les deux racines portent le dossier de Windows
+(`SHGetStockIconInfo`, `SIID_FOLDER` et `SIID_FOLDEROPEN`, identiques sous Windows 11), la file
+principale l'enveloppe et celle du planificateur l'horloge de `shell32.dll` (ressources 265 et
+16752, chargées par leur numéro, plus stable que leur rang) ; le glyphe de la palette les
+remplace si Windows ne les a pas. Le panneau est **reconstruit depuis le modèle** à chaque changement de
 structure ou d'état (jamais sur une simple progression) ; la sélection survit à la
 reconstruction et `Busy()` fait taire les notifications qu'elle déclenche. Cliquer une ligne
 filtre la liste ; le clic droit sur un animé ouvre, ouvre le dossier ou supprime l'animé.
