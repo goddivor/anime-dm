@@ -207,9 +207,11 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Animé", L"Anime"},
     {L"Adresse", L"Address"},
     {L"Animé", L"Anime"},
-    {L"À propos", L"About"},
-    {L"Gestionnaire de téléchargement d'animés pour Windows (C++ / Win32).",
-     L"Anime download manager for Windows (C++ / Win32)."},
+    {L"À propos d'Anime Download Manager", L"About Anime Download Manager"},
+    {L"Anime Download Manager est gratuit et ouvert. Les sites qu'il sert sont des add-ons "
+     L"vérifiés, publiés dans l'Addon Store ; chacun peut en proposer un.",
+     L"Anime Download Manager is free and open. The sites it serves are checked add-ons, "
+     L"published in the Addon Store; anyone may propose one."},
     {L"Raccourcis clavier", L"Keyboard shortcuts"},
     {L"Ajouter un téléchargement", L"Add a download"},
     {L"Supprimer la sélection", L"Delete the selection"},
@@ -256,7 +258,7 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Film", L"Movie"},
     {L"Supprimer l'animé", L"Delete the anime"},
     {L"Supprimer l'animé", L"Delete the anime"},
-    {L"Confirmer la suppression de « %s » ?", L"Confirm the deletion of \"%s\"?"},
+    {L"Confirmer la suppression de « %ls » ?", L"Confirm the deletion of \"%ls\"?"},
     {L"Le fichier a été déplacé ou supprimé.", L"The file was moved or deleted."},
     {L"Le dossier a été déplacé, renommé ou supprimé.",
      L"The folder was moved, renamed or deleted."},
@@ -389,6 +391,21 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Téléchargement terminé", L"Download complete"},
     {L"Fermer la fenêtre la garde dans la zone de notification",
      L"Closing the window keeps it in the notification area"},
+    {L"À propos d'ADM", L"About ADM"},
+    {L"Version : %ls (%ls)", L"Version: %ls (%ls)"},
+    {L"Vérifier les mises à jour", L"Check for updates"},
+    {L"Ce projet est communautaire :", L"A community project:"},
+    {L"Code source", L"Source code"},
+    {L"Anime Download Manager n'héberge ni ne fournit aucun contenu : il télécharge ce que les "
+     L"sites servent, par les add-ons que vous installez. Il vous revient de vérifier que vous avez "
+     L"le droit de télécharger ce que vous téléchargez, selon les lois de votre pays et les "
+     L"conditions des sites.",
+     L"Anime Download Manager neither hosts nor provides any content: it downloads what the sites "
+     L"serve, through the add-ons you install. It is up to you to check that you have the right to "
+     L"download what you download, under the laws of your country and the terms of the sites."},
+    {L"Site web :", L"Website:"},
+    {L"Support technique :", L"Technical support:"},
+    {L"Copyright © 2026 goddivor et les contributeurs.", L"Copyright © 2026 goddivor and contributors."},
 };
 
 Language g_language = Language::French;
