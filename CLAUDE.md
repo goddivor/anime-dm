@@ -24,6 +24,10 @@ contient aucune logique de source.
 
 ## Compiler, lancer, vérifier
 
+La version de l'application a **une seule source** : `project(anime-dm VERSION …)` dans
+`CMakeLists.txt`, que le code lit par `ADM_VERSION` (fenêtre « À propos d'ADM », avec la date de
+compilation).
+
 Prérequis : **MinGW-w64** (`C:\mingw64`), CMake, et Rust avec la cible
 `x86_64-pc-windows-gnu` pour les addons. Pas de Visual Studio sur la machine.
 
@@ -460,6 +464,9 @@ de l'utilisateur est la **session 2**. Conséquences :
 
 - **MinGW n'a pas la surcharge `wstring` des flux de fichiers** (extension MSVC) : passer par
   `std::filesystem::path`.
+- **Avec MinGW, `%s` dans `swprintf` attend un texte étroit** (`char*`), comme le veut C99 :
+  pour un `wchar_t*`, écrire **`%ls`**, sinon le texte sort en caractères illisibles.
+  `wsprintfW`, la fonction de Windows, garde l'ancien sens (`%s` large).
 - **`BCryptHash` n'est pas déclaré** par les en-têtes MinGW : utiliser
   `BCryptCreateHash` / `BCryptHashData` / `BCryptFinishHash`.
 - **`WIN32_LEAN_AND_MEAN` exclut les en-têtes COM** : inclure `objbase.h` et lier `ole32`.

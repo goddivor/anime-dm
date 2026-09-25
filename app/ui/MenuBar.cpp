@@ -171,7 +171,7 @@ HMENU BuildHelpMenu() {
         {ID_HELP_UPDATE, Str(STR_HELP_UPDATE)},
     };
     const Entry about[] = {
-        {ID_HELP_ABOUT, Str(STR_HELP_ABOUT)},
+        {ID_HELP_ABOUT, Str(STR_HELP_ABOUT_ADM)},
         {ID_HELP_AUTHORS, Str(STR_HELP_AUTHORS)},
         {ID_HELP_LICENSE, Str(STR_HELP_LICENSE)},
         {ID_HELP_CREDITS, Str(STR_HELP_CREDITS)},

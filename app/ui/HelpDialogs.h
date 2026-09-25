@@ -2,7 +2,7 @@
 
 #include <windows.h>
 
-// Shows the modal "À propos" dialog.
+// Shows the modal "À propos" dialog, after the one of IDM.
 void ShowAboutDialog(HWND owner, HINSTANCE instance);
 
 // Shows the modal keyboard-shortcuts dialog.
