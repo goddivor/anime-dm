@@ -34,6 +34,7 @@ add_executable(anime-dm WIN32
     app/core/Import.cpp
     app/core/Paths.cpp
     app/core/Text.cpp
+    app/ui/ColumnsDialog.cpp
     app/ui/ConfirmDialog.cpp
     app/ui/FileIcons.cpp
     app/ui/FilePicker.cpp
@@ -81,7 +82,7 @@ if(MSVC)
     target_compile_options(anime-dm PRIVATE /W4 /utf-8 /permissive-)
 endif()
 
-target_link_libraries(anime-dm PRIVATE comctl32 gdiplus dwmapi uxtheme winhttp bcrypt shlwapi ole32 shell32 msimg32)
+target_link_libraries(anime-dm PRIVATE comctl32 comdlg32 gdiplus dwmapi uxtheme winhttp bcrypt shlwapi ole32 shell32 msimg32)
 
 # MinGW needs -municode to accept wWinMain as the entry point; MSVC detects it on its own.
 if(MINGW)

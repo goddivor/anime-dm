@@ -22,6 +22,11 @@ struct Settings {
     bool panelOnPage = true;              // show it on the page of an anime or an episode
     bool panelOnLinks = true;             // show it over the links that lead to one
     std::vector<int> columnWidths;        // the file list's columns, empty for their defaults
+    std::vector<int> columns;             // the columns shown, left to right, empty for all
+    std::string fontFace;                 // the font of the interface, empty for the system's
+    int fontSize = 0;                     // its size, in tenths of a point
+    int fontWeight = 400;
+    bool fontItalic = false;
 };
 
 namespace settings {

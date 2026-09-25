@@ -3,6 +3,7 @@
 #include <commctrl.h>
 #include <windowsx.h>
 
+#include <algorithm>
 #include <iterator>
 
 #include "core/Text.h"
@@ -256,48 +257,114 @@ bool DownloadsView::Create(HWND parent, HINSTANCE instance) {
 
     ListView_SetExtendedListViewStyle(
         hwnd_, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES | LVS_EX_DOUBLEBUFFER);
+    for (int column = 0; column < ColumnCount(); ++column) {
+        shown_.push_back(column);
+        widths_.push_back(kColumns[column].width);
+    }
     AddColumns();
     SetWindowSubclass(hwnd_, KeepScrollBar, 1, reinterpret_cast<DWORD_PTR>(this));
     return true;
 }
 
-// Inserts the report columns in declaration order.
+// Inserts the columns on screen, left to right, each at its kept width.
 void DownloadsView::AddColumns() {
     LVCOLUMNW col = {};
     col.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
-    int index = 0;
-    for (const Column& column : kColumns) {
-        col.iSubItem = index;
-        col.cx = column.width;
-        col.pszText = const_cast<wchar_t*>(Str(column.title));
-        ListView_InsertColumn(hwnd_, index, &col);
-        ++index;
+    for (size_t position = 0; position < shown_.size(); ++position) {
+        int id = shown_[position];
+        col.iSubItem = static_cast<int>(position);
+        col.cx = widths_[static_cast<size_t>(id)];
+        col.pszText = const_cast<wchar_t*>(Str(kColumns[id].title));
+        ListView_InsertColumn(hwnd_, static_cast<int>(position), &col);
     }
+}
+
+// How many columns the list knows, shown or not.
+int DownloadsView::ColumnCount() {
+    return static_cast<int>(std::size(kColumns));
+}
+
+// The caption of a column.
+StringId DownloadsView::ColumnTitle(int column) {
+    return kColumns[column].title;
+}
+
+// The column at a position on screen, or -1 past the last.
+int DownloadsView::ColumnAt(int position) const {
+    if (position < 0 || position >= static_cast<int>(shown_.size())) {
+        return -1;
+    }
+    return shown_[static_cast<size_t>(position)];
+}
+
+// The position of a column on screen, or -1 while it is hidden.
+int DownloadsView::PositionOf(int column) const {
+    auto found = std::find(shown_.begin(), shown_.end(), column);
+    return found == shown_.end() ? -1 : static_cast<int>(found - shown_.begin());
+}
+
+// Shows these columns, in this order. The file name always stays, first; a
+// list that names nothing else, or names a column twice, is read as far as it
+// makes sense. The rows go with the old columns: the caller fills them again.
+void DownloadsView::SetShown(const std::vector<int>& columns) {
+    std::vector<int> shown = {COL_FILENAME};
+    for (int column : columns) {
+        if (column > COL_FILENAME && column < ColumnCount() &&
+            std::find(shown.begin(), shown.end(), column) == shown.end()) {
+            shown.push_back(column);
+        }
+    }
+    if (columns.empty()) {
+        shown.clear();
+        for (int column = 0; column < ColumnCount(); ++column) {
+            shown.push_back(column);
+        }
+    }
+
+    SyncWidths();
+    ListView_DeleteAllItems(hwnd_);
+    while (Header_GetItemCount(ListView_GetHeader(hwnd_)) > 0) {
+        ListView_DeleteColumn(hwnd_, 0);
+    }
+    shown_ = std::move(shown);
+    AddColumns();
 }
 
 // Gives the columns the widths kept from an earlier session; a missing or
 // absurd width leaves the column as declared.
 void DownloadsView::SetWidths(const std::vector<int>& widths) {
-    int count = static_cast<int>(std::size(kColumns));
-    for (int index = 0; index < count && index < static_cast<int>(widths.size()); ++index) {
-        int width = widths[static_cast<size_t>(index)];
+    for (int column = 0; column < ColumnCount() && column < static_cast<int>(widths.size());
+         ++column) {
+        int width = widths[static_cast<size_t>(column)];
         if (width >= kMinColumnWidth && width <= 4000) {
-            ListView_SetColumnWidth(hwnd_, index, width);
+            widths_[static_cast<size_t>(column)] = width;
+            int position = PositionOf(column);
+            if (position >= 0) {
+                ListView_SetColumnWidth(hwnd_, position, width);
+            }
         }
     }
 }
 
-// The width of every column, in declaration order.
+// The width of every column, shown or not, in declaration order.
 std::vector<int> DownloadsView::Widths() const {
-    std::vector<int> widths;
-    for (int index = 0; index < static_cast<int>(std::size(kColumns)); ++index) {
-        widths.push_back(ListView_GetColumnWidth(hwnd_, index));
+    return widths_;
+}
+
+// Reads the width of every column on screen back into the kept widths; a
+// hidden column keeps the width it had when it went.
+void DownloadsView::SyncWidths() {
+    for (size_t position = 0; position < shown_.size(); ++position) {
+        int width = ListView_GetColumnWidth(hwnd_, static_cast<int>(position));
+        if (width > 0) {
+            widths_[static_cast<size_t>(shown_[position])] = width;
+        }
     }
-    return widths;
 }
 
 // Tells the owner that the user has settled a column on a new width.
 void DownloadsView::ColumnsResized() {
+    SyncWidths();
     if (onResized_) {
         onResized_();
     }
@@ -317,37 +384,61 @@ void DownloadsView::Upsert(const DownloadItem& item) {
     Fill(row, item);
 }
 
-// Writes every cell of a row from its item.
-void DownloadsView::Fill(int row, const DownloadItem& item) {
-    SetCell(hwnd_, row, COL_FILENAME, FileNameOf(item.outPath));
-    SetCell(hwnd_, row, COL_SIZE, format::Size(item.total > 0 ? item.total : item.done));
-    SetCell(hwnd_, row, COL_STATUS, StatusText(item));
-
+namespace {
+// The text of one cell of an item.
+std::wstring CellText(int column, const DownloadItem& item) {
     bool downloading = item.status == DownloadStatus::Downloading;
-    double remaining = -1.0;
-    if (downloading && item.speed > 0.0) {
-        if (item.total > item.done) {
-            remaining = static_cast<double>(item.total - item.done) / item.speed;
-        } else if (item.fraction > 0.0 && item.done > 0) {
-            double estimated = static_cast<double>(item.done) / item.fraction;
-            remaining = (estimated - static_cast<double>(item.done)) / item.speed;
+    switch (column) {
+    case COL_FILENAME:
+        return FileNameOf(item.outPath);
+    case COL_SIZE:
+        return format::Size(item.total > 0 ? item.total : item.done);
+    case COL_STATUS:
+        return StatusText(item);
+    case COL_TIME_LEFT: {
+        // Nothing is left to say about the time and the rate of a transfer
+        // that is not running: the cells stay empty rather than holding a dash.
+        double remaining = -1.0;
+        if (downloading && item.speed > 0.0) {
+            if (item.total > item.done) {
+                remaining = static_cast<double>(item.total - item.done) / item.speed;
+            } else if (item.fraction > 0.0 && item.done > 0) {
+                double estimated = static_cast<double>(item.done) / item.fraction;
+                remaining = (estimated - static_cast<double>(item.done)) / item.speed;
+            }
         }
+        return remaining < 0.0 ? std::wstring() : format::Duration(remaining);
     }
-    // Nothing is left to say about the time and the rate of a transfer that
-    // is not running: the cells stay empty rather than holding a dash.
-    SetCell(hwnd_, row, COL_TIME_LEFT, remaining < 0.0 ? L"" : format::Duration(remaining));
-    SetCell(hwnd_, row, COL_SPEED,
-            downloading && item.speed > 0.0 ? format::Speed(item.speed) : L"");
-    SetCell(hwnd_, row, COL_LAST_TRY, format::Date(item.lastTry));
-    SetCell(hwnd_, row, COL_ADDED, format::Date(item.addedAt));
-    size_t cut = item.outPath.find_last_of(L"\\/");
-    SetCell(hwnd_, row, COL_LOCATION, cut == std::wstring::npos ? L"" : item.outPath.substr(0, cut));
-    SetCell(hwnd_, row, COL_ADDRESS, Widen(item.pageUrl));
-    SetCell(hwnd_, row, COL_PARENT_PAGE, Widen(item.animeUrl));
+    case COL_SPEED:
+        return downloading && item.speed > 0.0 ? format::Speed(item.speed) : std::wstring();
+    case COL_LAST_TRY:
+        return format::Date(item.lastTry);
+    case COL_ADDED:
+        return format::Date(item.addedAt);
+    case COL_LOCATION: {
+        size_t cut = item.outPath.find_last_of(L"\\/");
+        return cut == std::wstring::npos ? std::wstring() : item.outPath.substr(0, cut);
+    }
+    case COL_ADDRESS:
+        return Widen(item.pageUrl);
+    case COL_PARENT_PAGE:
+        return Widen(item.animeUrl);
+    default:
+        return std::wstring();
+    }
+}
+}  // namespace
+
+// Writes every cell of a row that is on screen from its item.
+void DownloadsView::Fill(int row, const DownloadItem& item) {
+    for (size_t position = 0; position < shown_.size(); ++position) {
+        SetCell(hwnd_, row, static_cast<int>(position), CellText(shown_[position], item));
+    }
 }
 
 // Marks the column the rows are sorted by, or none, in the header.
 void DownloadsView::SetSortMark(int column, bool ascending) {
+    int marked = PositionOf(column);
     HWND header = ListView_GetHeader(hwnd_);
     int count = Header_GetItemCount(header);
     for (int index = 0; index < count; ++index) {
@@ -355,7 +446,7 @@ void DownloadsView::SetSortMark(int column, bool ascending) {
         item.mask = HDI_FORMAT;
         Header_GetItem(header, index, &item);
         item.fmt &= ~(HDF_SORTUP | HDF_SORTDOWN);
-        if (index == column) {
+        if (index == marked) {
             item.fmt |= ascending ? HDF_SORTUP : HDF_SORTDOWN;
         }
         Header_SetItem(header, index, &item);
@@ -437,11 +528,9 @@ int DownloadsView::Count() const {
 void DownloadsView::Retranslate() {
     LVCOLUMNW col = {};
     col.mask = LVCF_TEXT;
-    int index = 0;
-    for (const Column& column : kColumns) {
-        col.pszText = const_cast<wchar_t*>(Str(column.title));
-        ListView_SetColumn(hwnd_, index, &col);
-        ++index;
+    for (size_t position = 0; position < shown_.size(); ++position) {
+        col.pszText = const_cast<wchar_t*>(Str(kColumns[shown_[position]].title));
+        ListView_SetColumn(hwnd_, static_cast<int>(position), &col);
     }
 }
 

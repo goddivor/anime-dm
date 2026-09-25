@@ -373,6 +373,11 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Aucune adresse trouvée dans ce fichier.", L"No address found in this file."},
     {L"%d résultat(s)", L"%d result(s)"},
     {L"Double-clic ou Entrée : afficher dans la liste", L"Double-click or Enter: show in the list"},
+    {L"Cochez les colonnes à afficher et réglez leur ordre :",
+     L"Tick the columns to show and set their order:"},
+    {L"Monter", L"Move up"},
+    {L"Descendre", L"Move down"},
+    {L"Par défaut", L"Defaults"},
 };
 
 Language g_language = Language::French;

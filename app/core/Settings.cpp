@@ -59,6 +59,20 @@ Settings Load() {
             settings.columnWidths.push_back(width.is_number_integer() ? width.get<int>() : 0);
         }
     }
+    if (root.contains("columns") && root["columns"].is_array()) {
+        for (const nlohmann::json& column : root["columns"]) {
+            if (column.is_number_integer()) {
+                settings.columns.push_back(column.get<int>());
+            }
+        }
+    }
+    settings.fontFace = root.value("fontFace", settings.fontFace);
+    settings.fontSize = root.value("fontSize", settings.fontSize);
+    settings.fontWeight = root.value("fontWeight", settings.fontWeight);
+    settings.fontItalic = root.value("fontItalic", settings.fontItalic);
+    if (settings.fontSize < 60 || settings.fontSize > 360) {
+        settings.fontFace.clear();
+    }
     settings.panelMode = root.value("panelMode", settings.panelMode);
     settings.panelOnPage = root.value("panelOnPage", settings.panelOnPage);
     settings.panelOnLinks = root.value("panelOnLinks", settings.panelOnLinks);
@@ -98,6 +112,11 @@ void Save(const Settings& settings) {
         {"panelOnPage", settings.panelOnPage},
         {"panelOnLinks", settings.panelOnLinks},
         {"columnWidths", settings.columnWidths},
+        {"columns", settings.columns},
+        {"fontFace", settings.fontFace},
+        {"fontSize", settings.fontSize},
+        {"fontWeight", settings.fontWeight},
+        {"fontItalic", settings.fontItalic},
     };
     std::wstring temp = path + L".tmp";
     {
