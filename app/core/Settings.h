@@ -12,6 +12,7 @@ struct Settings {
     std::string language = "fr";          // "fr" or "en"
     std::string toolbarSkin;              // a skin name, "fluent" for the icon font, empty for the default pack
     bool clipboardUrl = true;             // paste the link of the clipboard into the add window
+    bool closeToTray = true;              // the close box hides the window beside the clock
     bool rememberPath = false;            // reuse the folder below for the next downloads
     std::string savePath;                 // that folder, in UTF-8
     bool startWithWindows = false;        // run when the user signs in

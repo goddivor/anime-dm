@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "core/Autostart.h"
 #include "core/BridgeProtocol.h"
 #include "core/Text.h"
 #include "third_party/json.hpp"
@@ -20,6 +21,7 @@ namespace {
 struct Handed {
     std::wstring url;
     std::wstring episode;
+    bool tray = false;  // started with the session: the window stays hidden
 };
 
 Handed FromCommandLine(PWSTR commandLine) {
@@ -27,6 +29,11 @@ Handed FromCommandLine(PWSTR commandLine) {
     LPWSTR* arguments = CommandLineToArgvW(commandLine, &count);
     Handed handed;
     if (arguments != nullptr) {
+        for (int i = 0; i < count; ++i) {
+            if (lstrcmpiW(arguments[i], autostart::kTraySwitch) == 0) {
+                handed.tray = true;
+            }
+        }
         for (int i = 0; i + 1 < count; ++i) {
             if (lstrcmpiW(arguments[i], bridge::kAddSwitch) == 0) {
                 handed.url = arguments[i + 1];
@@ -67,10 +74,18 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int cmdSho
     Handed handed = FromCommandLine(commandLine);
     HANDLE single = CreateMutexW(nullptr, TRUE, L"Local\\AnimeDm.Instance");
     if (single != nullptr && GetLastError() == ERROR_ALREADY_EXISTS) {
+        // The running instance may sit hidden beside the clock: it is asked
+        // to show itself, and allowed to come to the front.
+        AllowSetForegroundWindow(ASFW_ANY);
         if (handed.url.empty()) {
             HWND window = FindWindowW(bridge::kWindowClass, nullptr);
-            if (window != nullptr) {
-                SetForegroundWindow(window);
+            if (window != nullptr && !handed.tray) {
+                std::string text = nlohmann::json({{"kind", "show"}}).dump();
+                COPYDATASTRUCT data = {};
+                data.dwData = bridge::kCopyDataMark;
+                data.cbData = static_cast<DWORD>(text.size());
+                data.lpData = text.data();
+                SendMessageW(window, WM_COPYDATA, 0, reinterpret_cast<LPARAM>(&data));
             }
         } else {
             HandToRunningInstance(handed);
@@ -92,7 +107,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int cmdSho
     if (!window.Create(instance, L"Anime Download Manager")) {
         return 1;
     }
-    window.Show(cmdShow);
+    // Started with the session, or by the browser extension for an add, the
+    // application stays beside the clock: only the add window shows.
+    window.Show(handed.tray || !handed.url.empty() ? SW_HIDE : cmdShow);
     if (!handed.url.empty()) {
         window.AddFromOutside(Narrow(handed.url), Narrow(handed.episode));
     }

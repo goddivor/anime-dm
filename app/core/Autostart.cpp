@@ -40,7 +40,7 @@ void Set(bool enabled) {
         return;
     }
     if (enabled) {
-        std::wstring line = QuotedExe();
+        std::wstring line = QuotedExe() + L" " + kTraySwitch;
         RegSetValueExW(key, kValue, 0, REG_SZ, reinterpret_cast<const BYTE*>(line.c_str()),
                        static_cast<DWORD>((line.size() + 1) * sizeof(wchar_t)));
     } else {

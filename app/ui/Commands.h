@@ -83,6 +83,8 @@ enum CommandId : int {
     ID_ANIME_QUEUE_MAIN,
     ID_ANIME_QUEUE_SCHEDULER,
 
+    ID_TRAY_RESTORE,
+
     // One entry per folder-icon recipe follows this id.
     ID_ICON_TEMPLATE_FIRST = 3000,
 
