@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <map>
 
+#include "core/Sheet.h"
 #include "core/Text.h"
 #include "third_party/json.hpp"
 
@@ -115,16 +116,29 @@ std::string Field(const std::string& value) {
     return quoted + "\"";
 }
 
-// A sheet with a semicolon between the columns, as the French Excel reads it.
-std::string RenderCsv(const std::vector<DownloadItem>& items) {
-    std::string sheet = "\xEF\xBB\xBF";
-    sheet += "Anime;Episode;Page de l'anime;Page de l'episode;Fichier\r\n";
+// The rows every sheet holds: the headings, then one line per item.
+sheet::Rows SheetRows(const std::vector<DownloadItem>& items) {
+    sheet::Rows rows = {{{"Anime"}, {"Episode"}, {"Page de l'anime"}, {"Page de l'episode"},
+                         {"Fichier"}}};
     for (const DownloadItem& item : items) {
         std::string file = Narrow(item.outPath.substr(item.outPath.find_last_of(L"\\/") + 1));
-        sheet += Field(item.animeTitle) + ";" + (item.movie ? "" : NumberText(item.episodeNumber)) +
-                 ";" + Field(item.animeUrl) + ";" + Field(item.pageUrl) + ";" + Field(file) + "\r\n";
+        sheet::Cell number = {item.movie ? std::string() : NumberText(item.episodeNumber),
+                              !item.movie};
+        rows.push_back({{item.animeTitle}, number, {item.animeUrl}, {item.pageUrl}, {file}});
     }
-    return sheet;
+    return rows;
+}
+
+// A sheet with a semicolon between the columns, as the French Excel reads it.
+std::string RenderCsv(const std::vector<DownloadItem>& items) {
+    std::string text = "\xEF\xBB\xBF";
+    for (const std::vector<sheet::Cell>& row : SheetRows(items)) {
+        for (size_t column = 0; column < row.size(); ++column) {
+            text += (column > 0 ? ";" : "") + Field(row[column].text);
+        }
+        text += "\r\n";
+    }
+    return text;
 }
 
 }  // namespace
@@ -139,6 +153,10 @@ const wchar_t* Extension(Format format) {
         return L"txt";
     case Format::Json:
         return L"json";
+    case Format::Xlsx:
+        return L"xlsx";
+    case Format::Ods:
+        return L"ods";
     default:
         return L"csv";
     }
@@ -153,6 +171,10 @@ std::string Render(Format format, const std::vector<DownloadItem>& items,
         return RenderText(items);
     case Format::Json:
         return RenderJson(items);
+    case Format::Xlsx:
+        return sheet::WriteXlsx(SheetRows(items));
+    case Format::Ods:
+        return sheet::WriteOds(SheetRows(items));
     default:
         return RenderCsv(items);
     }

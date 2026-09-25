@@ -48,12 +48,16 @@ HMENU BuildTasksMenu() {
         {ID_TASK_EXPORT_TXT, Str(STR_EXPORT_TXT)},
         {ID_TASK_EXPORT_JSON, Str(STR_EXPORT_JSON)},
         {ID_TASK_EXPORT_SHEET, Str(STR_EXPORT_SHEET)},
+        {ID_TASK_EXPORT_XLSX, Str(STR_EXPORT_XLSX)},
+        {ID_TASK_EXPORT_ODS, Str(STR_EXPORT_ODS)},
     };
     const Entry imports[] = {
         {ID_TASK_IMPORT_ADM, Str(STR_IMPORT_ADM)},
         {ID_TASK_IMPORT_TXT, Str(STR_IMPORT_TXT)},
         {ID_TASK_IMPORT_JSON, Str(STR_IMPORT_JSON)},
         {ID_TASK_IMPORT_SHEET, Str(STR_IMPORT_SHEET)},
+        {ID_TASK_IMPORT_XLSX, Str(STR_IMPORT_XLSX)},
+        {ID_TASK_IMPORT_ODS, Str(STR_IMPORT_ODS)},
     };
 
     HMENU menu = BuildPopup(head, ARRAYSIZE(head));

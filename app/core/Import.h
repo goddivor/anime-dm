@@ -47,7 +47,8 @@ struct ImportResult {
 
 namespace importing {
 
-// Reads a file, whichever of the four shapes it has; empty when unreadable.
+// Reads a file, whichever of its shapes it has (the file of the application,
+// text, JSON, CSV, Excel or OpenDocument workbook); empty when unreadable.
 std::vector<ImportEntry> Parse(const std::string& text);
 
 // Turns the entries into animes and episodes, asking the sources for what

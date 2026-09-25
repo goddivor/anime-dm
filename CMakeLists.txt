@@ -27,6 +27,7 @@ add_executable(anime-dm WIN32
     app/core/Schedule.cpp
     app/core/Queue.cpp
     app/core/Settings.cpp
+    app/core/Sheet.cpp
     app/core/Transfer.cpp
     app/core/Url.cpp
     app/core/Http.cpp
@@ -34,6 +35,7 @@ add_executable(anime-dm WIN32
     app/core/Import.cpp
     app/core/Paths.cpp
     app/core/Text.cpp
+    app/core/Zip.cpp
     app/ui/ColumnsDialog.cpp
     app/ui/ConfirmDialog.cpp
     app/ui/FileIcons.cpp
