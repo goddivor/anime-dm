@@ -113,10 +113,8 @@ begin
   RemoveAddons := False;
   if UninstallSilent then
     Exit;
-  Form := CreateCustomForm();
+  Form := CreateCustomForm(ScaleX(420), ScaleY(170), False, False);
   try
-    Form.ClientWidth := ScaleX(420);
-    Form.ClientHeight := ScaleY(170);
     Form.Caption := ExpandConstant('{cm:AddonsTitle}');
 
     Note := TNewStaticText.Create(Form);
