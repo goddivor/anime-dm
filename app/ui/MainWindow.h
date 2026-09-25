@@ -89,6 +89,7 @@ private:
     void Refresh(const DownloadItem& item);
     void Persist();
     void UpdateActions();
+    bool GreyEmptyPopup(HMENU menu, int child);
     void StartItem(DownloadItem& item, bool fresh);
     void ResumeSelected();
     // Shows the downloads menu for the selection and carries out its choice.

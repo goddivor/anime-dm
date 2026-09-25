@@ -62,5 +62,3 @@ non signé. En attendant, l'extension se charge en mode développeur (voir `exte
 
 - [ ] Tableur en `.xlsx` et `.ods` à l'export et à l'import : demande un écrivain et un lecteur
       de zip ; seul le CSV existe.
-- [ ] Le reste du menu n'est pas grisé selon l'état ; seules les actions de téléchargement
-      (reprendre, arrêter, supprimer…) le sont.
