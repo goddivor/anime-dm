@@ -206,9 +206,10 @@ HFONT MenuBar::MenuFont() const {
     return font_;
 }
 
-// Assembles the top-level menu bar and installs it on the window.
-// The dark palette needs owner-drawn top-level items: the system paints the
-// menu bar strip with the light colours whatever the application mode is.
+// Assembles the top-level menu bar and installs it on the window. The
+// top-level items are owner-drawn in both palettes: the system paints the
+// strip in light colours whatever the mode, and its own items would come
+// packed together, narrower than the spacing of IDM the bar keeps.
 void MenuBar::AttachTo(HWND window) {
     struct TopLevel {
         HMENU popup;
@@ -223,15 +224,11 @@ void MenuBar::AttachTo(HWND window) {
 
     bar_ = CreateMenu();
     for (const TopLevel& entry : entries) {
-        if (dark_) {
-            AppendMenuW(bar_, MF_POPUP | MF_OWNERDRAW, reinterpret_cast<UINT_PTR>(entry.popup),
-                        reinterpret_cast<const wchar_t*>(static_cast<UINT_PTR>(entry.title)));
-        } else {
-            AppendMenuW(bar_, MF_POPUP, reinterpret_cast<UINT_PTR>(entry.popup), Str(entry.title));
-        }
+        AppendMenuW(bar_, MF_POPUP | MF_OWNERDRAW, reinterpret_cast<UINT_PTR>(entry.popup),
+                    reinterpret_cast<const wchar_t*>(static_cast<UINT_PTR>(entry.title)));
     }
 
-    if (dark_ && background_ != nullptr) {
+    if (background_ != nullptr) {
         MENUINFO info = {};
         info.cbSize = sizeof(info);
         info.fMask = MIM_BACKGROUND;
@@ -267,10 +264,11 @@ void MenuBar::SetToolbarSkin(int chosen) {
 // Stores the palette and rebuilds the bar so the item style matches it.
 void MenuBar::ApplyTheme(const Theme& theme, HWND window) {
     const ThemeColors& colors = theme.Colors();
-    dark_ = colors.dark;
     surface_ = colors.menu;
     text_ = colors.text;
-    highlight_ = colors.line;
+    // The item under the pointer: the grey of the rules on the dark strip,
+    // the pale blue of a hovered button on the light one.
+    highlight_ = colors.dark ? colors.line : colors.hover;
 
     if (background_ != nullptr) {
         DeleteObject(background_);
