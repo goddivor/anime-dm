@@ -57,8 +57,3 @@ non signé. En attendant, l'extension se charge en mode développeur (voir `exte
 
 - [ ] Les **superpositions** note, genre et logo des gabarits (qui lisent un `.nfo`) ne sont pas
       portées, comme dans l'application Tauri.
-
-## Divers
-
-- [ ] Tableur en `.xlsx` et `.ods` à l'export et à l'import : demande un écrivain et un lecteur
-      de zip ; seul le CSV existe.
