@@ -403,6 +403,19 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Support technique :", L"Technical support:"},
     {L"Copyright © 2026 goddivor et les contributeurs.", L"Copyright © 2026 goddivor and contributors."},
     {L"Site web d'Anime Download Manager", L"Anime Download Manager website"},
+    {L"Mise à jour disponible", L"Update available"},
+    {L"La version %ls d'Anime Download Manager est disponible ; vous avez la %ls.\n\n%ls\n\n"
+     L"L'installer maintenant ? L'application se fermera, puis se rouvrira une fois à jour.",
+     L"Version %ls of Anime Download Manager is available; you have %ls.\n\n%ls\n\n"
+     L"Install it now? The application will close, then open again once updated."},
+    {L"Installer", L"Install"},
+    {L"Vous avez la dernière version d'Anime Download Manager (%ls).",
+     L"You have the latest version of Anime Download Manager (%ls)."},
+    {L"Impossible de vérifier les mises à jour : GitHub n'a pas répondu.",
+     L"Could not check for updates: GitHub did not answer."},
+    {L"Téléchargement de la version %ls…", L"Downloading version %ls…"},
+    {L"Le téléchargement de la mise à jour a échoué.", L"The download of the update failed."},
+    {L"La mise à jour a été annulée.", L"The update was cancelled."},
 };
 
 Language g_language = Language::French;

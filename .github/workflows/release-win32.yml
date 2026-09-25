@@ -1,0 +1,85 @@
+name: Release (Windows)
+
+# Builds the Windows application and its installer on every push that
+# touches them, as a check, and keeps the installer as an artifact. A push to
+# feature/win32-cpp (dev merged in for a release) also publishes it as a
+# GitHub Release tagged win-v<version>, which the application's update check
+# looks for.
+on:
+  push:
+    paths:
+      - "app/**"
+      - "installer/**"
+      - "resources/**"
+      - "CMakeLists.txt"
+      - ".github/workflows/release-win32.yml"
+  pull_request:
+    branches: [feature/win32-cpp, feature/win32-cpp-dev]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+
+      - name: Build the application
+        shell: msys2 {0}
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target anime-dm
+
+      - name: Read the version
+        id: version
+        shell: pwsh
+        run: |
+          $found = Select-String -Path CMakeLists.txt -Pattern 'set\(ADM_VERSION "([0-9]+\.[0-9]{2})"\)'
+          if (-not $found) { Write-Error "ADM_VERSION introuvable dans CMakeLists.txt"; exit 1 }
+          "version=$($found.Matches[0].Groups[1].Value)" >> $env:GITHUB_OUTPUT
+
+      - name: Fetch the portable ImageMagick
+        shell: pwsh
+        run: |
+          $url = "https://github.com/ImageMagick/ImageMagick/releases/download/7.1.2-31/ImageMagick-7.1.2-31-portable-Q16-HDRI-x64.7z"
+          Invoke-WebRequest $url -OutFile magick.7z
+          7z x magick.7z -omagick -y | Out-Null
+          if (-not (Test-Path magick\magick.exe)) { Write-Error "magick.exe absent de l'archive"; exit 1 }
+
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc "/DAppVersion=${{ steps.version.outputs.version }}" "/DBuildDir=..\build" "/DMagickDir=..\magick" installer\anime-dm.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AnimeDownloadManager-${{ steps.version.outputs.version }}-setup
+          path: installer/Output/*.exe
+
+      - name: Publish the release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/win32-cpp'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $tag = "win-v$version"
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) { Write-Error "La version $tag existe deja : monter ADM_VERSION dans CMakeLists.txt."; exit 1 }
+          $installer = Get-ChildItem installer\Output\*.exe | Select-Object -First 1
+          gh release create $tag $installer.FullName --target $env:GITHUB_SHA `
+            --title "Anime Download Manager $version (Windows)" --generate-notes --latest=false

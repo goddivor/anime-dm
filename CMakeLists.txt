@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(anime-dm VERSION 0.1.0 LANGUAGES CXX)
+project(anime-dm LANGUAGES CXX)
+
+# The version of the application, N.NN: the two digits after the point count
+# the fixes and small additions of a release, the first moves on a large one.
+# It is the only place it is written.
+set(ADM_VERSION "0.01")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,6 +34,7 @@ add_executable(anime-dm WIN32
     app/core/Settings.cpp
     app/core/Sheet.cpp
     app/core/Transfer.cpp
+    app/core/Update.cpp
     app/core/Url.cpp
     app/core/Http.cpp
     app/core/Image.cpp
@@ -74,7 +80,7 @@ add_executable(anime-dm WIN32
 target_include_directories(anime-dm PRIVATE app)
 
 target_compile_definitions(anime-dm PRIVATE
-    ADM_VERSION=L"${PROJECT_VERSION}"
+    ADM_VERSION=L"${ADM_VERSION}"
     UNICODE
     _UNICODE
     WIN32_LEAN_AND_MEAN
@@ -88,9 +94,10 @@ endif()
 target_link_libraries(anime-dm PRIVATE comctl32 comdlg32 gdiplus dwmapi uxtheme winhttp bcrypt shlwapi ole32 shell32 msimg32)
 
 # MinGW needs -municode to accept wWinMain as the entry point; MSVC detects it on its own.
+# Its runtime is linked in, so the installed executable needs no DLL of MinGW beside it.
 if(MINGW)
     target_compile_options(anime-dm PRIVATE -municode)
-    target_link_options(anime-dm PRIVATE -municode)
+    target_link_options(anime-dm PRIVATE -municode -static)
 endif()
 
 # Console tool that exercises the addon ABI without the application.
@@ -118,7 +125,7 @@ target_include_directories(adm-host PRIVATE app)
 target_compile_definitions(adm-host PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 if(MINGW)
     target_compile_options(adm-host PRIVATE -municode)
-    target_link_options(adm-host PRIVATE -municode)
+    target_link_options(adm-host PRIVATE -municode -static)
 endif()
 add_dependencies(anime-dm adm-host)
 

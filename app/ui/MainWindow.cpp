@@ -24,6 +24,7 @@
 #include "core/Paths.h"
 #include "core/Queue.h"
 #include "core/Text.h"
+#include "core/Update.h"
 #include "core/Url.h"
 #include "ui/AddDialog.h"
 #include "ui/AddonsDialog.h"
@@ -57,8 +58,12 @@ constexpr UINT kImportEvent = WM_APP + 25;
 constexpr UINT kAddDone = WM_APP + 26;
 constexpr UINT kBatchReady = WM_APP + 27;
 constexpr UINT kTrayMessage = WM_APP + 28;
+constexpr UINT kUpdateChecked = WM_APP + 29;
+constexpr UINT kUpdateDownloaded = WM_APP + 30;
 constexpr UINT kTrayIcon = 1;
 constexpr UINT_PTR kScheduleTimer = 7;
+constexpr UINT_PTR kUpdateTimer = 8;
+constexpr UINT kUpdateDelayMs = 8000;  // the quiet check waits for the start to settle
 constexpr UINT kScheduleTickMs = 30000;
 constexpr int kNameColumn = 0;
 constexpr int kStatusColumn = 2;
@@ -161,6 +166,33 @@ struct PosterPayload : PosterPayloadData {};
 struct IconPayload : IconPayloadData {};
 
 // What a worker thread resolved out of an imported file.
+// What a check of the releases brought back, and whether it was asked for.
+struct UpdatePayload {
+    bool reached = false;
+    UpdateInfo info;
+    bool quiet = false;
+};
+
+// The installer of an update, downloaded, or an empty path.
+struct UpdateFile {
+    std::wstring path;
+};
+
+namespace {
+// The small window of a download of an update: themed, and nothing to press.
+INT_PTR CALLBACK UpdateProgressProc(HWND dialog, UINT msg, WPARAM wParam, LPARAM) {
+    INT_PTR colour = 0;
+    if (ThemeDialogMessage(msg, wParam, &colour)) {
+        return colour;
+    }
+    if (msg == WM_INITDIALOG) {
+        ActiveTheme().ApplyToDialog(dialog);
+        return TRUE;
+    }
+    return FALSE;
+}
+}  // namespace
+
 // The addresses of a batch, gathered by anime on a worker thread.
 struct BatchPayload {
     Grouping grouping;
@@ -261,6 +293,111 @@ void MainWindow::Show(int cmdShow) {
     ShowWindow(hwnd_, cmdShow);
     UpdateWindow(hwnd_);
     shown_ = true;
+}
+
+// --- updates -----------------------------------------------------------------
+
+// Asks GitHub for the newest release, off the interface thread. A quiet
+// check, the one of each start, says nothing unless there is something new.
+void MainWindow::CheckForUpdate(bool quiet) {
+    if (checkingUpdate_) {
+        return;
+    }
+    checkingUpdate_ = true;
+    Http* http = &http_;
+    HWND window = hwnd_;
+    std::thread([http, window, quiet] {
+        auto* payload = new UpdatePayload();
+        payload->quiet = quiet;
+        if (std::optional<UpdateInfo> latest = update::Latest(*http)) {
+            payload->reached = true;
+            payload->info = std::move(*latest);
+        }
+        if (!PostMessageW(window, kUpdateChecked, 0, reinterpret_cast<LPARAM>(payload))) {
+            delete payload;
+        }
+    }).detach();
+}
+
+// Offers a newer version, or says there is none when the user asked.
+void MainWindow::OnUpdateChecked(std::unique_ptr<UpdatePayload> payload) {
+    checkingUpdate_ = false;
+    std::string current = Narrow(ADM_VERSION);
+    if (!payload->reached) {
+        if (!payload->quiet) {
+            ShowNotice(Str(STR_UPDATE_FAILED));
+        }
+        return;
+    }
+    if (update::Rank(payload->info.version) <= update::Rank(current)) {
+        if (!payload->quiet) {
+            wchar_t message[256] = {};
+            swprintf(message, 256, Str(STR_UPDATE_NONE), ADM_VERSION);
+            ShowNotice(message);
+        }
+        return;
+    }
+
+    std::wstring notes = Widen(payload->info.notes);
+    if (notes.size() > 600) {
+        notes = notes.substr(0, 600) + L"\u2026";
+    }
+    std::wstring text(4096, L'\0');
+    int length = swprintf(text.data(), text.size(), Str(STR_UPDATE_OFFER),
+                          Widen(payload->info.version).c_str(), ADM_VERSION, notes.c_str());
+    text.resize(length > 0 ? static_cast<size_t>(length) : 0);
+    Confirm question = {STR_UPDATE_TITLE, STR_UPDATE_TITLE, STR_UPDATE_INSTALL, STR_COUNT};
+    question.text = text;
+    HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
+    if (!ShowConfirm(hwnd_, instance, &question)) {
+        return;
+    }
+
+    // A small window says the download is on while the installer comes.
+    updateProgress_ = CreateDialogParamW(instance, MAKEINTRESOURCEW(IDD_UPDATE), hwnd_,
+                                         UpdateProgressProc, 0);
+    if (updateProgress_ != nullptr) {
+        wchar_t caption[128] = {};
+        swprintf(caption, 128, Str(STR_UPDATE_DOWNLOADING), Widen(payload->info.version).c_str());
+        SetDlgItemTextW(updateProgress_, IDC_UPDATE_TEXT, caption);
+        SendDlgItemMessageW(updateProgress_, IDC_UPDATE_BAR, PBM_SETMARQUEE, TRUE, 30);
+        ShowWindow(updateProgress_, SW_SHOW);
+    }
+    UpdateInfo info = payload->info;
+    Http* http = &http_;
+    HWND window = hwnd_;
+    std::thread([http, window, info] {
+        auto* file = new UpdateFile();
+        file->path = update::Download(*http, info);
+        if (!PostMessageW(window, kUpdateDownloaded, 0, reinterpret_cast<LPARAM>(file))) {
+            delete file;
+        }
+    }).detach();
+}
+
+// Hands over to the installer, which closes the application, updates it and
+// opens it again; the user may still refuse the rights it asks for.
+void MainWindow::OnUpdateDownloaded(std::unique_ptr<UpdateFile> file) {
+    if (updateProgress_ != nullptr) {
+        DestroyWindow(updateProgress_);
+        updateProgress_ = nullptr;
+    }
+    if (file->path.empty()) {
+        ShowNotice(Str(STR_UPDATE_DOWNLOAD_FAILED));
+        return;
+    }
+    SHELLEXECUTEINFOW run = {};
+    run.cbSize = sizeof(run);
+    run.hwnd = hwnd_;
+    run.lpVerb = L"open";
+    run.lpFile = file->path.c_str();
+    run.lpParameters = L"/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS";
+    run.nShow = SW_SHOWNORMAL;
+    if (!ShellExecuteExW(&run)) {
+        ShowNotice(Str(STR_UPDATE_CANCELLED));
+        return;
+    }
+    DestroyWindow(hwnd_);
 }
 
 // --- the icon beside the clock ---------------------------------------------
@@ -482,7 +619,16 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_TIMER:
         if (wParam == kScheduleTimer) {
             OnScheduleTick();
+        } else if (wParam == kUpdateTimer) {
+            KillTimer(hwnd_, kUpdateTimer);
+            CheckForUpdate(true);
         }
+        return 0;
+    case kUpdateChecked:
+        OnUpdateChecked(std::unique_ptr<UpdatePayload>(reinterpret_cast<UpdatePayload*>(lParam)));
+        return 0;
+    case kUpdateDownloaded:
+        OnUpdateDownloaded(std::unique_ptr<UpdateFile>(reinterpret_cast<UpdateFile*>(lParam)));
         return 0;
     case kDownloadEvent:
         OnDownloadEvent(std::unique_ptr<DownloadEvent>(reinterpret_cast<DownloadEvent*>(lParam)));
@@ -699,6 +845,7 @@ void MainWindow::OnCreate() {
     schedule::Load(&scheduler_);
     follows_ = follow::Load();
     SetTimer(hwnd_, kScheduleTimer, kScheduleTickMs, nullptr);
+    SetTimer(hwnd_, kUpdateTimer, kUpdateDelayMs, nullptr);
 
     ACCEL accels[] = {
         {FVIRTKEY | FCONTROL, 'N', ID_TASK_ADD},
@@ -1964,7 +2111,6 @@ void MainWindow::UpdateActions() {
         {ID_TASK_EXPORT_XLSX, anyItem},
         {ID_TASK_EXPORT_ODS, anyItem},
         {ID_HELP_HELP, false},
-        {ID_HELP_UPDATE, false},
     };
     HMENU menu = GetMenu(hwnd_);
     for (const Action& action : actions) {
@@ -2795,8 +2941,13 @@ void MainWindow::OnCommand(int commandId) {
     case ID_HELP_WEBSITE:
         OpenWebsite(hwnd_);
         break;
+    case ID_HELP_UPDATE:
+        CheckForUpdate(false);
+        break;
     case ID_HELP_ABOUT:
-        ShowAboutDialog(hwnd_, instance);
+        if (ShowAboutDialog(hwnd_, instance) == IDC_ABOUT_UPDATE) {
+            CheckForUpdate(false);
+        }
         break;
     case ID_VIEW_ADDONS:
         ShowAddonsDialog(hwnd_, instance, store_, http_);
