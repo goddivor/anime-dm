@@ -145,7 +145,14 @@ elle ne se détruit pas ; les index sont mis en cache par extension.
 
 ## L'ajout d'un téléchargement
 
-Trois fenêtres, à la manière d'IDM (`AddDialog.cpp`, une structure `Flow` partagée) :
+Trois fenêtres, à la manière d'IDM (`AddDialog.cpp`, une structure `Flow` partagée).
+**Chaque ajout vit dans ses propres fenêtres**, indépendantes (`OpenAddWindow`) : sans
+propriétaire, un bouton dans la barre des tâches, autant d'ajouts ouverts que l'on veut à côté
+de la fenêtre principale, qui reste libre. La fenêtre d'adresse remet son `Flow` à celle des
+informations et se ferme ; celle-ci *poste* la demande confirmée à la fenêtre principale
+(`kAddDone`, une `AddRequest` sur le tas) et se ferme à son tour. La boucle de messages de
+`main.cpp` leur passe le clavier (`IsAddWindowMessage`) et ne traduit les raccourcis que pour
+la fenêtre principale : sans quoi Suppr, tapé dans une adresse, supprimerait la sélection.
 
 1. **L'adresse** (`IDD_ADD_URL`) : *Adresse* et *Source*, OK et Annuler à droite. Le lien du
    presse-papiers se colle à l'ouverture (réglage `clipboardUrl`, une case dans Options). La
@@ -162,7 +169,14 @@ Trois fenêtres, à la manière d'IDM (`AddDialog.cpp`, une structure `Flow` par
 3. **Les épisodes** (`IDD_ADD_EPISODES`) : une grille de cinq par ligne (`LVS_SMALLICON`, cases
    posées à la main par `ListView_SetItemPosition`, voir les pièges), le champ de plages
    (`1-5,12`) et les cases qui s'écrivent l'un l'autre sous un drapeau `filling`, le lecteur
-   global et le lecteur par épisode au clic droit.
+   global et le lecteur par épisode au clic droit. Celle-ci reste modale, au-dessus de sa seule
+   fenêtre d'informations.
+
+**Le téléchargement par lot** (Tâches, Ctrl+Maj+V) lit toutes les adresses du presse-papiers,
+les regroupe par animé hors du fil d'interface (`importing::Group`, mêmes motifs que l'import,
+sans lire de page), puis ouvre une fenêtre d'ajout par animé, source déjà choisie et épisodes
+nommés cochés (tous pour une page d'animé) ; un avis compte les adresses qu'aucune source ne
+sert.
 
 Les champs de ces fenêtres font 12 unités de haut, la hauteur d'une liste déroulante ; les
 boutons 52 × 14.
@@ -290,16 +304,17 @@ longueur puis un document JSON). L'hôte répond à trois requêtes : `ping`, `s
   page d'animé (« Télécharger avec ADM ») ou d'épisode (« Télécharger cet épisode avec ADM »),
   et le même panneau **au survol de tout lien** du site qui mène à l'un ou l'autre (affiche de
   la page d'accueil, numéro d'épisode d'une fiche), posé sur l'affiche que le lien enveloppe ou
-  recouvre. Le réglage `panel` de `sources.json` (mode `full` ou `mini`, `onPage`, `onLinks`)
+  recouvre, ou, pour un lien de texte seul, **à droite de ses mots** et sur sa ligne : le
+  pointeur l'atteint de côté sans passer sur le lien suivant d'une liste. Le réglage `panel` de `sources.json` (mode `full` ou `mini`, `onPage`, `onLinks`)
   vient d'Options › Général › Éditer… ; `background.js` garde sites et réglage une minute, pose
   le badge « ADM » et envoie `add`.
 - **Remise à l'application** : l'hôte cherche la fenêtre `AnimeDmMainWindow` et lui remet un
   `WM_COPYDATA` (marque `ADM1`, JSON `{"kind":"add","url","episode"}`) ; si elle n'existe pas,
   il lance `anime-dm.exe --add <url> [--episode <url>]`. Le mutex `Local\AnimeDm.Instance`
   garantit l'instance unique : un second lancement transmet ses arguments au premier et
-  s'efface. La fenêtre refuse un ajout tant qu'un dialogue modal est ouvert, sinon elle ouvre
-  le flux d'ajout sur l'adresse, choisit la source qui revendique le site, lit la page sans
-  attendre OK et ne coche que l'épisode nommé.
+  s'efface. Chaque ajout ouvre sa propre fenêtre, même si d'autres le sont déjà ou qu'un
+  dialogue de la fenêtre principale est ouvert : elle choisit la source qui revendique le site,
+  lit la page sans attendre OK et ne coche que l'épisode nommé.
 
 Pour éprouver dans Edge sans toucher au profil de l'utilisateur :
 `msedge.exe --user-data-dir=<profil de test> --load-extension=<dépôt>\extension`. Edge lit
