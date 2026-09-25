@@ -379,6 +379,12 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Descendre", L"Move down"},
     {L"Par défaut", L"Defaults"},
     {L"Épisodes manquants", L"Missing episodes"},
+    {L"Vers un classeur Excel (.xlsx)", L"To an Excel workbook (.xlsx)"},
+    {L"Vers un classeur OpenDocument (.ods)", L"To an OpenDocument workbook (.ods)"},
+    {L"Depuis un classeur Excel (.xlsx)", L"From an Excel workbook (.xlsx)"},
+    {L"Depuis un classeur OpenDocument (.ods)", L"From an OpenDocument workbook (.ods)"},
+    {L"Classeur Excel", L"Excel workbook"},
+    {L"Classeur OpenDocument", L"OpenDocument workbook"},
 };
 
 Language g_language = Language::French;

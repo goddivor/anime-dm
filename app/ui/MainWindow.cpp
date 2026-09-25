@@ -1630,6 +1630,8 @@ void MainWindow::UpdateActions() {
         {ID_TASK_EXPORT_TXT, anyItem},
         {ID_TASK_EXPORT_JSON, anyItem},
         {ID_TASK_EXPORT_SHEET, anyItem},
+        {ID_TASK_EXPORT_XLSX, anyItem},
+        {ID_TASK_EXPORT_ODS, anyItem},
         {ID_TASK_MANUAL, false},
         {ID_TASK_BATCH, false},
         {ID_LIMITER_ENABLE, false},
@@ -1858,7 +1860,8 @@ void MainWindow::OpenScheduler() {
 
 // The kind of file behind each entry of the Export and Import submenus.
 FileKind KindOf(int format) {
-    static const StringId kLabels[4] = {STR_KIND_ADM, STR_KIND_TEXT, STR_KIND_JSON, STR_KIND_CSV};
+    static const StringId kLabels[6] = {STR_KIND_ADM,  STR_KIND_TEXT, STR_KIND_JSON,
+                                        STR_KIND_CSV,  STR_KIND_XLSX, STR_KIND_ODS};
     exporting::Format kind = static_cast<exporting::Format>(format);
     return {Str(kLabels[format]), exporting::Extension(kind)};
 }
@@ -2412,12 +2415,16 @@ void MainWindow::OnCommand(int commandId) {
     case ID_TASK_EXPORT_TXT:
     case ID_TASK_EXPORT_JSON:
     case ID_TASK_EXPORT_SHEET:
+    case ID_TASK_EXPORT_XLSX:
+    case ID_TASK_EXPORT_ODS:
         ExportList(commandId - ID_TASK_EXPORT_ADM);
         break;
     case ID_TASK_IMPORT_ADM:
     case ID_TASK_IMPORT_TXT:
     case ID_TASK_IMPORT_JSON:
     case ID_TASK_IMPORT_SHEET:
+    case ID_TASK_IMPORT_XLSX:
+    case ID_TASK_IMPORT_ODS:
         ImportList(commandId - ID_TASK_IMPORT_ADM);
         break;
     case ID_QUEUE_START_MAIN:

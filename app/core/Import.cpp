@@ -8,7 +8,9 @@
 
 #include "core/Addon.h"
 #include "core/AddonStore.h"
+#include "core/Sheet.h"
 #include "core/Url.h"
+#include "core/Zip.h"
 #include "third_party/json.hpp"
 
 namespace {
@@ -84,10 +86,30 @@ std::vector<ImportEntry> ParseJsonList(const nlohmann::json& list) {
     return entries;
 }
 
-// A sheet: the column that holds a page, found by its heading or by its
-// content, one entry per row.
-std::vector<ImportEntry> ParseCsv(const std::string& text) {
+// A sheet, one entry per row: the episode page comes last among the
+// addresses of a row, the anime page, when there is one, sitting before it.
+std::vector<ImportEntry> ParseRows(const std::vector<std::vector<std::string>>& rows) {
     std::vector<ImportEntry> entries;
+    for (const std::vector<std::string>& fields : rows) {
+        std::string page;
+        for (const std::string& value : fields) {
+            std::string trimmed = Trim(value);
+            if (LooksLikeUrl(trimmed)) {
+                page = trimmed;
+            }
+        }
+        if (!page.empty()) {
+            ImportEntry entry;
+            entry.url = page;
+            entries.push_back(std::move(entry));
+        }
+    }
+    return entries;
+}
+
+// A CSV sheet, split into its rows and fields before being read as a sheet.
+std::vector<ImportEntry> ParseCsv(const std::string& text) {
+    std::vector<std::vector<std::string>> rows;
     size_t from = 0;
     while (from < text.size()) {
         size_t end = text.find('\n', from);
@@ -117,22 +139,9 @@ std::vector<ImportEntry> ParseCsv(const std::string& text) {
             }
         }
         fields.push_back(field);
-        // The episode page comes last among the addresses of a row: the
-        // anime page, when there is one, sits before it.
-        std::string page;
-        for (const std::string& value : fields) {
-            std::string trimmed = Trim(value);
-            if (LooksLikeUrl(trimmed)) {
-                page = trimmed;
-            }
-        }
-        if (!page.empty()) {
-            ImportEntry entry;
-            entry.url = page;
-            entries.push_back(std::move(entry));
-        }
+        rows.push_back(std::move(fields));
     }
-    return entries;
+    return ParseRows(rows);
 }
 
 // One address per line.
@@ -191,6 +200,9 @@ namespace importing {
 
 // Sniffs the shape of the text and hands it to the right reader.
 std::vector<ImportEntry> Parse(const std::string& text) {
+    if (zip::IsZip(text)) {
+        return ParseRows(sheet::Read(text));
+    }
     std::string body = Trim(text);
     if (body.empty()) {
         return {};
