@@ -6,8 +6,6 @@ qui existe déjà sans comportement, ou un chantier ouvert ailleurs.
 ## Menu Aide
 
 - [ ] **Aide** (F1) : ouvrir une page d'aide, en ligne ou embarquée.
-- [ ] **Vérifier les mises à jour** : interroger les versions publiées sur GitHub et proposer la
-      nouvelle.
 
 ## Fenêtre d'ajout et extension
 

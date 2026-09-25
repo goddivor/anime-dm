@@ -24,6 +24,8 @@ struct PosterPayload;
 struct IconPayload;
 struct FollowPayload;
 struct BatchPayload;
+struct UpdatePayload;
+struct UpdateFile;
 struct ImportPayload;
 
 // Which items the list shows, as chosen in the categories panel.
@@ -50,6 +52,9 @@ private:
     void OnCreate();
     void OnDestroy();
     void RestorePlacement();
+    void CheckForUpdate(bool quiet);
+    void OnUpdateChecked(std::unique_ptr<UpdatePayload> payload);
+    void OnUpdateDownloaded(std::unique_ptr<UpdateFile> file);
     void AddTrayIcon();
     void RemoveTrayIcon();
     void UpdateTrayTip();
@@ -188,6 +193,8 @@ private:
     bool placementReady_ = false;  // shown: its frame is the user's from now on
     bool wasMaximized_ = false;
     bool shown_ = false;  // the window has been on screen once
+    bool checkingUpdate_ = false;
+    HWND updateProgress_ = nullptr;
     bool draggingSplitter_ = false;
     int trackX_ = 0;  // where the tracker bar stands during a drag
 };

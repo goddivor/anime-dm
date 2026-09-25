@@ -14,19 +14,23 @@ contient aucune logique de source.
 
 ## Branches
 
-- **`feature/win32-cpp`** : la branche de travail. Tout se passe ici.
+- **`feature/win32-cpp`** : la branche des versions publiées de l'application Windows. On n'y
+  fusionne que `feature/win32-cpp-dev`, pour sortir une version.
+- **`feature/win32-cpp-dev`** : la branche de développement. Tout le travail y aboutit.
 - **`dev`** et **`master`** : l'ancienne application **Tauri 2 + React 19** (v0.2.1), gardée
   comme référence fonctionnelle. Ne plus y développer, mais **s'y référer** pour savoir ce
   qu'une fonctionnalité fait avant de la porter (`git show dev:src/components/…`).
 - Pour toute tâche : sous-branche `feature/* | fix/* | refactor/* | chore/* | docs/*` depuis
-  `feature/win32-cpp`, commits locaux, puis **s'arrêter et demander** avant `git push` ou
-  `gh pr create`. Validation par l'utilisateur, puis PR ciblant `feature/win32-cpp` et merge.
+  `feature/win32-cpp-dev`, commits locaux, puis **s'arrêter et demander** avant `git push` ou
+  `gh pr create`. Validation par l'utilisateur, puis PR ciblant `feature/win32-cpp-dev` et merge.
 
 ## Compiler, lancer, vérifier
 
-La version de l'application a **une seule source** : `project(anime-dm VERSION …)` dans
-`CMakeLists.txt`, que le code lit par `ADM_VERSION` (fenêtre Aide › « À propos d'Anime Download Manager », avec la date de
-compilation).
+La version de l'application a **une seule source** : `set(ADM_VERSION "…")` dans
+`CMakeLists.txt`, que le code lit par `ADM_VERSION` (titre de la fenêtre, et Aide › « À propos
+d'Anime Download Manager » avec la date de compilation). Elle s'écrit **N.NN** : 0.01, 0.02… les
+deux chiffres comptent les corrections et petits ajouts d'une sortie, le premier ne bouge que sur
+une grande mise à jour, quand l'auteur le décide.
 
 Prérequis : **MinGW-w64** (`C:\mingw64`), CMake, et Rust avec la cible
 `x86_64-pc-windows-gnu` pour les addons. Pas de Visual Studio sur la machine.
@@ -40,6 +44,30 @@ cmake --build build --target download-smoke
 build\download-smoke.exe <id> <url épisode> <sortie> [lecteur]   # toute la chaîne, jusqu'au fichier
 build\download-smoke.exe --url <url vidéo> <sortie> [referer]    # le transfert seul
 ```
+
+## Installer, publier, mettre à jour
+
+- **L'installateur** (`installer/anime-dm.iss`, Inno Setup 6) pose l'application dans
+  `Program Files\Anime Download Manager` (droits d'administrateur, une fois) : `anime-dm.exe`,
+  `adm-host.exe` (liés en statique, aucune DLL de MinGW à livrer), les calques des icônes de
+  dossier, l'ImageMagick portable officiel (`magick.exe` autonome et ses fichiers de
+  configuration, dans `resources\folder-templates\bin`) et les packs de la barre d'outils.
+  L'application n'écrit jamais là : tout ce qu'elle écrit va dans `%APPDATA%\anime-dm`, et le
+  registre qu'elle touche est celui de l'utilisateur (HKCU). Une nouvelle version s'installe
+  par-dessus et garde les données.
+- **La désinstallation** ferme l'application et l'hôte, retire du registre la valeur `Run`,
+  l'hôte déclaré à chaque navigateur et les demandes d'installation de l'extension, puis vide
+  `%APPDATA%\anime-dm` **en gardant les add-ons**, sauf si la case de sa fenêtre le demande.
+  Les vidéos téléchargées ne sont jamais touchées.
+- **La publication** (`.github/workflows/release-win32.yml`) compile l'application (MSYS2
+  UCRT64), récupère ImageMagick et fabrique l'installateur à chaque poussée qui les touche ; une
+  poussée sur `feature/win32-cpp` publie en plus une Release `win-v<N.NN>`, sans l'étiquette
+  « Latest » (celle de l'application Tauri reste la vitrine), et refuse une version déjà publiée.
+- **La mise à jour** (`core/Update`) lit les Releases `win-v*` de GitHub : discrètement huit
+  secondes après le démarrage (rien n'est dit s'il n'y a rien de neuf), et sur demande par Aide ›
+  Mise à jour rapide ou le bouton de la fenêtre À propos. Une version plus récente est proposée
+  avec ses notes ; acceptée, son installateur est téléchargé puis lancé en `/SILENT`, et
+  l'application se ferme ; l'installateur la rouvre une fois à jour.
 
 ## Architecture
 
