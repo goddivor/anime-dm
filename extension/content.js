@@ -198,14 +198,27 @@
       });
       root.appendChild(button);
 
-      const box = cardOf(link);
       const margin = 6;
       const width = button.offsetWidth;
       const height = button.offsetHeight;
-      let left = box.left + margin;
-      let top = box.top + margin;
-      if (box.height < height + 2 * margin) {
-        top = box.bottom + 2;
+      const card = cardOf(link);
+      let left;
+      let top;
+      if (card) {
+        left = card.left + margin;
+        top = card.top + margin;
+        if (card.height < height + 2 * margin) {
+          top = card.bottom + 2;
+        }
+      } else {
+        // Beside the text of the link, on its line: the pointer reaches the
+        // panel sideways without passing over the next link of a list.
+        const text = textBoxOf(link);
+        left = text.right + margin;
+        top = text.top + (text.height - height) / 2;
+        if (left + width > window.innerWidth - 4) {
+          left = text.left - width - margin;
+        }
       }
       left = Math.max(4, Math.min(left, window.innerWidth - width - 4));
       top = Math.max(4, Math.min(top, window.innerHeight - height - 4));
@@ -239,9 +252,9 @@
     }, { passive: true, capture: true });
   }
 
-  // The box the panel sits on: the poster inside the link (an inline link
-  // around an image measures only its line box), else the poster a small
-  // link lies over (a play badge, a caption), else the link itself.
+  // The poster the panel sits on: the one inside the link (an inline link
+  // around an image measures only its line box), else the one a small link
+  // lies over (a play badge, a caption); none for a link of text alone.
   function cardOf(link) {
     const box = link.getBoundingClientRect();
     let best = null;
@@ -266,7 +279,16 @@
       }
       node = node.parentElement;
     }
-    return box;
+    return null;
+  }
+
+  // The box of the words of a link, narrower than the link when it spans
+  // the width of a list row.
+  function textBoxOf(link) {
+    const range = document.createRange();
+    range.selectNodeContents(link);
+    const box = range.getBoundingClientRect();
+    return box.width > 0 ? box : link.getBoundingClientRect();
   }
 
   // Whether an address is the page itself, its own button covering it.
