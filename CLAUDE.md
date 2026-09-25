@@ -14,19 +14,23 @@ contient aucune logique de source.
 
 ## Branches
 
-- **`feature/win32-cpp`** : la branche de travail. Tout se passe ici.
+- **`feature/win32-cpp`** : la branche des versions publiées de l'application Windows. On n'y
+  fusionne que `feature/win32-cpp-dev`, pour sortir une version.
+- **`feature/win32-cpp-dev`** : la branche de développement. Tout le travail y aboutit.
 - **`dev`** et **`master`** : l'ancienne application **Tauri 2 + React 19** (v0.2.1), gardée
   comme référence fonctionnelle. Ne plus y développer, mais **s'y référer** pour savoir ce
   qu'une fonctionnalité fait avant de la porter (`git show dev:src/components/…`).
 - Pour toute tâche : sous-branche `feature/* | fix/* | refactor/* | chore/* | docs/*` depuis
-  `feature/win32-cpp`, commits locaux, puis **s'arrêter et demander** avant `git push` ou
-  `gh pr create`. Validation par l'utilisateur, puis PR ciblant `feature/win32-cpp` et merge.
+  `feature/win32-cpp-dev`, commits locaux, puis **s'arrêter et demander** avant `git push` ou
+  `gh pr create`. Validation par l'utilisateur, puis PR ciblant `feature/win32-cpp-dev` et merge.
 
 ## Compiler, lancer, vérifier
 
-La version de l'application a **une seule source** : `project(anime-dm VERSION …)` dans
-`CMakeLists.txt`, que le code lit par `ADM_VERSION` (fenêtre Aide › « À propos d'Anime Download Manager », avec la date de
-compilation).
+La version de l'application a **une seule source** : `set(ADM_VERSION "…")` dans
+`CMakeLists.txt`, que le code lit par `ADM_VERSION` (titre de la fenêtre, et Aide › « À propos
+d'Anime Download Manager » avec la date de compilation). Elle s'écrit **N.NN** : 0.01, 0.02… les
+deux chiffres comptent les corrections et petits ajouts d'une sortie, le premier ne bouge que sur
+une grande mise à jour, quand l'auteur le décide.
 
 Prérequis : **MinGW-w64** (`C:\mingw64`), CMake, et Rust avec la cible
 `x86_64-pc-windows-gnu` pour les addons. Pas de Visual Studio sur la machine.

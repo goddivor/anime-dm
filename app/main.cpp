@@ -14,6 +14,10 @@
 #include "ui/IconFactory.h"
 #include "ui/MainWindow.h"
 
+#ifndef ADM_VERSION
+#define ADM_VERSION L"0.00"
+#endif
+
 namespace {
 
 // What the command line hands over: an address after `--add`, and the
@@ -104,7 +108,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int cmdSho
     GdiPlusRuntime gdiPlus;
 
     MainWindow window;
-    if (!window.Create(instance, L"Anime Download Manager")) {
+    if (!window.Create(instance, L"Anime Download Manager " ADM_VERSION)) {
         return 1;
     }
     // Started with the session, or by the browser extension for an add, the
