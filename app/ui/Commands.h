@@ -4,7 +4,6 @@
 // The layout mirrors the React menu bar of the Tauri application.
 enum CommandId : int {
     ID_TASK_ADD = 1001,
-    ID_TASK_MANUAL,
     ID_TASK_BATCH,
     ID_TASK_EXPORT_ADM,
     ID_TASK_EXPORT_TXT,

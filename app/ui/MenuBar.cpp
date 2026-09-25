@@ -39,7 +39,6 @@ void AppendSubMenu(HMENU parent, StringId label, const Entry* entries, size_t co
 HMENU BuildTasksMenu() {
     const Entry head[] = {
         {ID_TASK_ADD, Str(STR_TASK_ADD)},
-        {ID_TASK_MANUAL, Str(STR_TASK_MANUAL)},
         {ID_TASK_BATCH, Str(STR_TASK_BATCH)},
         {0, nullptr},
     };

@@ -1632,7 +1632,6 @@ void MainWindow::UpdateActions() {
         {ID_TASK_EXPORT_SHEET, anyItem},
         {ID_TASK_EXPORT_XLSX, anyItem},
         {ID_TASK_EXPORT_ODS, anyItem},
-        {ID_TASK_MANUAL, false},
         {ID_TASK_BATCH, false},
         {ID_LIMITER_ENABLE, false},
         {ID_LIMITER_DISABLE, false},

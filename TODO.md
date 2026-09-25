@@ -5,9 +5,6 @@ qui existe déjà sans comportement, ou un chantier ouvert ailleurs.
 
 ## Menu Tâches
 
-- [ ] **Téléchargement manuel** : saisir une adresse de vidéo directe (ou une liste HLS), un
-      nom de fichier et un dossier, sans passer par une source ; le moteur sait déjà tirer une
-      adresse nue (`download-smoke --url`).
 - [ ] **Téléchargement par lot depuis presse-papiers** (Ctrl+Maj+V) : lire toutes les adresses
       du presse-papiers et les passer à l'import (`importing::Parse` puis `Resolve`), comme un
       fichier texte ; l'accélérateur est déjà déclaré.
@@ -47,11 +44,6 @@ qui existe déjà sans comportement, ou un chantier ouvert ailleurs.
 Tant que rien n'est publié ni signé, les clés d'installation qu'écrit la fenêtre Options
 restent sans effet : Chrome ignore sur Windows toute extension hors magasin, Firefox tout XPI
 non signé. En attendant, l'extension se charge en mode développeur (voir `extension/README.md`).
-
-## Sources et suivi
-
-- [ ] **Date des épisodes** : les sources laissent `date_upload` vide ; la renseigner
-      permettrait de préremplir le jour et l'heure de sortie d'un animé suivi.
 
 ## Icônes de dossier
 

@@ -16,7 +16,6 @@ enum StringId {
     STR_MENU_HELP,
 
     STR_TASK_ADD,
-    STR_TASK_MANUAL,
     STR_TASK_BATCH,
     STR_TASK_EXPORT,
     STR_TASK_IMPORT,
