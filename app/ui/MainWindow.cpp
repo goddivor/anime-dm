@@ -194,14 +194,66 @@ bool MainWindow::Create(HINSTANCE instance, const wchar_t* title) {
         0, kWindowClass, title, WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
         CW_USEDEFAULT, CW_USEDEFAULT, 1100, 720,
         nullptr, nullptr, instance, this);
-
-    return hwnd_ != nullptr;
+    if (hwnd_ == nullptr) {
+        return false;
+    }
+    RestorePlacement();
+    return true;
 }
 
-// Makes the window visible and forces an initial paint.
+// Puts the window back where the last session left it, when that place is
+// still on a screen; the default frame stays otherwise.
+void MainWindow::RestorePlacement() {
+    if (settings_.windowWidth <= 0 || settings_.windowHeight <= 0) {
+        return;
+    }
+    RECT frame = {settings_.windowX, settings_.windowY, settings_.windowX + settings_.windowWidth,
+                  settings_.windowY + settings_.windowHeight};
+    if (MonitorFromRect(&frame, MONITOR_DEFAULTTONULL) == nullptr) {
+        return;
+    }
+    WINDOWPLACEMENT placement = {};
+    placement.length = sizeof(placement);
+    GetWindowPlacement(hwnd_, &placement);
+    placement.rcNormalPosition = frame;
+    placement.showCmd = SW_HIDE;
+    SetWindowPlacement(hwnd_, &placement);
+    startMaximized_ = settings_.windowMaximized;
+}
+
+// Keeps the frame of the window and the panel beside the list for the next
+// session: written at once, so that a session cut short keeps them too.
+void MainWindow::SavePlacement() {
+    if (!placementReady_) {
+        return;
+    }
+    WINDOWPLACEMENT placement = {};
+    placement.length = sizeof(placement);
+    if (!GetWindowPlacement(hwnd_, &placement)) {
+        return;
+    }
+    const RECT& frame = placement.rcNormalPosition;
+    settings_.windowX = frame.left;
+    settings_.windowY = frame.top;
+    settings_.windowWidth = frame.right - frame.left;
+    settings_.windowHeight = frame.bottom - frame.top;
+    settings_.windowMaximized =
+        placement.showCmd == SW_SHOWMAXIMIZED ||
+        (placement.showCmd == SW_SHOWMINIMIZED && (placement.flags & WPF_RESTORETOMAXIMIZED) != 0);
+    settings_.sidebarWidth = sidebarWidth_;
+    settings_.sidebarVisible = sidebarVisible_;
+    settings::Save(settings_);
+}
+
+// Makes the window visible and forces an initial paint, maximised when the
+// last session left it so.
 void MainWindow::Show(int cmdShow) {
+    if (startMaximized_ && (cmdShow == SW_SHOWNORMAL || cmdShow == SW_SHOWDEFAULT)) {
+        cmdShow = SW_SHOWMAXIMIZED;
+    }
     ShowWindow(hwnd_, cmdShow);
     UpdateWindow(hwnd_);
+    placementReady_ = true;
 }
 
 // Routes messages to the instance, binding HWND and instance on creation.
@@ -230,6 +282,16 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
     case WM_SIZE:
         Relayout();
+        // Maximising and restoring end without a move loop to report them.
+        if (wParam == SIZE_MAXIMIZED || (wParam == SIZE_RESTORED && wasMaximized_)) {
+            SavePlacement();
+        }
+        if (wParam != SIZE_MINIMIZED) {
+            wasMaximized_ = wParam == SIZE_MAXIMIZED;
+        }
+        return 0;
+    case WM_EXITSIZEMOVE:
+        SavePlacement();
         return 0;
     case WM_COMMAND:
         OnCommand(LOWORD(wParam));
@@ -391,6 +453,10 @@ void MainWindow::OnCreate() {
     HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
 
     settings_ = settings::Load();
+    if (settings_.sidebarWidth > 0) {
+        sidebarWidth_ = settings_.sidebarWidth;
+    }
+    sidebarVisible_ = settings_.sidebarVisible;
     languageCommand_ = settings_.language == "en" ? ID_LANG_EN : ID_LANG_FR;
     ::SetLanguage(languageCommand_ == ID_LANG_EN ? Language::English : Language::French);
     themeCommand_ = settings_.theme == "dark"    ? ID_MODE_DARK
@@ -416,6 +482,7 @@ void MainWindow::OnCreate() {
         toolbar_.SetSkin(&skins_[static_cast<size_t>(ChosenSkin())], ActiveTheme());
     }
     sidebar_.Create(hwnd_, instance);
+    sidebar_.SetVisible(sidebarVisible_);
 
     downloads_.Create(hwnd_, instance);
     downloads_.SetWidths(settings_.columnWidths);
@@ -483,6 +550,7 @@ void MainWindow::ApplySettings() {
 
 // Stops the transfers, keeps their parts, and records the queue as it stands.
 void MainWindow::OnDestroy() {
+    SavePlacement();
     CloseAddWindows();
     KillTimer(hwnd_, kScheduleTimer);
     downloader_.Attach(nullptr, 0);
@@ -962,6 +1030,7 @@ void MainWindow::OnLeftButtonUp() {
     sidebarWidth_ = trackX_ - kMargin;
     ReleaseCapture();
     Relayout();
+    SavePlacement();
 }
 
 // Drops a drag the system interrupted, leaving the panels as they were.
@@ -2551,6 +2620,7 @@ void MainWindow::OnCommand(int commandId) {
         menuBar_.SetCategoriesChecked(sidebarVisible_);
         sidebar_.SetVisible(sidebarVisible_);
         Relayout();
+        SavePlacement();
         break;
     case ID_MODE_DARK:
     case ID_MODE_LIGHT:

@@ -27,6 +27,13 @@ struct Settings {
     int fontSize = 0;                     // its size, in tenths of a point
     int fontWeight = 400;
     bool fontItalic = false;
+    int windowX = 0;                      // the restored frame of the main window, in pixels,
+    int windowY = 0;                      // a zero width for the default one
+    int windowWidth = 0;
+    int windowHeight = 0;
+    bool windowMaximized = false;
+    int sidebarWidth = 0;                 // the categories panel, zero for its default width
+    bool sidebarVisible = true;
 };
 
 namespace settings {

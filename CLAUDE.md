@@ -53,7 +53,11 @@ build\download-smoke.exe --url <url vidéo> <sortie> [referer]    # le transfert
     Les affiches vivent à côté, dans `posters/`, nommées d'après le SHA-256 de la page.
   - `Settings` : `settings.json` (icônes de dossier, modèle, Aniyomi, thème, langue, peau de
     la barre d'outils, presse-papiers, dossier à rappeler, démarrage avec Windows, navigateurs
-    intégrés, limites du moteur).
+    intégrés, limites du moteur, police, colonnes, et le cadre de la fenêtre avec la largeur et la
+    visibilité du panneau Catégories). Le cadre (`SavePlacement`, rectangle « normal » de
+    `GetWindowPlacement`, et agrandi ou non) s'écrit à chaque fin de déplacement ou de
+    redimensionnement, à l'agrandissement, au lâcher du séparateur et à la fermeture, pour
+    survivre à une session coupée net ; il n'est rendu que s'il tombe encore sur un écran.
   - `Bridge` : ce que l'application fait pour l'extension de navigateur, décrit plus bas.
     `Autostart` : la valeur `Run` de HKCU qui lance l'application à l'ouverture de session.
   - `FolderIcon` : l'icône du dossier d'un animé, décrite plus bas.

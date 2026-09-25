@@ -73,6 +73,13 @@ Settings Load() {
     if (settings.fontSize < 60 || settings.fontSize > 360) {
         settings.fontFace.clear();
     }
+    settings.windowX = root.value("windowX", settings.windowX);
+    settings.windowY = root.value("windowY", settings.windowY);
+    settings.windowWidth = root.value("windowWidth", settings.windowWidth);
+    settings.windowHeight = root.value("windowHeight", settings.windowHeight);
+    settings.windowMaximized = root.value("windowMaximized", settings.windowMaximized);
+    settings.sidebarWidth = root.value("sidebarWidth", settings.sidebarWidth);
+    settings.sidebarVisible = root.value("sidebarVisible", settings.sidebarVisible);
     settings.panelMode = root.value("panelMode", settings.panelMode);
     settings.panelOnPage = root.value("panelOnPage", settings.panelOnPage);
     settings.panelOnLinks = root.value("panelOnLinks", settings.panelOnLinks);
@@ -117,6 +124,13 @@ void Save(const Settings& settings) {
         {"fontSize", settings.fontSize},
         {"fontWeight", settings.fontWeight},
         {"fontItalic", settings.fontItalic},
+        {"windowX", settings.windowX},
+        {"windowY", settings.windowY},
+        {"windowWidth", settings.windowWidth},
+        {"windowHeight", settings.windowHeight},
+        {"windowMaximized", settings.windowMaximized},
+        {"sidebarWidth", settings.sidebarWidth},
+        {"sidebarVisible", settings.sidebarVisible},
     };
     std::wstring temp = path + L".tmp";
     {
