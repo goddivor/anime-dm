@@ -511,7 +511,7 @@ void MainWindow::Retranslate() {
     sidebar_.Retranslate();
     downloads_.Retranslate();
     for (const DownloadItem& item : items_) {
-        downloads_.Upsert(item);
+        Refresh(item);
     }
     Relayout();
     UpdateActions();
