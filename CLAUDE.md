@@ -25,7 +25,7 @@ contient aucune logique de source.
 ## Compiler, lancer, vérifier
 
 La version de l'application a **une seule source** : `project(anime-dm VERSION …)` dans
-`CMakeLists.txt`, que le code lit par `ADM_VERSION` (fenêtre « À propos d'ADM », avec la date de
+`CMakeLists.txt`, que le code lit par `ADM_VERSION` (fenêtre Aide › « À propos d'Anime Download Manager », avec la date de
 compilation).
 
 Prérequis : **MinGW-w64** (`C:\mingw64`), CMake, et Rust avec la cible

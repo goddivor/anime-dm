@@ -169,17 +169,9 @@ HMENU BuildHelpMenu() {
         {ID_HELP_HELP, Str(STR_HELP_HELP)},
         {ID_HELP_SHORTCUTS, Str(STR_HELP_SHORTCUTS)},
         {ID_HELP_UPDATE, Str(STR_HELP_UPDATE)},
+        {ID_HELP_ABOUT, Str(STR_HELP_ABOUT)},
     };
-    const Entry about[] = {
-        {ID_HELP_ABOUT, Str(STR_HELP_ABOUT_ADM)},
-        {ID_HELP_AUTHORS, Str(STR_HELP_AUTHORS)},
-        {ID_HELP_LICENSE, Str(STR_HELP_LICENSE)},
-        {ID_HELP_CREDITS, Str(STR_HELP_CREDITS)},
-    };
-
-    HMENU menu = BuildPopup(head, ARRAYSIZE(head));
-    AppendSubMenu(menu, STR_HELP_ABOUT, about, ARRAYSIZE(about));
-    return menu;
+    return BuildPopup(head, ARRAYSIZE(head));
 }
 
 }  // namespace
