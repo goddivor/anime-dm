@@ -49,6 +49,8 @@ private:
     LRESULT HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam);
     void OnCreate();
     void OnDestroy();
+    void RestorePlacement();
+    void SavePlacement();
     void OnCommand(int commandId);
     void ShowSoon(int commandId);
     void OnAddDownload(const std::string& initialUrl = std::string(),
@@ -175,6 +177,9 @@ private:
     int languageCommand_ = 0;
     int sidebarWidth_ = 230;
     bool sidebarVisible_ = true;
+    bool startMaximized_ = false;  // the last session left the window maximised
+    bool placementReady_ = false;  // shown: its frame is the user's from now on
+    bool wasMaximized_ = false;
     bool draggingSplitter_ = false;
     int trackX_ = 0;  // where the tracker bar stands during a drag
 };
