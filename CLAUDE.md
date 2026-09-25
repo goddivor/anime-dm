@@ -45,6 +45,30 @@ build\download-smoke.exe <id> <url épisode> <sortie> [lecteur]   # toute la cha
 build\download-smoke.exe --url <url vidéo> <sortie> [referer]    # le transfert seul
 ```
 
+## Installer, publier, mettre à jour
+
+- **L'installateur** (`installer/anime-dm.iss`, Inno Setup 6) pose l'application dans
+  `Program Files\Anime Download Manager` (droits d'administrateur, une fois) : `anime-dm.exe`,
+  `adm-host.exe` (liés en statique, aucune DLL de MinGW à livrer), les calques des icônes de
+  dossier, l'ImageMagick portable officiel (`magick.exe` autonome et ses fichiers de
+  configuration, dans `resources\folder-templates\bin`) et les packs de la barre d'outils.
+  L'application n'écrit jamais là : tout ce qu'elle écrit va dans `%APPDATA%\anime-dm`, et le
+  registre qu'elle touche est celui de l'utilisateur (HKCU). Une nouvelle version s'installe
+  par-dessus et garde les données.
+- **La désinstallation** ferme l'application et l'hôte, retire du registre la valeur `Run`,
+  l'hôte déclaré à chaque navigateur et les demandes d'installation de l'extension, puis vide
+  `%APPDATA%\anime-dm` **en gardant les add-ons**, sauf si la case de sa fenêtre le demande.
+  Les vidéos téléchargées ne sont jamais touchées.
+- **La publication** (`.github/workflows/release-win32.yml`) compile l'application (MSYS2
+  UCRT64), récupère ImageMagick et fabrique l'installateur à chaque poussée qui les touche ; une
+  poussée sur `feature/win32-cpp` publie en plus une Release `win-v<N.NN>`, sans l'étiquette
+  « Latest » (celle de l'application Tauri reste la vitrine), et refuse une version déjà publiée.
+- **La mise à jour** (`core/Update`) lit les Releases `win-v*` de GitHub : discrètement huit
+  secondes après le démarrage (rien n'est dit s'il n'y a rien de neuf), et sur demande par Aide ›
+  Mise à jour rapide ou le bouton de la fenêtre À propos. Une version plus récente est proposée
+  avec ses notes ; acceptée, son installateur est téléchargé puis lancé en `/SILENT`, et
+  l'application se ferme ; l'installateur la rouvre une fois à jour.
+
 ## Architecture
 
 - **`app/core/`** : ce qui ne touche pas à l'écran.
