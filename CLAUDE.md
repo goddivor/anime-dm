@@ -236,9 +236,13 @@ dessin que les Options) :
    tire qu'une fois par minute et par file ; réglages dans `schedule.json`.
 2. **Animés suivis** (`core/Follow`, `FollowDialog`) : un animé suivi (source, page, dossier,
    jour et heure de sortie, file de destination, démarrage aussitôt ou non) est vérifié par un
-   fil de fond (`CheckFollow`, `adm_episode_list`) : la **première vérification ne fait que
-   noter** les épisodes présents (`primed`), les suivantes ajoutent les nouveaux dans le
-   dossier de l'animé (`AddEpisodes`). Rythme (`follow::Plan`) : au moment de sortie, puis
+   fil de fond (`CheckFollow`, `adm_episode_list`) : la **première vérification propose** les
+   épisodes déjà sortis qui manquent à la liste (`OfferMissing`), dans la fenêtre « Épisodes »
+   de l'ajout (`PickEpisodes`), ceux qui suivent le dernier épisode téléchargé cochés d'office,
+   les plus anciens non (un suivi lancé au milieu d'une longue série ne rapatrie pas son
+   passé) ; le suivi est marqué amorcé (`primed`) avant l'ouverture de la fenêtre, pour que le
+   minuteur n'en ouvre pas une seconde. Les vérifications suivantes ajoutent d'elles-mêmes les
+   nouveaux épisodes dans le dossier de l'animé (`AddEpisodes`). Rythme (`follow::Plan`) : au moment de sortie, puis
    toutes les 3 h pendant 48 h tant que rien ne paraît, puis la semaine suivante. Les sources
    ne donnent pas de date d'épisode (`date_upload` reste vide) : le jour et l'heure viennent
    de l'utilisateur, préremplis avec le moment du suivi. Clic droit sur un animé du panneau :
