@@ -185,6 +185,23 @@ sert.
 Les champs de ces fenêtres font 12 unités de haut, la hauteur d'une liste déroulante ; les
 boutons 52 × 14.
 
+## La zone de notification
+
+Comme IDM, l'application vit **à côté de l'horloge** (`Shell_NotifyIconW`, version 4) : la croix
+de la fenêtre la cache sans la quitter (réglage `closeToTray`, coché par défaut, Options ›
+Général), et téléchargements, planificateur, suivis et extension continuent. Un clic sur
+l'icône rend la fenêtre (`RestoreFromTray`), le clic droit ouvre un menu (`ShowTrayMenu` :
+Restaurer en gras, ajout, lot, file, Planifier, limiteur, booster, Options, Addons, Quitter),
+chaque entrée aussi grise que la même dans la barre de menus. **Quitter** (ce menu ou Tâches ›
+Quitter) est la seule sortie ; l'arrêt « Quitter » du planificateur passe par `ID_TASK_QUIT`,
+pas par `WM_CLOSE`. L'infobulle compte les transferts en cours ; une notification annonce un
+épisode terminé quand la fenêtre n'est pas au premier plan. L'icône revient d'elle-même au
+redémarrage de l'Explorateur (`TaskbarCreated`).
+
+La valeur `Run` démarre l'application avec `--tray`, fenêtre cachée ; un lancement par
+l'extension (`--add`) n'ouvre que la fenêtre d'ajout. Un second lancement sans adresse demande
+à l'instance ouverte de se montrer (`WM_COPYDATA`, `{"kind":"show"}`).
+
 ## Le menu contextuel de la liste
 
 Ses entrées suivent la sélection comme la barre d'outils : *Arrêter* pour un transfert en
