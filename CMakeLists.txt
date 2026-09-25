@@ -93,9 +93,10 @@ endif()
 target_link_libraries(anime-dm PRIVATE comctl32 comdlg32 gdiplus dwmapi uxtheme winhttp bcrypt shlwapi ole32 shell32 msimg32)
 
 # MinGW needs -municode to accept wWinMain as the entry point; MSVC detects it on its own.
+# Its runtime is linked in, so the installed executable needs no DLL of MinGW beside it.
 if(MINGW)
     target_compile_options(anime-dm PRIVATE -municode)
-    target_link_options(anime-dm PRIVATE -municode)
+    target_link_options(anime-dm PRIVATE -municode -static)
 endif()
 
 # Console tool that exercises the addon ABI without the application.
@@ -123,7 +124,7 @@ target_include_directories(adm-host PRIVATE app)
 target_compile_definitions(adm-host PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 if(MINGW)
     target_compile_options(adm-host PRIVATE -municode)
-    target_link_options(adm-host PRIVATE -municode)
+    target_link_options(adm-host PRIVATE -municode -static)
 endif()
 add_dependencies(anime-dm adm-host)
 
