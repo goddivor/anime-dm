@@ -91,7 +91,8 @@ build\download-smoke.exe --url <url vidéo> <sortie> [referer]    # le transfert
     redimensionnement, à l'agrandissement, au lâcher du séparateur et à la fermeture, pour
     survivre à une session coupée net ; il n'est rendu que s'il tombe encore sur un écran.
   - `Bridge` : ce que l'application fait pour l'extension de navigateur, décrit plus bas.
-    `Autostart` : la valeur `Run` de HKCU qui lance l'application à l'ouverture de session.
+    `Autostart` : la valeur `Run` de HKCU qui lance l'application au démarrage de Windows,
+    écrite d'office au premier lancement (`autostartSeeded`), la case d'Options restant libre.
   - `FolderIcon` : l'icône du dossier d'un animé, décrite plus bas.
   - `Digest` (SHA-256 par BCrypt), `Image` (décodage par GDI+), `Paths` (`%APPDATA%`), `Text`
     (conversions UTF-8 / UTF-16).
@@ -140,7 +141,13 @@ sont reprises **à l'identique** dans `FolderIcon.cpp`, transcrites automatiquem
 L'application pilote `magick.exe` (embarqué dans `resources/folder-templates/bin`, sinon le
 `PATH`) sans fenêtre, et **met en cache** chaque `.ico` par empreinte de l'affiche et recette
 dans `icon-cache/`. La pose passe par `SHGetSetFolderCustomSettings` (voir les pièges) : `.ico` caché sous un
-nom propre à la recette, `desktop.ini` caché et système, dossier en lecture seule. L'option **Aniyomi** écrit `cover.jpg`
+nom propre à la recette, `desktop.ini` caché et système, dossier en lecture seule. L'icône y est
+désignée par **son seul nom de fichier**, jamais par un chemin complet : le dossier la garde quand
+il est renommé, déplacé ou copié sur un autre disque. Au démarrage, `foldericon::Repair` remet
+ainsi, hors du fil d'interface, les dossiers qu'une version antérieure avait posés en chemin
+complet. Supprimer des épisodes avec leurs fichiers retire aussi le dossier s'il ne contient
+plus que cet habillage (`foldericon::RemoveIfBare` : icône, `desktop.ini`, `cover.jpg`,
+`.nomedia`) et qu'aucun épisode de la liste n'y écrit ; tout autre fichier le fait garder. L'option **Aniyomi** écrit `cover.jpg`
 et `.nomedia`. Tout cela tourne hors du fil d'interface et remonte par `PostMessage`.
 
 ## Le panneau Catégories
@@ -150,7 +157,9 @@ sur `CDRF_SKIPDEFAULT`) : chevron, affiche 34 × 48 aux coins arrondis, titre, n
 d'épisodes. Les autres lignes sont dessinées de même (`DrawSimpleRow`), une ligne d'épisode
 portant l'icône que Windows donne à son type de fichier. Une ligne qui a des enfants se plie
 par un **chevron** à la manière d'IDM (`paint::Chevron`, lissé par GDI+, sur une pastille de la
-couleur de la ligne) au lieu du carré + / −. Les deux racines portent le dossier de Windows
+couleur de la ligne) au lieu du carré + / −. `Sidebar::OnTreePress` annonce lui-même le pli à la
+fenêtre (`TVN_ITEMEXPANDEDW`), qui l'enregistre : le contrôle ne le signale que la première fois
+qu'on le lui demande par message. Les deux racines portent le dossier de Windows
 (`SHGetStockIconInfo`, `SIID_FOLDER` et `SIID_FOLDEROPEN`, identiques sous Windows 11), la file
 principale l'enveloppe et celle du planificateur l'horloge de `shell32.dll` (ressources 265 et
 16752, chargées par leur numéro, plus stable que leur rang) ; le glyphe de la palette les
@@ -260,7 +269,7 @@ peint couleur `window` pour se lire comme la feuille sous l'onglet choisi. OK ap
 ne touche à rien.
 
 1. **Général** : l'icône et le titre « Intégration au navigateur / Système » soulignés, le
-   démarrage à l'ouverture de session (`Autostart`), le presse-papiers, la liste à cases
+   démarrage avec Windows (`Autostart`, coché par défaut), le presse-papiers, la liste à cases
    des navigateurs auxquels l'hôte se déclare (`settings.browsers`, tous par défaut), puis le
    bouton *Éditer…* du panneau de téléchargement (`IDD_PANEL` : mode complet ou mini avec un
    aperçu peint de chacun, sur la page, au survol des liens).
