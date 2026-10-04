@@ -432,35 +432,29 @@ void NotifyShell(const std::wstring& folder) {
 }
 
 // Points Explorer at the icon: desktop.ini, hidden files, read-only folder.
-// The icon carries its key in its name: Explorer caches a folder icon by
-// path, so a new file at the old name would keep showing the old picture.
-bool Place(const std::wstring& cached, const std::wstring& folder, const std::wstring& key) {
-    paths::EnsureDir(folder);
-    std::wstring name = L"folder-" + key + L".ico";
+// Tells the shell which icon a folder wears, by the name of the file alone:
+// the folder then keeps its icon when it is renamed, moved, or copied to
+// another disk, where a full path would point back to where it once stood.
+// The shell writes desktop.ini itself and updates what it remembers of the
+// folder on the way: this is what the Customize tab and the folder icon tools
+// do, and what a hand-written file never triggers.
+bool PointTo(const std::wstring& folder, const std::wstring& name) {
     std::wstring ico = folder + L"\\" + name;
     std::wstring ini = folder + L"\\desktop.ini";
 
     // What an earlier apply left is hidden and system, which Windows refuses
-    // to overwrite: strip the attributes before touching the files.
+    // to overwrite: strip the attributes before touching the file.
     DWORD folderAttributes = GetFileAttributesW(folder.c_str());
     if (folderAttributes != INVALID_FILE_ATTRIBUTES) {
         SetFileAttributesW(folder.c_str(), folderAttributes & ~FILE_ATTRIBUTE_READONLY);
     }
-    RemoveOldIcons(folder);
     SetFileAttributesW(ini.c_str(), FILE_ATTRIBUTE_NORMAL);
     DeleteFileW(ini.c_str());
 
-    if (!CopyFileW(cached.c_str(), ico.c_str(), FALSE)) {
-        return false;
-    }
-
-    // The shell writes desktop.ini itself, and updates what it remembers of
-    // the folder on the way: this is what the Customize tab and the folder
-    // icon tools do, and what a hand-written file never triggers.
     SHFOLDERCUSTOMSETTINGS custom = {};
     custom.dwSize = sizeof(custom);
     custom.dwMask = FCSM_ICONFILE;
-    custom.pszIconFile = const_cast<LPWSTR>(ico.c_str());
+    custom.pszIconFile = const_cast<LPWSTR>(name.c_str());
     custom.cchIconFile = 0;
     custom.iIconIndex = 0;
     if (FAILED(SHGetSetFolderCustomSettings(&custom, folder.c_str(), FCS_FORCEWRITE))) {
@@ -480,6 +474,44 @@ bool Place(const std::wstring& cached, const std::wstring& folder, const std::ws
     TouchFolder(folder);
     NotifyShell(folder);
     return true;
+}
+
+// The icon carries its key in its name: Explorer caches a folder icon by
+// path, so a new file at the old name would keep showing the old picture.
+bool Place(const std::wstring& cached, const std::wstring& folder, const std::wstring& key) {
+    paths::EnsureDir(folder);
+    std::wstring name = L"folder-" + key + L".ico";
+
+    DWORD folderAttributes = GetFileAttributesW(folder.c_str());
+    if (folderAttributes != INVALID_FILE_ATTRIBUTES) {
+        SetFileAttributesW(folder.c_str(), folderAttributes & ~FILE_ATTRIBUTE_READONLY);
+    }
+    RemoveOldIcons(folder);
+    if (!CopyFileW(cached.c_str(), (folder + L"\\" + name).c_str(), FALSE)) {
+        return false;
+    }
+    return PointTo(folder, name);
+}
+
+// The name of the icon file a folder holds, or empty when it has none.
+std::wstring IconIn(const std::wstring& folder) {
+    WIN32_FIND_DATAW found = {};
+    HANDLE search = FindFirstFileW((folder + L"\\folder-*.ico").c_str(), &found);
+    if (search == INVALID_HANDLE_VALUE) {
+        return std::wstring();
+    }
+    std::wstring name = found.cFileName;
+    FindClose(search);
+    return name;
+}
+
+// Whether a file of a folder is one the application put there to dress it.
+bool IsDressing(const std::wstring& name) {
+    std::wstring lower = name;
+    CharLowerBuffW(lower.data(), static_cast<DWORD>(lower.size()));
+    bool icon = lower.rfind(L"folder", 0) == 0 && lower.size() > 4 &&
+                lower.compare(lower.size() - 4, 4, L".ico") == 0;
+    return icon || lower == L"desktop.ini" || lower == L"cover.jpg" || lower == L".nomedia";
 }
 
 }  // namespace
@@ -568,6 +600,63 @@ bool AdaptForAniyomi(const std::wstring& folder, const std::vector<uint8_t>& pos
 // Whether a folder already carries the Aniyomi files.
 bool HasAniyomiFiles(const std::wstring& folder) {
     return IsFile(folder + L"\\cover.jpg") && IsFile(folder + L"\\.nomedia");
+}
+
+// Makes the icon of a folder dressed by an earlier version follow it: that
+// version wrote the full path of the icon, which a renamed, moved or copied
+// folder no longer matches.
+void Repair(const std::wstring& folder) {
+    std::wstring name = IconIn(folder);
+    if (name.empty()) {
+        return;
+    }
+    wchar_t resource[MAX_PATH * 2] = {};
+    GetPrivateProfileStringW(L".ShellClassInfo", L"IconResource", L"", resource,
+                             ARRAYSIZE(resource), (folder + L"\\desktop.ini").c_str());
+    std::wstring value = resource;
+    if (value.find(L":\\") != std::wstring::npos || value.rfind(L"\\\\", 0) == 0) {
+        PointTo(folder, name);
+    }
+}
+
+// Removes a folder that holds nothing but what the application put there to
+// dress it: the icon, desktop.ini and the files of Aniyomi. A folder with
+// anything else in it is left as it is.
+bool RemoveIfBare(const std::wstring& folder) {
+    std::vector<std::wstring> dressing;
+    WIN32_FIND_DATAW found = {};
+    HANDLE search = FindFirstFileW((folder + L"\\*").c_str(), &found);
+    if (search == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+    bool bare = true;
+    do {
+        std::wstring name = found.cFileName;
+        if (name == L"." || name == L"..") {
+            continue;
+        }
+        bool directory = (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        if (directory || !IsDressing(name)) {
+            bare = false;
+            break;
+        }
+        dressing.push_back(name);
+    } while (FindNextFileW(search, &found));
+    FindClose(search);
+    if (!bare) {
+        return false;
+    }
+
+    for (const std::wstring& name : dressing) {
+        std::wstring file = folder + L"\\" + name;
+        SetFileAttributesW(file.c_str(), FILE_ATTRIBUTE_NORMAL);
+        DeleteFileW(file.c_str());
+    }
+    DWORD attributes = GetFileAttributesW(folder.c_str());
+    if (attributes != INVALID_FILE_ATTRIBUTES) {
+        SetFileAttributesW(folder.c_str(), attributes & ~FILE_ATTRIBUTE_READONLY);
+    }
+    return RemoveDirectoryW(folder.c_str()) != 0;
 }
 
 }  // namespace foldericon
