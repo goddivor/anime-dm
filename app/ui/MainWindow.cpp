@@ -138,6 +138,16 @@ std::wstring FolderOf(const std::wstring& path) {
     return cut == std::wstring::npos ? std::wstring() : path.substr(0, cut);
 }
 
+// Whether a list of folders already names one, whatever the case.
+bool Holds(const std::vector<std::wstring>& folders, const std::wstring& folder) {
+    for (const std::wstring& known : folders) {
+        if (lstrcmpiW(known.c_str(), folder.c_str()) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Whether the episode is a film rather than a numbered episode.
 bool IsMovie(const std::string& name) {
     std::string lower = name;
@@ -785,6 +795,7 @@ void MainWindow::OnCreate() {
     HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
 
     settings_ = settings::Load();
+    SeedAutostart();
     if (settings_.sidebarWidth > 0) {
         sidebarWidth_ = settings_.sidebarWidth;
     }
@@ -859,6 +870,7 @@ void MainWindow::OnCreate() {
     ApplyTheme();
     UpdateActions();
     PublishSources();
+    RepairFolderIcons();
 }
 
 // Tells the browsers where the native host is, and writes what the extension
@@ -872,6 +884,50 @@ void MainWindow::PublishSources() {
     panel.onPage = settings_.panelOnPage;
     panel.onLinks = settings_.panelOnLinks;
     std::thread([store, http, panel] { bridge::WriteSources(*store, *http, panel); }).detach();
+}
+
+// Starts the application with Windows the first time it runs, as the option
+// says by default; a settings file written before that default is brought to
+// it once, and the box stays the user's to untick afterwards.
+void MainWindow::SeedAutostart() {
+    if (settings_.autostartSeeded) {
+        return;
+    }
+    settings_.autostartSeeded = true;
+    settings_.startWithWindows = true;
+    autostart::Set(true);
+    settings::Save(settings_);
+}
+
+// Makes the icon of each anime folder follow it, off this thread: the folders
+// an earlier version dressed named their icon by its full path.
+void MainWindow::RepairFolderIcons() {
+    std::vector<std::wstring> folders;
+    for (const DownloadItem& item : items_) {
+        std::wstring folder = FolderOf(item.outPath);
+        if (!folder.empty() && !Holds(folders, folder)) {
+            folders.push_back(folder);
+        }
+    }
+    std::thread([folders] {
+        for (const std::wstring& folder : folders) {
+            foldericon::Repair(folder);
+        }
+    }).detach();
+}
+
+// Removes the folders a deletion emptied: those no remaining item writes to
+// and that hold nothing but their icon and the files of Aniyomi.
+void MainWindow::RemoveBareFolders(const std::vector<std::wstring>& folders) {
+    for (const std::wstring& folder : folders) {
+        bool used = false;
+        for (const DownloadItem& item : items_) {
+            used = used || lstrcmpiW(FolderOf(item.outPath).c_str(), folder.c_str()) == 0;
+        }
+        if (!used) {
+            foldericon::RemoveIfBare(folder);
+        }
+    }
 }
 
 // Pushes onto the system and the engine what the options decide.
@@ -1944,7 +2000,7 @@ void MainWindow::DeleteAnime(const std::string& url) {
         return;
     }
 
-    std::wstring folder;
+    std::vector<std::wstring> folders;
     for (auto it = items_.begin(); it != items_.end();) {
         if (it->animeUrl != url) {
             ++it;
@@ -1953,14 +2009,15 @@ void MainWindow::DeleteAnime(const std::string& url) {
         downloader_.Cancel(it->id);
         if (confirm.checked) {
             DeleteFileW(it->outPath.c_str());
-            folder = FolderOf(it->outPath);
+            std::wstring folder = FolderOf(it->outPath);
+            if (!folder.empty() && !Holds(folders, folder)) {
+                folders.push_back(folder);
+            }
         }
         downloads_.Remove(it->id);
         it = items_.erase(it);
     }
-    if (!folder.empty()) {
-        RemoveDirectoryW(folder.c_str());
-    }
+    RemoveBareFolders(folders);
     PruneGroups();
     Persist();
     RebuildSidebar();
@@ -2228,6 +2285,7 @@ void MainWindow::RemoveSelected() {
     if (!ShowConfirm(hwnd_, instance, &confirm)) {
         return;
     }
+    std::vector<std::wstring> folders;
     for (uint64_t id : selected) {
         DownloadItem* item = Find(id);
         if (item == nullptr) {
@@ -2236,12 +2294,17 @@ void MainWindow::RemoveSelected() {
         downloader_.Cancel(id);
         if (confirm.checked) {
             DeleteFileW(item->outPath.c_str());
+            std::wstring folder = FolderOf(item->outPath);
+            if (!folder.empty() && !Holds(folders, folder)) {
+                folders.push_back(folder);
+            }
         }
         downloads_.Remove(id);
         items_.erase(std::remove_if(items_.begin(), items_.end(),
                                     [&](const DownloadItem& i) { return i.id == id; }),
                      items_.end());
     }
+    RemoveBareFolders(folders);
     PruneGroups();
     Persist();
     RebuildSidebar();
