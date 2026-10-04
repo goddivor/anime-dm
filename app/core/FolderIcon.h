@@ -37,4 +37,13 @@ bool AdaptForAniyomi(const std::wstring& folder, const std::vector<uint8_t>& pos
 // Whether a folder already carries the Aniyomi files.
 bool HasAniyomiFiles(const std::wstring& folder);
 
+// Makes the icon of a folder dressed by an earlier version follow the folder
+// when it is renamed, moved or copied; a folder already right is left alone.
+void Repair(const std::wstring& folder);
+
+// Removes a folder that holds nothing but what dresses it (icon, desktop.ini,
+// the Aniyomi files); true when the folder is gone. A folder that holds
+// anything else is left untouched.
+bool RemoveIfBare(const std::wstring& folder);
+
 }  // namespace foldericon

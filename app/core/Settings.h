@@ -15,7 +15,8 @@ struct Settings {
     bool closeToTray = true;              // the close box hides the window beside the clock
     bool rememberPath = false;            // reuse the folder below for the next downloads
     std::string savePath;                 // that folder, in UTF-8
-    bool startWithWindows = false;        // run when the user signs in
+    bool startWithWindows = true;         // run when Windows starts
+    bool autostartSeeded = false;         // whether that default was written to the system once
     std::vector<std::string> browsers;    // the ids of the browsers the host is declared to
     int maxRunning = 3;                   // videos downloaded at once
     int connections = 8;                  // connections one video may open

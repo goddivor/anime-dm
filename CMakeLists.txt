@@ -5,7 +5,7 @@ project(anime-dm LANGUAGES CXX)
 # The version of the application, N.NN: the two digits after the point count
 # the fixes and small additions of a release, the first moves on a large one.
 # It is the only place it is written.
-set(ADM_VERSION "0.01")
+set(ADM_VERSION "0.02")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
