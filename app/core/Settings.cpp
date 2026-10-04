@@ -47,6 +47,7 @@ Settings Load() {
     settings.rememberPath = root.value("rememberPath", settings.rememberPath);
     settings.savePath = root.value("savePath", settings.savePath);
     settings.startWithWindows = root.value("startWithWindows", settings.startWithWindows);
+    settings.autostartSeeded = root.value("autostartSeeded", settings.autostartSeeded);
     if (root.contains("browsers") && root["browsers"].is_array()) {
         settings.browsers.clear();
         for (const nlohmann::json& id : root["browsers"]) {
@@ -114,6 +115,7 @@ void Save(const Settings& settings) {
         {"rememberPath", settings.rememberPath},
         {"savePath", settings.savePath},
         {"startWithWindows", settings.startWithWindows},
+        {"autostartSeeded", settings.autostartSeeded},
         {"browsers", settings.browsers},
         {"maxRunning", settings.maxRunning},
         {"connections", settings.connections},

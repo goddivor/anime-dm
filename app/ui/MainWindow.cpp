@@ -785,6 +785,7 @@ void MainWindow::OnCreate() {
     HINSTANCE instance = reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd_, GWLP_HINSTANCE));
 
     settings_ = settings::Load();
+    SeedAutostart();
     if (settings_.sidebarWidth > 0) {
         sidebarWidth_ = settings_.sidebarWidth;
     }
@@ -872,6 +873,19 @@ void MainWindow::PublishSources() {
     panel.onPage = settings_.panelOnPage;
     panel.onLinks = settings_.panelOnLinks;
     std::thread([store, http, panel] { bridge::WriteSources(*store, *http, panel); }).detach();
+}
+
+// Starts the application with Windows the first time it runs, as the option
+// says by default; a settings file written before that default is brought to
+// it once, and the box stays the user's to untick afterwards.
+void MainWindow::SeedAutostart() {
+    if (settings_.autostartSeeded) {
+        return;
+    }
+    settings_.autostartSeeded = true;
+    settings_.startWithWindows = true;
+    autostart::Set(true);
+    settings::Save(settings_);
 }
 
 // Pushes onto the system and the engine what the options decide.

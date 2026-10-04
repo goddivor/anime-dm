@@ -159,6 +159,7 @@ private:
     void OpenAnimeFolder(const std::string& url);
     void DeleteAnime(const std::string& url);
     std::wstring FolderOfAnime(const std::string& url) const;
+    void SeedAutostart();
     void DecorateFolder(const std::string& url, const std::string& chosenTemplate);
     void ApplyIcon(const std::string& url, const std::string& templateId, bool aniyomi,
                    bool announce);
