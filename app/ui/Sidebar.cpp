@@ -674,6 +674,18 @@ bool Sidebar::OnTreePress(POINT point) {
         return false;
     }
     TreeView_Expand(tree_, item, TVE_TOGGLE);
+
+    // The control announces a fold only the first time it is asked to expand
+    // an item by message: the window is told here, every time.
+    NMTREEVIEWW folded = {};
+    folded.hdr.hwndFrom = tree_;
+    folded.hdr.idFrom = static_cast<UINT_PTR>(GetDlgCtrlID(tree_));
+    folded.hdr.code = TVN_ITEMEXPANDEDW;
+    folded.itemNew.hItem = item;
+    bool open = (TreeView_GetItemState(tree_, item, TVIS_EXPANDED) & TVIS_EXPANDED) != 0;
+    folded.action = open ? TVE_EXPAND : TVE_COLLAPSE;
+    SendMessageW(GetParent(tree_), WM_NOTIFY, folded.hdr.idFrom,
+                 reinterpret_cast<LPARAM>(&folded));
     return true;
 }
 
