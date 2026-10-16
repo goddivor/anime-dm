@@ -1,0 +1,73 @@
+<!--meta {
+  "title": "Sources",
+  "description": "Les sources d'Anime Download Manager : des bibliothèques vérifiées, installées depuis l'Addon Store, qui servent chacune un site d'animés.",
+  "nav": "sources",
+  "hero": {
+    "variant": "sources",
+    "title": "Les sources d'Anime Download Manager",
+    "subtitle": "Un site, une source : installez celles dont vous avez besoin depuis l'Addon Store",
+    "art": "<img src=\"{{root}}assets/img/logo-256.png\" width=\"190\" height=\"190\" alt=\"\">"
+  }
+} -->
+<div class="page">
+  <div class="prose">
+    <p>ADM ne contient la logique d'aucun site. Chaque site est servi par une <strong>source</strong> : une petite bibliothèque qui sait lire ses pages, lister les épisodes d'un animé et trouver les lecteurs d'un épisode. Vous l'installez, la mettez à jour ou la retirez depuis l'<em>Addon Store</em>, le bouton <em>Addons</em> de la barre d'outils.</p>
+
+    <h2>Sources disponibles</h2>
+    <table class="data">
+      <thead>
+        <tr><th>Source</th><th>Langue</th><th>Ce qu'elle sert</th><th class="hide-sm">Version</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>{{img source-voiranime half "Icône de la source Voir-Anime"}}<strong>Voir-Anime</strong></td>
+          <td>Français</td>
+          <td>Animés en VOSTFR et en VF, page d'animé et page d'épisode ; quatre lecteurs par épisode</td>
+          <td class="hide-sm">0.1.6</td>
+        </tr>
+        <tr>
+          <td>{{img source-frenchstream half "Icône de la source FrenchStream"}}<strong>FrenchStream</strong></td>
+          <td>Français</td>
+          <td>Films et séries, dont des animés, en VF et en VOSTFR</td>
+          <td class="hide-sm">0.1.4</td>
+        </tr>
+        <tr>
+          <td>{{img source-wiflix half "Icône de la source Wiflix"}}<strong>Wiflix</strong></td>
+          <td>Français</td>
+          <td>Films et séries en VF et en VOSTFR</td>
+          <td class="hide-sm">0.1.3</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <figure>
+      {{img addon-store "L'Addon Store d'ADM : chaque source avec son icône, sa langue, sa version et son état"}}
+      <figcaption>L'Addon Store : installer, mettre à jour, retirer et régler une source.</figcaption>
+    </figure>
+
+    <h2>Installer une source</h2>
+    <ol class="steps">
+      <li>Cliquez sur <em>Addons</em> dans la barre d'outils.</li>
+      <li>Choisissez la source dans la liste, puis cliquez sur le bouton de téléchargement en haut à droite.</li>
+      <li>La source est prête : collez l'adresse d'un animé de son site dans <em>Ajout URL</em>, ADM la choisit d'office.</li>
+    </ol>
+
+    <h2>Quand un site change d'adresse</h2>
+    <p>Certains sites changent régulièrement de nom de domaine. Inutile d'attendre une nouvelle version : sélectionnez la source dans l'Addon Store, cliquez sur la roue dentée et indiquez la nouvelle adresse dans le champ <em>URL du site</em>.</p>
+
+    <h2>Pourquoi vous pouvez leur faire confiance</h2>
+    <ul>
+      <li><strong>L'adresse du magasin est inscrite dans l'application</strong> : ce n'est pas une liste que n'importe qui pourrait modifier.</li>
+      <li><strong>Chaque source porte une empreinte SHA-256</strong> dans l'index du magasin ; ADM la vérifie avant même d'écrire le fichier sur le disque.</li>
+      <li><strong>Une source n'ouvre aucune connexion elle-même</strong> : toutes les requêtes passent par l'application.</li>
+      <li><strong>Leur code est public</strong>, dans le dépôt <a href="https://github.com/goddivor/anime-dm-addons">anime-dm-addons</a>.</li>
+    </ul>
+
+    <h2>Proposer une source</h2>
+    <p>Une source s'écrit en Rust et se compile en bibliothèque Windows. Le dépôt <a href="https://github.com/goddivor/anime-dm-addons">anime-dm-addons</a> décrit l'interface et contient les trois sources existantes, à prendre pour modèle. Ouvrez une demande de fusion : une fois relue, la source rejoint le magasin.</p>
+
+    <div class="note warn">
+      <p>ADM n'héberge ni ne fournit aucun contenu : il télécharge ce que les sites servent. Il vous revient de vérifier que vous avez le droit de télécharger ce que vous téléchargez. Lire l'<a href="{{root}}avertissement.html">avertissement</a>.</p>
+    </div>
+  </div>
+</div>

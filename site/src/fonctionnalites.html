@@ -1,0 +1,161 @@
+<!--meta {
+  "title": "Fonctionnalités",
+  "description": "Toutes les fonctionnalités d'Anime Download Manager : accélération par segmentation, intégration aux navigateurs, sources vérifiées, planificateur, animés suivis, icônes de dossier, export et import.",
+  "nav": "features",
+  "hero": {
+    "title": "Fonctionnalités d'Anime Download Manager",
+    "subtitle": "Tout ce qu'ADM fait pour vos animés, gratuitement",
+    "cta": ["Télécharger Anime Download Manager", "{{download_url}}"],
+    "cta_style": "ghost",
+    "art": "<img src=\"{{root}}assets/img/logo-256.png\" width=\"200\" height=\"200\" alt=\"\">"
+  }
+} -->
+<div class="features">
+
+  <section class="feature flip" id="acceleration">
+    <div class="text">
+      <h2>Accélération des téléchargements</h2>
+      <p>Anime Download Manager tire chaque vidéo par huit connexions à la fois et mène trois épisodes de front ; les deux nombres se règlent dans les Options (jusqu'à seize connexions et dix téléchargements simultanés). Quand un hébergeur offre à la fois un fichier direct et une liste HLS, ADM prend le fichier direct : ce sont les plages d'octets qui accélèrent.</p>
+    </div>
+    <div class="media">{{img main-dark "Trois épisodes en cours avec leur débit et leur temps restant"}}</div>
+  </section>
+
+  <section class="feature" id="sites">
+    <div class="text">
+      <h2>Téléchargez depuis vos sites préférés</h2>
+      <p>Avec l'extension d'ADM, continuez à naviguer comme d'habitude. Survolez l'affiche d'un animé ou le lien d'un épisode : un panneau « Télécharger avec ADM » se pose dessus. Sur la page même d'un animé ou d'un épisode, le bouton attend dans le coin.</p>
+    </div>
+    <div class="media">{{browser browser-hover-poster "voir-anime.to" "Le panneau « Télécharger avec ADM » posé sur l'affiche survolée de la page d'accueil d'un site d'animés"}}</div>
+  </section>
+
+  <section class="feature flip" id="navigateurs">
+    <div class="text">
+      <h2>Tous les navigateurs courants</h2>
+      <p>ADM se déclare à Google Chrome, Microsoft Edge, Brave, Chromium, Vivaldi, Opera et Mozilla Firefox ; vous choisissez lesquels dans Options › Général. L'extension ne parle jamais au réseau : elle remet l'adresse à l'application, qui fait tout le travail.</p>
+      <a class="link-caps" href="{{root}}support/extension.html">Installer et régler l'extension</a>
+    </div>
+    <div class="media">{{browser browser-anime-page "voir-anime.to/anime/sousou-no-frieren/" "Le bouton « Télécharger avec ADM » dans le coin de la page d'un animé"}}</div>
+  </section>
+
+  <section class="feature" id="ajout">
+    <div class="text">
+      <h2>Ajouter en trois fenêtres, comme dans IDM</h2>
+      <p>L'adresse, puis les informations (dossier, icône du dossier, affiche, nombre d'épisodes), puis le choix des épisodes. La source se choisit d'elle-même d'après l'adresse, et le lien du presse-papiers se colle à l'ouverture. Chaque ajout vit dans ses propres fenêtres : ouvrez-en autant que vous voulez, la fenêtre principale reste libre.</p>
+    </div>
+    <div class="media">{{img add-info "Fenêtre Info sur le téléchargement : adresse, icône du dossier, dossier d'enregistrement, affiche et nombre d'épisodes"}}</div>
+  </section>
+
+  <section class="feature flip" id="lot">
+    <div class="text">
+      <h2>Téléchargement par lot</h2>
+      <p>Copiez une liste d'adresses, d'animés ou d'épisodes, depuis n'importe où, puis tapez <kbd>Ctrl</kbd> + <kbd>Maj</kbd> + <kbd>V</kbd>. ADM les regroupe par animé et ouvre une fenêtre d'ajout pour chacun, source choisie et épisodes cochés ; un avis compte les adresses qu'aucune source ne sert.</p>
+    </div>
+    <div class="media">{{img add-url "Fenêtre Ajouter un téléchargement : l'adresse d'un animé et la source Voir-Anime choisie d'office"}}</div>
+  </section>
+
+  <section class="feature" id="theme">
+    <div class="text">
+      <h2>Thème sombre</h2>
+      <p>Le thème sombre d'ADM couvre la fenêtre principale, les menus, les dialogues et la barre d'outils ; ses couleurs reprennent au pixel près celles d'IDM 6.43. Il peut aussi suivre le réglage de Windows. Le thème clair reste à un clic, dans le menu Affichage.</p>
+    </div>
+    <div class="media">{{img theme-split "La même fenêtre en thème sombre et en thème clair"}}</div>
+  </section>
+
+  <section class="feature flip" id="segmentation">
+    <div class="text">
+      <h2>Segmentation dynamique</h2>
+      <p>Au démarrage, nul ne sait combien de connexions l'hébergeur acceptera. ADM ne découpe donc pas le fichier à l'avance : il part d'un seul segment, et chaque connexion qui se libère prend la moitié du plus gros segment restant (jamais moins d'un mégaoctet). Toutes les connexions restent occupées jusqu'à la fin, puis les parts sont assemblées dans l'ordre.</p>
+      <a class="link-caps" href="{{root}}support/segmentation.html">En savoir plus sur la segmentation</a>
+    </div>
+    <div class="media">{{partial segments}}</div>
+  </section>
+
+  <section class="feature" id="reprise">
+    <div class="text">
+      <h2>Reprise des téléchargements</h2>
+      <p>Les positions sont enregistrées toutes les trois secondes. Après un arrêt, une coupure ou un redémarrage, ADM relit la page, obtient une nouvelle adresse de la vidéo (celles des hébergeurs expirent) et reprend là où il s'était arrêté, si la taille n'a pas changé. Un lecteur ne répond plus ? Reprenez l'épisode avec un autre, depuis le menu contextuel.</p>
+    </div>
+    <div class="media">{{img menu-resume "Menu contextuel d'un épisode en échec : Reprendre, puis Automatique ou l'un des lecteurs de la source"}}</div>
+  </section>
+
+  <section class="feature flip" id="planificateur">
+    <div class="text">
+      <h2>Planificateur</h2>
+      <p>Deux files, la principale et celle du planificateur. Démarrez une file une fois à une date donnée ou chaque jour aux jours cochés, arrêtez-la à heure fixe, et choisissez ce qui se passe quand elle est finie : rien, quitter ADM ou éteindre l'ordinateur.</p>
+      <a class="link-caps" href="{{root}}support/planificateur.html">Le planificateur en détail</a>
+    </div>
+    <div class="media">{{img scheduler-queues "Onglet Files du planificateur : démarrage chaque jour, arrêt, action une fois la file terminée et fichiers de la file"}}</div>
+  </section>
+
+  <section class="feature" id="suivis">
+    <div class="text">
+      <h2>Animés suivis</h2>
+      <p>Indiquez le jour et l'heure de sortie d'un animé en cours de diffusion. À la première vérification, ADM propose les épisodes déjà sortis qui manquent à votre liste ; ensuite, il ajoute seul chaque nouvel épisode dans le dossier de l'animé, et le lance si vous le souhaitez.</p>
+    </div>
+    <div class="media">{{img follow "Fenêtre Suivre un animé : jour de sortie, heure, file de destination et démarrage aussitôt"}}</div>
+  </section>
+
+  <section class="feature flip" id="dossiers">
+    <div class="text">
+      <h2>Icônes de dossier et Aniyomi</h2>
+      <p>ADM habille le dossier de chaque animé d'une icône tirée de son affiche, au modèle de votre choix (boîtier DVD sombre ou clair, Blu-ray, disque, dossier vertical, et d'autres). L'icône est désignée par son seul nom de fichier : le dossier la garde quand il est renommé, déplacé ou copié sur un autre disque. L'option Aniyomi ajoute <code>cover.jpg</code> et <code>.nomedia</code> pour une bibliothèque sur téléphone.</p>
+    </div>
+    <div class="media">{{img folder-icons "Dossiers habillés par ADM dans l'Explorateur de Windows"}}</div>
+  </section>
+
+  <section class="feature" id="categories">
+    <div class="text">
+      <h2>Le panneau Catégories</h2>
+      <p>Chaque animé y figure avec son affiche, son titre et son nombre d'épisodes ; un chevron le plie ou le déplie, et ADM s'en souvient. Cliquez un animé pour filtrer la liste, ou faites un clic droit pour ouvrir son dossier, changer son icône, le mettre dans une file ou le suivre.</p>
+    </div>
+    <div class="media">{{img main-light "Le panneau Catégories en thème clair, avec les affiches des animés"}}</div>
+  </section>
+
+  <section class="feature flip" id="export">
+    <div class="text">
+      <h2>Exporter et importer</h2>
+      <p>Tâches › Exporter écrit la sélection, ou toute la liste, dans le fichier d'ADM (<code>.adm</code>, complet), en texte d'adresses, en JSON, en CSV ou en classeur Excel (<code>.xlsx</code>) ou OpenDocument (<code>.ods</code>). Tâches › Importer relit toutes ces formes, retrouve la source de chaque adresse et laisse de côté les épisodes déjà présents.</p>
+    </div>
+    <div class="media">{{img menu-list "Menu contextuel de la liste : ouvrir, ouvrir le dossier, reprendre, arrêter, mettre dans la file, supprimer"}}</div>
+  </section>
+
+  <section class="feature" id="sources">
+    <div class="text">
+      <h2>Un magasin de sources vérifiées</h2>
+      <p>Les sites ne sont pas codés dans l'application : chacun est une source que l'Addon Store installe, met à jour ou retire. L'adresse du magasin est figée dans l'application et chaque source porte une empreinte SHA-256, contrôlée avant toute écriture sur le disque. Les réglages d'une source, comme l'adresse de son site, se modifient depuis le magasin.</p>
+      <a class="link-caps" href="{{root}}sources.html">Les sources disponibles</a>
+    </div>
+    <div class="media">{{img addon-store "L'Addon Store et ses trois sources"}}</div>
+  </section>
+
+  <section class="feature flip" id="personnalisation">
+    <div class="text">
+      <h2>Interface personnalisable</h2>
+      <p>Choisissez les colonnes de la liste et leur ordre, la police de l'interface, et la barre d'outils : les packs animés Classique Rem et Néon, les glyphes de Windows ou les peaux de barre d'outils d'Internet Download Manager. La taille de la fenêtre, la largeur du panneau et celle des colonnes sont gardées d'une session à l'autre.</p>
+      <a class="link-caps" href="{{root}}support/barre-outils.html">Choisir sa barre d'outils</a>
+    </div>
+    <div class="media">{{img columns "Fenêtre Personnaliser les colonnes"}}</div>
+  </section>
+
+  <section class="feature" id="notification">
+    <div class="text">
+      <h2>Discret, à côté de l'horloge</h2>
+      <p>La croix de la fenêtre range ADM dans la zone de notification : téléchargements, planificateur, suivis et extension continuent. Une notification annonce chaque épisode terminé, l'infobulle compte les transferts en cours, et ADM démarre avec Windows, fenêtre cachée.</p>
+    </div>
+    <div class="media">{{img options-general "Options, onglet Général : démarrage avec Windows, zone de notification, presse-papiers et navigateurs intégrés"}}</div>
+  </section>
+
+  <section class="feature flip" id="mises-a-jour">
+    <div class="text">
+      <h2>Mises à jour intégrées</h2>
+      <p>Quelques secondes après le démarrage, ADM regarde discrètement si une version plus récente existe. Si oui, il la propose avec ses notes ; acceptée, elle se télécharge, s'installe et rouvre l'application. Aide › Mise à jour rapide la cherche à la demande.</p>
+    </div>
+    <div class="media">{{img about "Fenêtre À propos d'Anime Download Manager, avec le bouton Vérifier les mises à jour"}}</div>
+  </section>
+
+</div>
+
+<div class="features-cta">
+  <a class="btn btn-solid btn-large" href="{{download_url}}">Télécharger ADM {{version}}</a>
+  <a class="btn btn-outline btn-large" href="{{root}}support/utiliser-adm.html">Lire le guide d'utilisation</a>
+</div>

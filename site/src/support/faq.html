@@ -1,0 +1,72 @@
+<!--meta {
+  "title": "Questions fréquentes",
+  "description": "Les réponses aux questions les plus courantes sur Anime Download Manager : installation, navigateur, sources, téléchargements, planificateur.",
+  "nav": "support",
+  "hero": {
+    "variant": "plain",
+    "back": true,
+    "title": "Questions fréquentes"
+  }
+} -->
+<div class="page">
+  <div class="prose faq">
+    <form class="faq-search" role="search" onsubmit="return false">
+      <input type="search" id="faq-filter" placeholder="Filtrer les questions, par exemple « lecteur » ou « Firefox »" aria-label="Filtrer les questions">
+    </form>
+    <p class="faq-empty">Aucune question ne correspond. <a href="{{root}}contact.html">Écrivez-nous</a>.</p>
+
+    <h2 id="installation">Installation et mises à jour</h2>
+    <div>
+      <details><summary>Sur quels systèmes ADM fonctionne-t-il ?</summary><div><p>Sur Windows 10 et Windows 11, en 64 bits. L'application est livrée en un seul exécutable, sans bibliothèque à installer à côté.</p></div></details>
+      <details><summary>Windows dit « Windows a protégé votre ordinateur ». Est-ce normal ?</summary><div><p>Oui. L'installateur n'est pas encore signé par un certificat payant, et SmartScreen signale tout programme encore peu répandu. Cliquez sur <em>Informations complémentaires</em>, puis sur <em>Exécuter quand même</em>. Le code d'ADM est public sur GitHub.</p></div></details>
+      <details><summary>Où ADM range-t-il ma liste et mes réglages ?</summary><div><p>Dans <code>%APPDATA%\anime-dm</code> : la liste (<code>downloads.json</code>), les réglages, les animés suivis, les affiches et les sources installées. ADM n'écrit jamais dans son dossier d'installation.</p></div></details>
+      <details><summary>Comment mettre ADM à jour ?</summary><div><p>Vous n'avez rien à faire : ADM vérifie seul l'existence d'une nouvelle version après chaque démarrage et vous la propose. Pour la chercher tout de suite : <em>Aide › Mise à jour rapide</em>. La mise à jour garde votre liste et vos réglages.</p></div></details>
+      <details><summary>ADM se lance au démarrage de Windows. Comment l'en empêcher ?</summary><div><p>Décochez <em>Lancer Anime Download Manager au démarrage de Windows</em> dans <em>Options › Général</em>.</p></div></details>
+      <details><summary>La désinstallation supprime-t-elle mes vidéos ?</summary><div><p>Non, jamais. Elle vide <code>%APPDATA%\anime-dm</code> en gardant les sources installées, sauf si vous cochez la case qui les retire aussi.</p></div></details>
+    </div>
+
+    <h2 id="navigateur">Intégration au navigateur</h2>
+    <div>
+      <details><summary>Quels navigateurs sont pris en charge ?</summary><div><p>Google Chrome, Microsoft Edge, Brave, Chromium, Vivaldi, Opera et Mozilla Firefox. Vous choisissez ceux auxquels ADM se déclare dans <em>Options › Général</em>.</p></div></details>
+      <details><summary>Où trouver l'extension ?</summary><div><p>Le bouton <em>Installer l'extension…</em> d'<em>Options › Général</em> ouvre sa page. Sa publication sur le Chrome Web Store et sur le site des modules de Firefox est en cours ; consultez la page <a href="{{root}}support/extension.html">Intégration au navigateur</a> pour son état.</p></div></details>
+      <details><summary>Le bouton « Télécharger avec ADM » n'apparaît pas sur un site.</summary><div><ol><li>Vérifiez qu'une source sert ce site : elle doit être installée dans l'Addon Store.</li><li>Vérifiez que votre navigateur est coché dans <em>Options › Général</em>.</li><li>Lancez ADM au moins une fois après l'installation d'une source : c'est lui qui indique à l'extension les sites servis.</li><li>Fermez puis rouvrez le navigateur.</li></ol></div></details>
+      <details><summary>Le panneau apparaît trop souvent. Peut-on le réduire ?</summary><div><p>Oui : <em>Options › Général › Éditer…</em> choisit le mode complet ou mini, et s'il apparaît sur les pages, au survol des liens, ou les deux.</p></div></details>
+      <details><summary>L'extension envoie-t-elle mes données quelque part ?</summary><div><p>Non. Elle ne parle jamais au réseau : elle remet seulement l'adresse de la page à l'application installée sur votre ordinateur, quand vous cliquez sur son bouton.</p></div></details>
+    </div>
+
+    <h2 id="sources">Sources et Addon Store</h2>
+    <div>
+      <details><summary>Qu'est-ce qu'une source ?</summary><div><p>Une petite bibliothèque qui sait lire un site : trouver l'animé, ses épisodes et leurs lecteurs. ADM n'en contient aucune ; vous installez celles dont vous avez besoin depuis l'Addon Store. Voir la page <a href="{{root}}sources.html">Sources</a>.</p></div></details>
+      <details><summary>ADM dit qu'aucune source ne sert mon adresse.</summary><div><p>Installez la source du site depuis l'Addon Store. Si elle est déjà installée, le site a peut-être changé d'adresse : réglez la nouvelle dans l'Addon Store (roue dentée, champ <em>URL du site</em>).</p></div></details>
+      <details><summary>Un site a changé de nom de domaine.</summary><div><p>Sélectionnez sa source dans l'Addon Store, cliquez sur la roue dentée et indiquez la nouvelle adresse dans <em>URL du site</em>. Pas besoin d'attendre une mise à jour.</p></div></details>
+      <details><summary>Puis-je ajouter un site qui n'est pas pris en charge ?</summary><div><p>Proposez-le depuis la page <a href="{{root}}contact.html">Contact</a>, ou écrivez sa source vous-même : le dépôt <a href="https://github.com/goddivor/anime-dm-addons">anime-dm-addons</a> en contient trois à prendre pour modèle.</p></div></details>
+    </div>
+
+    <h2 id="telechargements">Téléchargements et lecteurs</h2>
+    <div>
+      <details><summary>Où vont mes vidéos ?</summary><div><p>Dans le dossier indiqué dans la fenêtre <em>Info sur le téléchargement</em>, chaque animé dans son sous-dossier. Cochez <em>Rappeler ce chemin</em> pour que ce dossier soit proposé aux ajouts suivants ; il se change aussi dans <em>Options › Enregistrer sous</em>.</p></div></details>
+      <details><summary>Un épisode est en échec. Que faire ?</summary><div><p>Le lecteur choisi ne répond plus ou n'a pas la vidéo. Faites un clic droit sur l'épisode, puis <em>Reprendre</em> et choisissez un autre lecteur dans la liste. <em>Automatique</em> laisse la source essayer les lecteurs dans son ordre.</p></div></details>
+      <details><summary>Un épisode terminé est tronqué ou de mauvaise qualité.</summary><div><p>Un lecteur sert parfois une copie incomplète. Clic droit, <em>Reprendre</em>, puis un autre lecteur : pour un épisode terminé, ADM repart de zéro avec ce lecteur.</p></div></details>
+      <details><summary>Quelle différence entre Arrêter et Supprimer ?</summary><div><p><em>Arrêter</em> garde ce qui a déjà été reçu : <em>Reprendre</em> repartira de là. <em>Supprimer</em> retire l'épisode de la liste et jette les parts reçues ; la case de la confirmation supprime aussi le fichier du disque.</p></div></details>
+      <details><summary>Comment accélérer ou ralentir les téléchargements ?</summary><div><p><em>Options › Téléchargements</em> règle le nombre de téléchargements simultanés (1 à 10) et de connexions par téléchargement (1 à 16). Certains hébergeurs limitent le nombre de connexions : au-delà, plus de connexions n'apportent rien.</p></div></details>
+      <details><summary>Pourquoi certains fichiers sont-ils en .ts ?</summary><div><p>Certains lecteurs servent la vidéo en liste HLS, découpée en petits morceaux. ADM les assemble en un fichier <code>.ts</code> (ou <code>.mp4</code> quand il s'agit de MP4 fragmenté), que lisent VLC, mpv et la plupart des lecteurs.</p></div></details>
+      <details><summary>Le téléchargement reprend-il après une coupure ?</summary><div><p>Oui. Les positions sont enregistrées toutes les trois secondes ; à la reprise, ADM relit la page pour obtenir une adresse fraîche de la vidéo, et reprend là où il en était si la taille du fichier n'a pas changé.</p></div></details>
+    </div>
+
+    <h2 id="planificateur">Planificateur et animés suivis</h2>
+    <div>
+      <details><summary>Comment télécharger la nuit ?</summary><div><p>Mettez les épisodes dans la file du planificateur (clic droit, <em>Mettre dans la file</em>), puis, dans <em>Planifier › Files</em>, cochez <em>Démarrer cette file automatiquement</em>, l'heure, et éventuellement <em>Éteindre l'ordinateur</em> une fois la file terminée.</p></div></details>
+      <details><summary>Comment recevoir les nouveaux épisodes d'un animé en cours ?</summary><div><p>Clic droit sur l'animé dans le panneau Catégories, <em>Suivre les nouveaux épisodes…</em>, puis indiquez son jour et son heure de sortie. Voir <a href="{{root}}support/planificateur.html#suivis">Les animés suivis</a>.</p></div></details>
+      <details><summary>Pourquoi dois-je saisir le jour de sortie ?</summary><div><p>Les sites ne donnent pas la date de chaque épisode. ADM préremplit le jour et l'heure avec le moment où vous suivez l'animé ; corrigez-les d'après le calendrier de diffusion.</p></div></details>
+    </div>
+
+    <h2 id="general">Questions générales</h2>
+    <div>
+      <details><summary>ADM est-il vraiment gratuit ?</summary><div><p>Oui : pas de période d'essai, pas de version payante, pas de publicité et pas de compte. Son code est public sur GitHub.</p></div></details>
+      <details><summary>ADM fournit-il des vidéos ?</summary><div><p>Non. ADM n'héberge ni ne fournit aucun contenu : il télécharge ce que les sites servent. Il vous revient de vérifier votre droit à le faire ; lire l'<a href="{{root}}avertissement.html">avertissement</a>.</p></div></details>
+      <details><summary>La croix ne ferme pas ADM.</summary><div><p>Elle le range dans la zone de notification, à côté de l'horloge, pour que les téléchargements continuent. Pour quitter : <em>Tâches › Quitter</em>, ou clic droit sur l'icône d'ADM près de l'horloge, puis <em>Quitter</em>. Ce comportement se règle dans <em>Options › Général</em>.</p></div></details>
+      <details><summary>Peut-on utiliser ADM en anglais ?</summary><div><p>Oui : <em>Affichage › Langue › English</em>.</p></div></details>
+      <details><summary>Mes peaux de barre d'outils d'IDM fonctionnent-elles ?</summary><div><p>Oui. Déposez-les dans <code>%APPDATA%\anime-dm\toolbar</code> et choisissez-les par <em>Affichage › Barre d'outils</em>. Voir <a href="{{root}}support/barre-outils.html">Barre d'outils</a>.</p></div></details>
+    </div>
+  </div>
+</div>

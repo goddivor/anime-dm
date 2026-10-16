@@ -1,0 +1,63 @@
+<!--meta {
+  "title": "Planificateur",
+  "description": "Le planificateur d'Anime Download Manager : deux files à démarrer et arrêter à heure fixe, et le suivi des animés en cours de diffusion.",
+  "nav": "support"
+} -->
+<div class="page">
+  <p class="breadcrumb"><a href="{{root}}support/index.html">← Support</a></p>
+  <h1 class="page-title">Le planificateur d'ADM</h1>
+
+  <div class="with-sidebar">
+    <nav class="sidebar" aria-label="Sommaire">
+      <ul>
+        <li><a href="#files">Les files</a>
+          <ul>
+            <li><a href="#mettre">Mettre dans une file</a></li>
+            <li><a href="#programmer">Programmer une file</a></li>
+          </ul>
+        </li>
+        <li><a href="#suivis">Les animés suivis</a>
+          <ul>
+            <li><a href="#suivre">Suivre un animé</a></li>
+            <li><a href="#rythme">Le rythme des vérifications</a></li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="prose">
+      <h2 id="files">Les files</h2>
+      <p>ADM a deux files : la <strong>file principale</strong> et la <strong>file du planificateur</strong>. Chaque épisode appartient à l'une d'elles ; le panneau Catégories les montre sous les animés. <em>Démarrer la file</em> reprend ses épisodes arrêtés ou en échec, <em>Arrêter la file</em> stoppe ceux qui tournent.</p>
+
+      <h3 id="mettre">Mettre dans une file</h3>
+      <p>Faites un clic droit sur des épisodes de la liste, ou sur un animé du panneau pour tous ses épisodes, puis <em>Mettre dans la file</em> : une coche montre la file actuelle. Le bouton <em>Plus tard</em> de la fenêtre d'ajout dépose les épisodes, arrêtés, dans la file principale.</p>
+
+      <h3 id="programmer">Programmer une file</h3>
+      <figure>{{img scheduler-queues "Planificateur, onglet Files : démarrage chaque jour à une heure donnée"}}</figure>
+      <p>Cliquez sur <em>Planifier</em>, puis, dans l'onglet <em>Files</em>, choisissez la file et réglez :</p>
+      <ul>
+        <li><strong>le démarrage automatique</strong> : <em>une fois</em>, à une date et une heure, ou <em>chaque jour</em>, aux jours cochés ;</li>
+        <li><strong>l'arrêt automatique</strong>, à une heure fixe ;</li>
+        <li><strong>ce qui se passe une fois la file terminée</strong> : rien, quitter ADM ou éteindre l'ordinateur.</li>
+      </ul>
+      <p>La liste du bas montre les fichiers de la file et leur état ; <em>Démarrer maintenant</em> la lance sans attendre. ADM doit être ouvert, même caché dans la zone de notification, pour que la file démarre à l'heure dite.</p>
+      <div class="note"><p>Une session interrompue (coupure de courant, redémarrage) ne laisse rien en attente : au lancement suivant, tout ce qui était actif passe à l'état arrêté, et c'est la file programmée ou vous qui le relancez.</p></div>
+
+      <h2 id="suivis">Les animés suivis</h2>
+      <figure>{{img scheduler-follows "Planificateur, onglet Animés suivis"}}</figure>
+      <p>Un animé suivi est vérifié régulièrement ; ses nouveaux épisodes sont ajoutés d'eux-mêmes dans son dossier, et lancés si vous le souhaitez. L'onglet <em>Animés suivis</em> les liste, avec le dernier épisode paru, le jour de sortie et la prochaine vérification ; <em>Vérifier maintenant</em> n'attend pas.</p>
+
+      <h3 id="suivre">Suivre un animé</h3>
+      <figure>{{img follow "Fenêtre Suivre un animé"}}</figure>
+      <ol class="steps">
+        <li>Faites un clic droit sur l'animé dans le panneau Catégories, puis <em>Suivre les nouveaux épisodes…</em> (ou <em>Suivre un animé…</em> dans l'onglet).</li>
+        <li>Indiquez le <strong>jour</strong> et l'<strong>heure de sortie</strong>. Les sites ne donnent pas la date des épisodes : ADM préremplit ces champs avec le moment présent, à vous de les corriger d'après le calendrier de diffusion.</li>
+        <li>Choisissez la <strong>file</strong> qui recevra les nouveaux épisodes, et s'ils démarrent aussitôt.</li>
+        <li>Validez. La première vérification vous <strong>propose les épisodes déjà sortis</strong> qui manquent à votre liste : ceux qui suivent votre dernier épisode téléchargé sont cochés, les plus anciens non.</li>
+      </ol>
+
+      <h3 id="rythme">Le rythme des vérifications</h3>
+      <p>ADM vérifie la page de l'animé au moment de la sortie, puis toutes les trois heures pendant deux jours tant que l'épisode n'a pas paru. Dès qu'il paraît, ou après ces deux jours, la vérification suivante est programmée pour la semaine d'après.</p>
+    </div>
+  </div>
+</div>
