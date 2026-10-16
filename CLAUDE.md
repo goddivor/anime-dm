@@ -69,6 +69,29 @@ build\download-smoke.exe --url <url vidéo> <sortie> [referer]    # le transfert
   avec ses notes ; acceptée, son installateur est téléchargé puis lancé en `/SILENT`, et
   l'application se ferme ; l'installateur la rouvre une fois à jour.
 
+## Le site web
+
+`site/` est le site de l'application, servi par GitHub Pages à `goddivor.github.io/anime-dm/`
+(adresses déjà inscrites dans la fenêtre À propos et l'installateur, dont `support/`). Il reprend
+page par page la structure du site d'IDM (en-tête, bandeaux, sections alternées capture / texte,
+pages d'aide à menu latéral, captures annotées), dans les couleurs du logo d'ADM, en français.
+
+- **`site/build.py`** (bibliothèque standard seule) assemble `site/src/**/*.html` dans
+  `site/_site/` (ignoré par git) : chaque page commence par `<!--meta {…} -->` (titre, entrée du
+  menu, bandeau), reçoit l'en-tête et le pied communs, et des raccourcis : `{{img nom [half] "alt"}}`
+  (dimensions lues dans le fichier), `{{browser nom "adresse" "alt"}}` (cadre de navigateur),
+  `{{sequence nom n "adresse" "alt" durées}}` (images qui défilent comme un GIF),
+  `{{toolbar pack dark|light}}` (barre de sprites animés au survol), `{{partial nom}}`
+  (`src/_partials/`). La version vient de `CMakeLists.txt` ; la date et la taille de chaque version
+  sont dans `RELEASES`, à compléter à chaque sortie avec la page `nouveautes.html`. Les espaces
+  insécables du français sont posées à la génération.
+- **Les images** (`site/assets/img`) sont des captures de l'application et de l'extension, en WebP.
+  Pour en refaire, isoler les données de l'utilisateur (le dossier
+  `%APPDATA%\anime-dm` se remplace, la variable `APPDATA` ne sert à rien) ; l'extension se pilote
+  par un Edge de test lancé avec `--remote-debugging-port`, relié à Linux par un tunnel SSH.
+- **La publication** (`.github/workflows/pages.yml`) reconstruit et déploie le site à chaque
+  poussée sur `feature/win32-cpp` qui touche `site/` ou `CMakeLists.txt`.
+
 ## Architecture
 
 - **`app/core/`** : ce qui ne touche pas à l'écran.

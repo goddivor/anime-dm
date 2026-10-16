@@ -1,0 +1,50 @@
+<!--meta {
+  "title": "Segmentation dynamique",
+  "description": "Comment Anime Download Manager accélère les téléchargements : sondage, segmentation dynamique, réutilisation des connexions, reprise et assemblage, listes HLS.",
+  "nav": "support"
+} -->
+<div class="page">
+  <p class="breadcrumb"><a href="{{root}}support/index.html">← Support</a></p>
+  <h1 class="page-title">Segmentation dynamique et performances</h1>
+
+  <div class="with-sidebar">
+    <nav class="sidebar" aria-label="Sommaire">
+      <ul>
+        <li><a href="#principes">Les principes</a></li>
+        <li><a href="#etapes">Les quatre étapes</a></li>
+        <li><a href="#reprise">Arrêt et reprise</a></li>
+        <li><a href="#hls">Les listes HLS</a></li>
+        <li><a href="#reglages">Les réglages</a></li>
+      </ul>
+    </nav>
+
+    <div class="prose">
+      <h2 id="principes">Les principes</h2>
+      <ul>
+        <li>Le fichier est découpé <strong>pendant</strong> le téléchargement, en coupant en deux le plus gros segment restant, et non à l'avance.</li>
+        <li>Une connexion qui finit son segment en reprend aussitôt un autre, sans nouvelle négociation inutile.</li>
+        <li>Le nombre de connexions et de téléchargements simultanés se règle selon votre ligne et l'hébergeur.</li>
+        <li>Pas de ffmpeg : tout passe par de simples requêtes HTTP.</li>
+      </ul>
+
+      <h2 id="etapes">Les quatre étapes</h2>
+      {{partial segments}}
+      <ol class="steps">
+        <li><strong>Sondage.</strong> Une première requête qui ne demande qu'un octet (<code>Range: bytes=0-0</code>) donne la taille de la vidéo et dit si l'hébergeur accepte qu'on la lui demande par morceaux.</li>
+        <li><strong>Segmentation dynamique.</strong> Au départ, nul ne sait combien de connexions l'hébergeur acceptera : le fichier part donc en un seul segment. Chaque connexion qui se libère trouve le plus gros segment restant et le coupe en deux, puis télécharge la seconde moitié. Un segment n'est jamais coupé sous un mégaoctet. Ainsi, toutes les connexions restent occupées jusqu'au bout, et une connexion lente est secourue par les plus rapides.</li>
+        <li><strong>Positions sauvegardées.</strong> Chaque segment écrit sa propre part dans <code>%APPDATA%\anime-dm\parts</code>, et les positions sont enregistrées toutes les trois secondes.</li>
+        <li><strong>Assemblage.</strong> Une fois tous les segments reçus, les parts sont mises bout à bout, dans l'ordre, dans le fichier final ; le dossier des parts est ensuite supprimé.</li>
+      </ol>
+
+      <h2 id="reprise">Arrêt et reprise</h2>
+      <p>Grâce aux positions sauvegardées, un arrêt, une fermeture d'ADM, une coupure de réseau ou une panne de courant ne font perdre que quelques secondes. Les adresses des vidéos expirent : à chaque reprise, ADM relit la page de l'épisode et obtient une adresse fraîche. La reprise n'est acceptée que si la taille du fichier n'a pas changé ; sinon, l'épisode repart de zéro pour ne pas mélanger deux copies.</p>
+
+      <h2 id="hls">Les listes HLS</h2>
+      <p>Certains lecteurs servent la vidéo en liste <code>.m3u8</code>, découpée en centaines de petits morceaux. ADM traite ces morceaux comme des segments : plusieurs connexions les tirent en parallèle, le chiffrement AES-128 est défait au passage, et le fichier final porte l'extension <code>.ts</code>, ou <code>.mp4</code> s'il s'agit de MP4 fragmenté. Quand un hébergeur propose à la fois un fichier direct et une liste, ADM choisit le fichier direct : c'est lui qui profite le mieux de la segmentation.</p>
+
+      <h2 id="reglages">Les réglages</h2>
+      <figure>{{img options-downloads "Options, onglet Téléchargements"}}</figure>
+      <p>Dans <em>Options › Téléchargements</em> : le nombre de <strong>téléchargements simultanés</strong> (3 par défaut, de 1 à 10) et de <strong>connexions par téléchargement</strong> (8 par défaut, de 1 à 16). Sur une ligne lente, moins de téléchargements simultanés finissent chaque épisode plus tôt. Certains hébergeurs limitent le nombre de connexions par adresse IP : au-delà de leur limite, en ajouter n'apporte rien.</p>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,102 @@
+{
+ "add": {
+  "frames": 5,
+  "durations": [
+   30,
+   30,
+   35,
+   40,
+   60
+  ]
+ },
+ "addons": {
+  "frames": 5,
+  "durations": [
+   30,
+   30,
+   35,
+   40,
+   60
+  ]
+ },
+ "options": {
+  "frames": 5,
+  "durations": [
+   30,
+   30,
+   35,
+   40,
+   60
+  ]
+ },
+ "remove-all": {
+  "frames": 5,
+  "durations": [
+   30,
+   30,
+   35,
+   40,
+   60
+  ]
+ },
+ "remove": {
+  "frames": 5,
+  "durations": [
+   30,
+   30,
+   35,
+   40,
+   60
+  ]
+ },
+ "resume": {
+  "frames": 5,
+  "durations": [
+   30,
+   30,
+   35,
+   40,
+   60
+  ]
+ },
+ "schedule": {
+  "frames": 5,
+  "durations": [
+   30,
+   30,
+   35,
+   40,
+   60
+  ]
+ },
+ "search": {
+  "frames": 5,
+  "durations": [
+   30,
+   30,
+   35,
+   40,
+   60
+  ]
+ },
+ "stop-all": {
+  "frames": 5,
+  "durations": [
+   30,
+   30,
+   35,
+   40,
+   60
+  ]
+ },
+ "stop": {
+  "frames": 5,
+  "durations": [
+   30,
+   30,
+   35,
+   40,
+   60
+  ]
+ }
+}
