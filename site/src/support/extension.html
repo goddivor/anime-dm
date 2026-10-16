@@ -1,0 +1,56 @@
+<!--meta {
+  "title": "Intégration au navigateur",
+  "description": "Installer et utiliser l'extension d'Anime Download Manager dans Chrome, Edge, Brave, Vivaldi, Opera et Firefox : le bouton sur les pages, le panneau au survol des liens, les réglages et le dépannage.",
+  "nav": "support",
+  "hero": {
+    "variant": "plain",
+    "back": true,
+    "title": "Intégration au navigateur"
+  }
+} -->
+<div class="page">
+  <div class="prose">
+    <h2>Télécharger un animé sans quitter son site</h2>
+    <p>L'extension d'ADM reconnaît les pages d'animés et d'épisodes des sites que servent vos sources. Elle y pose un bouton, et le même panneau au survol de chaque lien qui y mène. Un clic remet la page à ADM, qui ouvre la fenêtre d'ajout.</p>
+
+    <h3 id="installer">1. Préparer ADM et installer l'extension</h3>
+    <ol class="steps">
+      <li><strong>Installez la source du site</strong> dans l'Addon Store : l'extension ne réagit que sur les sites qu'une source sert.</li>
+      <li><strong>Cochez votre navigateur</strong> dans <em>Options › Général</em>, liste <em>Intégration aux navigateurs suivants</em>. ADM s'y déclare à chaque démarrage. Sont pris en charge : Google Chrome, Microsoft Edge, Brave, Chromium, Vivaldi, Opera et Mozilla Firefox.</li>
+      <li><strong>Installez l'extension</strong> depuis le bouton <em>Installer l'extension…</em> du même onglet, puis fermez et rouvrez le navigateur.</li>
+    </ol>
+    <div class="note warn">
+      <p>La publication de l'extension sur le Chrome Web Store et sur le site des modules de Firefox est en cours. Tant qu'elle n'est pas terminée, le bouton <em>Installer l'extension…</em> ne peut pas encore l'installer ; cette page sera mise à jour dès qu'elle sera disponible.</p>
+    </div>
+    <figure>{{img options-general "Options, onglet Général : la liste des navigateurs intégrés et le bouton Installer l'extension"}}</figure>
+
+    <h3 id="utiliser">2. Le bouton et le panneau</h3>
+    <p>Sur la page d'un animé, le bouton <strong>Télécharger avec ADM</strong> attend dans le coin inférieur droit (<strong>flèche 1</strong>). Sur la page d'un épisode, il devient <em>Télécharger cet épisode avec ADM</em>.</p>
+    <figure>{{browser ext-step-page "voir-anime.to/anime/sousou-no-frieren/" "Flèche 1 : le bouton Télécharger avec ADM dans le coin de la page d'un animé"}}</figure>
+    <p>Survolez le lien d'un épisode, dans la liste d'une fiche : le panneau se pose à droite de ses mots, sur sa ligne (<strong>flèche 2</strong>). Le pointeur l'atteint de côté sans passer sur le lien suivant.</p>
+    <figure>{{browser ext-step-episode "voir-anime.to/anime/sousou-no-frieren/" "Flèche 2 : le panneau Télécharger cet épisode avec ADM à droite du lien survolé"}}</figure>
+    <p>Survolez l'affiche d'un animé, sur la page d'accueil ou dans une liste : le panneau se pose sur l'affiche (<strong>flèche 3</strong>).</p>
+    <figure>{{browser ext-step-poster "voir-anime.to" "Flèche 3 : le panneau Télécharger avec ADM posé sur l'affiche survolée"}}</figure>
+
+    <h3>3. ADM prend le relais</h3>
+    <p>Cliquez sur le bouton ou le panneau : ADM s'ouvre s'il ne tournait pas, choisit la source du site, lit la page sans attendre et ouvre la fenêtre <em>Info sur le téléchargement</em>. Depuis un épisode, seul celui-ci est coché ; il ne reste qu'à cliquer sur <em>Démarrer</em>.</p>
+    <figure>{{img add-from-browser "Fenêtre Info sur le téléchargement ouverte depuis le navigateur : 1 épisode sur 28 coché"}}</figure>
+    <p>Chaque clic ouvre sa propre fenêtre d'ajout, même si d'autres le sont déjà. Les épisodes venus du navigateur rejoignent la file principale.</p>
+
+    <h3 id="regler">4. Régler le panneau</h3>
+    <figure>{{img options-panel "Fenêtre Personnalisation du panneau de téléchargement : mode complet ou mini, sur la page, au survol des liens"}}</figure>
+    <p><em>Options › Général › Éditer…</em> choisit l'aspect du panneau : complet, avec son texte, ou mini, réduit au logo. Deux cases décident où il apparaît : sur la page même d'un animé ou d'un épisode, et au survol des liens qui y mènent. Le navigateur prend en compte le changement en moins d'une minute.</p>
+
+    <h3 id="depannage">5. Le bouton n'apparaît pas</h3>
+    <ol class="steps">
+      <li>Vérifiez que la source du site est installée, et qu'elle connaît la bonne adresse du site (Addon Store, roue dentée, <em>URL du site</em>).</li>
+      <li>Vérifiez que votre navigateur est coché dans <em>Options › Général</em>.</li>
+      <li>Lancez ADM : c'est lui qui écrit la liste des sites servis que lit l'extension.</li>
+      <li>Vérifiez que l'extension est activée dans la page des extensions du navigateur, puis rechargez la page du site.</li>
+      <li>Toujours rien ? <a href="{{root}}contact.html">Écrivez-nous</a> en indiquant le navigateur et l'adresse de la page.</li>
+    </ol>
+
+    <h3>Vie privée</h3>
+    <p>L'extension ne parle jamais au réseau. Elle échange avec un petit programme d'ADM installé sur votre ordinateur, que le navigateur lance à côté d'elle, et ne lui transmet une adresse que lorsque vous cliquez sur son bouton.</p>
+  </div>
+</div>

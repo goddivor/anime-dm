@@ -1,0 +1,103 @@
+<!--meta {
+  "title": "Utiliser ADM",
+  "description": "Le guide d'utilisation d'Anime Download Manager : fenêtre principale, panneau Catégories, ajout d'un téléchargement, téléchargement par lot, menu contextuel, Options, export et import.",
+  "nav": "support"
+} -->
+<div class="page">
+  <p class="breadcrumb"><a href="{{root}}support/index.html">← Support</a></p>
+  <h1 class="page-title">Utiliser Anime Download Manager</h1>
+
+  <div class="with-sidebar">
+    <nav class="sidebar" aria-label="Sommaire">
+      <ul>
+        <li><a href="#fenetre">Fenêtre principale</a></li>
+        <li><a href="#categories">Panneau Catégories</a></li>
+        <li><a href="#ajout">Ajouter un téléchargement</a></li>
+        <li><a href="#lot">Téléchargement par lot</a></li>
+        <li><a href="#menu">Menu contextuel</a></li>
+        <li><a href="#options">Fenêtre Options</a></li>
+        <li><a href="#affichage">Colonnes, police, thème</a></li>
+        <li><a href="#export">Exporter et importer</a></li>
+        <li><a href="#notification">Zone de notification</a></li>
+        <li><a href="#raccourcis">Raccourcis clavier</a></li>
+        <li><a href="#a-propos">À propos et mises à jour</a></li>
+      </ul>
+    </nav>
+
+    <div class="prose">
+      <h2 id="fenetre">Fenêtre principale</h2>
+      <p>La fenêtre principale montre la liste des épisodes : nom du fichier, taille, état, temps restant, débit, date du dernier essai, date d'ajout, emplacement, adresse et page d'origine. Un clic sur l'en-tête d'une colonne trie la liste ; pendant un transfert, la cellule d'état devient une barre de progression.</p>
+      <figure>{{img main-dark "Fenêtre principale d'ADM avec trois épisodes en cours et cinq en attente"}}</figure>
+      <p>Au-dessus de la liste, les boutons <em>Ajout URL</em>, <em>Reprendre</em>, <em>Arrêter</em>, <em>Tout arrêter</em>, <em>Supprimer</em>, <em>Tout supprimer</em>, <em>Options</em>, <em>Planifier</em>, <em>Addons</em> et <em>Rechercher</em> s'activent ou se grisent selon ce que la sélection permet. Les entrées des menus suivent la même règle.</p>
+      <p><em>Reprendre</em> relance les épisodes arrêtés ou en échec là où ils en étaient. <em>Arrêter</em> garde ce qui a été reçu ; <em>Supprimer</em> retire l'épisode de la liste et, si vous cochez la case de la confirmation, son fichier du disque.</p>
+
+      <h2 id="categories">Panneau Catégories</h2>
+      <figure>{{img sidebar "Le panneau Catégories : les animés avec leur affiche et leur nombre d'épisodes, puis les deux files"}}</figure>
+      <p>Le panneau de gauche range les épisodes par animé, sous son affiche, avec leur nombre. Un chevron plie ou déplie un animé, et ADM s'en souvient. En dessous, les deux files : la principale et celle du planificateur.</p>
+      <p>Cliquez une ligne pour filtrer la liste. Un clic droit sur un animé l'ouvre dans votre navigateur, ouvre son dossier, change l'icône du dossier, prépare la série pour Aniyomi, la met dans une file, la suit ou la supprime. Le panneau se masque par <em>Affichage › Catégories</em>, et sa largeur se règle en tirant le séparateur.</p>
+
+      <h2 id="ajout">Ajouter un téléchargement</h2>
+      <p>Cliquez sur <em>Ajout URL</em> (<kbd>Ctrl</kbd> + <kbd>N</kbd>). L'ajout se fait en trois fenêtres, comme dans IDM.</p>
+      <h3>1. L'adresse</h3>
+      <figure>{{img add-url "Fenêtre Ajouter un téléchargement : champ Adresse et liste Source"}}</figure>
+      <p>Collez l'adresse de la page d'un animé ou d'un épisode ; si elle est déjà dans le presse-papiers, elle s'inscrit seule. La source qui sert ce site est choisie d'office. Cliquez sur <em>OK</em> : ADM lit la page, et la fenêtre suivante arrive une fois les épisodes connus.</p>
+      <h3>2. Les informations</h3>
+      <figure>{{img add-info "Fenêtre Info sur le téléchargement"}}</figure>
+      <p>Vérifiez le dossier d'enregistrement : chaque animé y aura son sous-dossier. <em>Rappeler ce chemin</em> le propose aux ajouts suivants. Choisissez le modèle d'icône du dossier, puis cliquez sur le bouton des épisodes pour les choisir. <em>Démarrer</em> lance le téléchargement ; <em>Plus tard</em> dépose les épisodes arrêtés dans la file principale.</p>
+      <h3>3. Les épisodes</h3>
+      <figure>{{img add-episodes "Fenêtre Épisodes à télécharger"}}</figure>
+      <p>Cochez les épisodes dans la grille, ou tapez une sélection comme <code>1-8</code> ou <code>1-5,12</code> : la grille et le champ se répondent. Le lecteur choisi en haut vaut pour tous ; un clic droit sur un épisode lui donne le sien.</p>
+      <div class="note"><p>Chaque ajout vit dans ses propres fenêtres, avec un bouton dans la barre des tâches. Vous pouvez en ouvrir plusieurs à la fois, et continuer à utiliser la fenêtre principale pendant ce temps.</p></div>
+
+      <h2 id="lot">Téléchargement par lot</h2>
+      <p>Copiez plusieurs adresses (pages d'animés ou d'épisodes, une par ligne ou mélangées à du texte), puis choisissez <em>Tâches › Téléchargement par lot depuis presse-papiers</em> (<kbd>Ctrl</kbd> + <kbd>Maj</kbd> + <kbd>V</kbd>). ADM les regroupe par animé et ouvre une fenêtre d'ajout pour chacun, source choisie et épisodes nommés cochés (tous, pour une page d'animé). Un avis compte les adresses qu'aucune source installée ne sert.</p>
+
+      <h2 id="menu">Menu contextuel</h2>
+      <figure>{{img menu-list "Menu contextuel d'un épisode dans la liste"}}</figure>
+      <p>Un clic droit sur des épisodes de la liste propose <em>Ouvrir</em> (un fichier terminé), <em>Ouvrir le dossier</em>, <em>Reprendre</em>, <em>Arrêter</em> (un transfert en cours), <em>Mettre dans la file</em> et <em>Supprimer</em>.</p>
+      <figure>{{img menu-resume "Sous-menu Reprendre : Automatique puis les lecteurs de la source"}}</figure>
+      <p><em>Reprendre</em> est un sous-menu : <em>Automatique</em> laisse la source essayer ses lecteurs dans l'ordre, les autres entrées imposent un lecteur. Le lecteur en cours est coché. Pour un épisode arrêté ou en échec, ADM reprend là où il en était ; pour un épisode terminé, il repart de zéro, car un lecteur sert parfois une copie tronquée là où un autre a la vidéo entière.</p>
+
+      <h2 id="options">Fenêtre Options</h2>
+      <p>Le bouton <em>Options</em> ouvre la configuration d'ADM, en trois onglets. <em>OK</em> applique, <em>Annuler</em> ne change rien.</p>
+      <h3>Général</h3>
+      <figure>{{img options-general "Options, onglet Général"}}</figure>
+      <p>Le démarrage avec Windows, la fermeture dans la zone de notification, le collage du presse-papiers à l'ouverture de l'ajout, les navigateurs auxquels ADM se déclare, le bouton <em>Installer l'extension…</em> et le réglage du panneau de téléchargement des navigateurs (<em>Éditer…</em>).</p>
+      <h3>Enregistrer sous</h3>
+      <figure>{{img options-save "Options, onglet Enregistrer sous"}}</figure>
+      <p>Le dossier de téléchargement et la case qui le propose à chaque ajout, l'icône appliquée au dossier de chaque animé avec son modèle, et la préparation automatique pour Aniyomi (<code>cover.jpg</code> et <code>.nomedia</code>).</p>
+      <h3>Téléchargements</h3>
+      <figure>{{img options-downloads "Options, onglet Téléchargements"}}</figure>
+      <p>Le nombre de téléchargements simultanés (1 à 10), qui s'applique aussitôt, et le nombre de connexions par téléchargement (1 à 16), qui vaut pour les transferts suivants.</p>
+
+      <h2 id="affichage">Colonnes, police, thème</h2>
+      <figure>{{img columns "Fenêtre Personnaliser les colonnes"}}</figure>
+      <p><em>Affichage › Personnaliser les colonnes</em> choisit les colonnes affichées et leur ordre ; le nom du fichier reste en tête. Tirez un séparateur de l'en-tête pour régler une largeur : ADM la retient. <em>Affichage › Police</em> change la police de la barre d'outils, du panneau et de la liste, <em>Affichage › Mode</em> choisit le thème sombre, clair ou celui de Windows, et <em>Affichage › Barre d'outils</em> l'aspect des boutons (voir <a href="{{root}}support/barre-outils.html">Barre d'outils</a>).</p>
+
+      <h2 id="export">Exporter et importer</h2>
+      <p><em>Tâches › Exporter</em> écrit la sélection, ou toute la liste si rien n'est sélectionné, dans l'un de ces formats :</p>
+      <ul>
+        <li><strong>Fichier d'ADM</strong> (<code>.adm</code>) : tout, animés, affiches, sources, épisodes, lecteurs et files ;</li>
+        <li><strong>Texte</strong> : une adresse de page par ligne ;</li>
+        <li><strong>JSON</strong> : une liste plate ;</li>
+        <li><strong>CSV</strong>, <strong>Excel</strong> (<code>.xlsx</code>) ou <strong>OpenDocument</strong> (<code>.ods</code>) : un tableau, une ligne par épisode.</li>
+      </ul>
+      <p><em>Tâches › Importer</em> relit n'importe laquelle de ces formes. Pour une adresse nue, ADM retrouve la source par le site et interroge la page : tous les épisodes pour une page d'animé, celui-là seul pour une page d'épisode. Les épisodes déjà présents sont laissés de côté, les autres attendent, arrêtés, dans la file principale.</p>
+
+      <h2 id="notification">Zone de notification</h2>
+      <p>La croix de la fenêtre range ADM à côté de l'horloge, sans l'arrêter. Un clic sur son icône rouvre la fenêtre ; un clic droit propose l'ajout, le téléchargement par lot, les files, le planificateur, les options, l'Addon Store et <em>Quitter</em>. L'infobulle compte les transferts en cours, et une notification annonce chaque épisode terminé quand la fenêtre n'est pas au premier plan. Pour que la croix quitte vraiment, décochez l'option dans <em>Options › Général</em>.</p>
+
+      <h2 id="raccourcis">Raccourcis clavier</h2>
+      <table class="data">
+        <tr><td><kbd>Ctrl</kbd> + <kbd>N</kbd></td><td>Ajouter un téléchargement</td></tr>
+        <tr><td><kbd>Ctrl</kbd> + <kbd>Maj</kbd> + <kbd>V</kbd></td><td>Téléchargement par lot depuis le presse-papiers</td></tr>
+        <tr><td><kbd>Ctrl</kbd> + <kbd>F</kbd></td><td>Rechercher dans la liste</td></tr>
+        <tr><td><kbd>Suppr</kbd></td><td>Supprimer la sélection</td></tr>
+      </table>
+
+      <h2 id="a-propos">À propos et mises à jour</h2>
+      <figure>{{img about "Fenêtre À propos d'Anime Download Manager"}}</figure>
+      <p><em>Aide › À propos d'Anime Download Manager</em> donne la version et la date de compilation, et le bouton <em>Vérifier les mises à jour</em>. ADM fait aussi cette vérification seul, discrètement, après chaque démarrage : il ne dit rien s'il n'y a rien de neuf.</p>
+    </div>
+  </div>
+</div>

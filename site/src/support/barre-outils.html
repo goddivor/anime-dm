@@ -1,0 +1,47 @@
+<!--meta {
+  "title": "Barre d'outils",
+  "description": "Choisir l'aspect de la barre d'outils d'Anime Download Manager : packs animés Classique Rem et Néon, glyphes de Windows, peaux d'Internet Download Manager.",
+  "nav": "support"
+} -->
+<div class="page">
+  <p class="breadcrumb"><a href="{{root}}support/index.html">← Support</a></p>
+  <h1 class="page-title">Personnaliser la barre d'outils</h1>
+
+  <div class="prose wide">
+    <p>La barre d'outils d'ADM change d'aspect par <em>Affichage › Barre d'outils</em>. Les packs livrés avec l'application sont animés : chaque bouton joue son animation quand le pointeur le survole, et se grise quand il n'a rien à faire. <strong>Survolez les boutons ci-dessous</strong> pour les voir comme dans l'application.</p>
+
+    <h2>Les aspects livrés avec ADM</h2>
+
+    <div class="gallery-item">
+      <h3>Classique Rem</h3>
+      <p>Le pack par défaut, dessiné pour ADM.</p>
+      {{toolbar classique-rem dark}}
+      {{toolbar classique-rem light}}
+    </div>
+
+    <div class="gallery-item">
+      <h3>Néon</h3>
+      <p>Des boutons aux couleurs vives, avec un halo lumineux, faits pour le thème sombre.</p>
+      {{toolbar neon dark}}
+      {{img tb-neon-light shot "La barre Néon dans l'application, en thème clair"}}
+    </div>
+
+    <div class="gallery-item">
+      <h3>Glyphes de Windows</h3>
+      <p>Les icônes de la police Segoe Fluent Icons de Windows 11 (Segoe MDL2 Assets sous Windows 10), sobres et nettes à toutes les tailles. Les boutons Addons et Rechercher, qu'aucun glyphe ne représente bien, empruntent ceux du pack Classique Rem.</p>
+      {{img tb-fluent-dark shot "La barre de glyphes de Windows en thème sombre"}}
+    </div>
+
+    <h2>Les peaux d'Internet Download Manager</h2>
+    <p>ADM accepte les peaux de barre d'outils d'IDM : un fichier <code>.tbi</code> accompagné de ses bandes d'images <code>.bmp</code>.</p>
+    <ol class="steps">
+      <li>Téléchargez la peau qui vous plaît et extrayez son archive.</li>
+      <li>Copiez ses fichiers dans <code>%APPDATA%\anime-dm\toolbar</code> (tapez cette adresse dans la barre de l'Explorateur).</li>
+      <li>Quittez ADM par <em>Tâches › Quitter</em>, puis relancez-le : la peau apparaît dans <em>Affichage › Barre d'outils</em>.</li>
+    </ol>
+    <p>Les peaux d'IDM n'ont pas de boutons Addons ni Rechercher : ADM leur prête ceux du pack Classique Rem.</p>
+
+    <h2>Créer un pack animé</h2>
+    <p>Un pack est un dossier de <code>resources\toolbar</code> contenant un fichier <code>pack.json</code> (son nom) et, pour chaque bouton, une planche d'images en ligne avec son fichier JSON (taille et durée de chaque image). Les noms des boutons sont <code>add</code>, <code>resume</code>, <code>stop</code>, <code>stop-all</code>, <code>remove</code>, <code>remove-all</code>, <code>options</code>, <code>schedule</code>, <code>addons</code> et <code>search</code>. Une planche PNG garde sa transparence, et donc un halo ; une planche BMP utilise une couleur de fond transparente. Les packs Classique Rem et Néon, dans le <a href="{{repo_url}}/tree/feature/win32-cpp/resources/toolbar">dépôt</a>, servent de modèles.</p>
+  </div>
+</div>
