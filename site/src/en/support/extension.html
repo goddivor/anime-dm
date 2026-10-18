@@ -1,0 +1,56 @@
+<!--meta {
+  "title": "Browser integration",
+  "description": "Install and use the Anime Download Manager extension in Chrome, Edge, Brave, Vivaldi, Opera, and Firefox: the button on pages, the panel when hovering links, settings, and troubleshooting.",
+  "nav": "support",
+  "hero": {
+    "variant": "plain",
+    "back": true,
+    "title": "Browser integration"
+  }
+} -->
+<div class="page">
+  <div class="prose">
+    <h2>Download an anime without leaving its site</h2>
+    <p>The ADM extension recognizes the anime and episode pages of the sites your sources serve. It places a button on them, and the same panel when you hover any link that leads there. One click hands the page to ADM, which opens the add window.</p>
+
+    <h3 id="installer">1. Prepare ADM and install the extension</h3>
+    <ol class="steps">
+      <li><strong>Install the site's source</strong> in the Addon Store: the extension only reacts on sites a source serves.</li>
+      <li><strong>Check your browser</strong> in <em>Options › General</em>, list <em>Integrate with the following browsers</em>. ADM registers with it at each start. Supported: Google Chrome, Microsoft Edge, Brave, Chromium, Vivaldi, Opera, and Mozilla Firefox.</li>
+      <li><strong>Install the extension</strong> from the <em>Install the extension…</em> button of the same tab, then close and reopen the browser.</li>
+    </ol>
+    <div class="note warn">
+      <p>The extension is being published on the Chrome Web Store and the Firefox add-ons site. Until that is done, the <em>Install the extension…</em> button cannot install it yet; this page will be updated as soon as it is available.</p>
+    </div>
+    <figure>{{img options-general "Options, General tab: the list of integrated browsers and the Install the extension button"}}</figure>
+
+    <h3 id="utiliser">2. The button and the panel</h3>
+    <p>On an anime page, the <strong>Download with ADM</strong> button waits in the bottom right corner (<strong>arrow 1</strong>). On an episode page, it becomes <em>Download this episode with ADM</em>.</p>
+    <figure>{{browser ext-step-page "voir-anime.to/anime/sousou-no-frieren/" "Arrow 1: the Download with ADM button in the corner of an anime page"}}</figure>
+    <p>Hover the link of an episode, in the list of an anime page: the panel settles to the right of its words, on its line (<strong>arrow 2</strong>). The pointer reaches it sideways without crossing the next link.</p>
+    <figure>{{browser ext-step-episode "voir-anime.to/anime/sousou-no-frieren/" "Arrow 2: the Download this episode with ADM panel to the right of the hovered link"}}</figure>
+    <p>Hover the poster of an anime, on the home page or in a list: the panel settles on the poster (<strong>arrow 3</strong>).</p>
+    <figure>{{browser ext-step-poster "voir-anime.to" "Arrow 3: the Download with ADM panel settled on the hovered poster"}}</figure>
+
+    <h3>3. ADM takes over</h3>
+    <p>Click the button or the panel: ADM opens if it was not running, picks the site's source, reads the page right away, and opens the <em>Download information</em> window. From an episode, only that one is checked; all that is left is to click <em>Start</em>.</p>
+    <figure>{{img add-from-browser "Download information window opened from the browser: 1 episode out of 28 checked"}}</figure>
+    <p>Each click opens its own add window, even if others are already open. Episodes coming from the browser join the main queue.</p>
+
+    <h3 id="regler">4. Set up the panel</h3>
+    <figure>{{img options-panel "Download panel customisation window: full or mini mode, on the page, when hovering links"}}</figure>
+    <p><em>Options › General › Edit…</em> chooses the look of the panel: full, with its text, or mini, reduced to the logo. Two boxes decide where it appears: on the page of an anime or an episode itself, and over the links that lead there. The browser picks up the change in less than a minute.</p>
+
+    <h3 id="depannage">5. The button does not show up</h3>
+    <ol class="steps">
+      <li>Check that the site's source is installed, and that it knows the right address of the site (Addon Store, gear button, <em>URL du site</em> field).</li>
+      <li>Check that your browser is checked in <em>Options › General</em>.</li>
+      <li>Start ADM: it writes the list of served sites that the extension reads.</li>
+      <li>Check that the extension is enabled on the browser's extensions page, then reload the site's page.</li>
+      <li>Still nothing? <a href="{{home}}contact.html">Write to us</a> with the browser and the address of the page.</li>
+    </ol>
+
+    <h3>Privacy</h3>
+    <p>The extension never talks to the network. It exchanges with a small ADM program installed on your computer, which the browser starts alongside it, and only hands it an address when you click its button.</p>
+  </div>
+</div>

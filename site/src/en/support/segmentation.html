@@ -1,0 +1,50 @@
+<!--meta {
+  "title": "Dynamic segmentation",
+  "description": "How Anime Download Manager speeds up downloads: probing, dynamic segmentation, connection reuse, resume and joining, HLS playlists.",
+  "nav": "support"
+} -->
+<div class="page">
+  <p class="breadcrumb"><a href="{{home}}support/index.html">← Support</a></p>
+  <h1 class="page-title">Dynamic segmentation and performance</h1>
+
+  <div class="with-sidebar">
+    <nav class="sidebar" aria-label="Contents">
+      <ul>
+        <li><a href="#principes">Principles</a></li>
+        <li><a href="#etapes">The four stages</a></li>
+        <li><a href="#reprise">Stop and resume</a></li>
+        <li><a href="#hls">HLS playlists</a></li>
+        <li><a href="#reglages">Settings</a></li>
+      </ul>
+    </nav>
+
+    <div class="prose">
+      <h2 id="principes">Principles</h2>
+      <ul>
+        <li>The file is split <strong>during</strong> the download, by halving the largest remaining segment, not in advance.</li>
+        <li>A connection that finishes its segment takes another one right away, with no needless new negotiation.</li>
+        <li>The number of connections and of simultaneous downloads can be tuned to your line and to the host.</li>
+        <li>No ffmpeg: everything goes through plain HTTP requests.</li>
+      </ul>
+
+      <h2 id="etapes">The four stages</h2>
+      {{partial segments}}
+      <ol class="steps">
+        <li><strong>Probe.</strong> A first request that asks for a single byte (<code>Range: bytes=0-0</code>) gives the size of the video and tells whether the host accepts being asked for it in pieces.</li>
+        <li><strong>Dynamic segmentation.</strong> At the start, nobody knows how many connections the host will accept, so the file starts as a single segment. Each connection that frees up finds the largest remaining segment, splits it in half, and downloads the second half. A segment is never split below one megabyte. As a result, every connection stays busy until the end, and a slow connection gets help from the fast ones.</li>
+        <li><strong>Saved positions.</strong> Each segment writes its own part in <code>%APPDATA%\anime-dm\parts</code>, and positions are saved every three seconds.</li>
+        <li><strong>Joining.</strong> Once every segment has arrived, the parts are put end to end, in order, into the final file; the parts folder is then deleted.</li>
+      </ol>
+
+      <h2 id="reprise">Stop and resume</h2>
+      <p>Thanks to the saved positions, a stop, closing ADM, a network cut, or a power failure only loses a few seconds. Video addresses expire: on each resume, ADM reads the episode page again and gets a fresh address. The resume is only accepted if the file size has not changed; otherwise, the episode starts over from scratch so as not to mix two copies.</p>
+
+      <h2 id="hls">HLS playlists</h2>
+      <p>Some players serve the video as an <code>.m3u8</code> playlist, cut into hundreds of small pieces. ADM treats these pieces as segments: several connections pull them in parallel, AES-128 encryption is undone on the way, and the final file gets the <code>.ts</code> extension, or <code>.mp4</code> for fragmented MP4. When a host offers both a direct file and a playlist, ADM chooses the direct file: it is the one that benefits most from segmentation.</p>
+
+      <h2 id="reglages">Settings</h2>
+      <figure>{{img options-downloads "Options, Downloads tab"}}</figure>
+      <p>In <em>Options › Downloads</em>: the number of <strong>simultaneous downloads</strong> (3 by default, from 1 to 10) and of <strong>connections per download</strong> (8 by default, from 1 to 16). On a slow line, fewer simultaneous downloads finish each episode sooner. Some hosts limit the number of connections per IP address: beyond their limit, adding more brings nothing.</p>
+    </div>
+  </div>
+</div>

@@ -74,7 +74,12 @@ build\download-smoke.exe --url <url vidéo> <sortie> [referer]    # le transfert
 `site/` est le site de l'application, servi par GitHub Pages à `goddivor.github.io/anime-dm/`
 (adresses déjà inscrites dans la fenêtre À propos et l'installateur, dont `support/`). Il reprend
 page par page la structure du site d'IDM (en-tête, bandeaux, sections alternées capture / texte,
-pages d'aide à menu latéral, captures annotées), dans les couleurs du logo d'ADM, en français.
+pages d'aide à menu latéral, captures annotées), dans les couleurs du logo d'ADM, **en français et
+en anglais** : le français à la racine (adresses déjà publiées), l'anglais sous `en/`, avec les
+mêmes noms de fichiers pour que le sélecteur de langue retrouve la page jumelle. L'en-tête porte le
+menu « Obtenir v… » (Télécharger, Changelog), le sélecteur FR / EN, la bascule clair / sombre
+(retenue dans `localStorage`, sinon celle du système) et le logo GitHub. `nouveautes.html` résume
+chaque version pour l'utilisateur, `changelog.html` la détaille avec ses PR et tickets.
 
 - **`site/build.py`** (bibliothèque standard seule) assemble `site/src/**/*.html` dans
   `site/_site/` (ignoré par git) : chaque page commence par `<!--meta {…} -->` (titre, entrée du
@@ -82,9 +87,12 @@ pages d'aide à menu latéral, captures annotées), dans les couleurs du logo d'
   (dimensions lues dans le fichier), `{{browser nom "adresse" "alt"}}` (cadre de navigateur),
   `{{sequence nom n "adresse" "alt" durées}}` (images qui défilent comme un GIF),
   `{{toolbar pack dark|light}}` (barre de sprites animés au survol), `{{partial nom}}`
-  (`src/_partials/`). La version vient de `CMakeLists.txt` ; la date et la taille de chaque version
-  sont dans `RELEASES`, à compléter à chaque sortie avec la page `nouveautes.html`. Les espaces
-  insécables du français sont posées à la génération.
+  (`src/_partials/fr` et `src/_partials/en`). Les libellés communs (menu, pied, boutons des barres)
+  sont dans `UI` ; une page source utilise `{{home}}` pour ses liens (racine de sa langue) et
+  `{{root}}` pour les images. La version vient de `CMakeLists.txt` ; la date et la taille de
+  chaque version sont dans `RELEASES`, à compléter à chaque sortie avec `nouveautes.html` et
+  `changelog.html` dans les deux langues. Les espaces insécables du français sont posées à la
+  génération, pour les seules pages françaises.
 - **Les images** (`site/assets/img`) sont des captures de l'application et de l'extension, en WebP.
   Pour en refaire, isoler les données de l'utilisateur (le dossier
   `%APPDATA%\anime-dm` se remplace, la variable `APPDATA` ne sert à rien) ; l'extension se pilote

@@ -1,0 +1,51 @@
+<!--meta {
+  "title": "Download",
+  "description": "Download the latest version of Anime Download Manager for Windows 10 and Windows 11 for free, and follow the installation steps.",
+  "nav": "download",
+  "hero": {
+    "variant": "download",
+    "title": "Download Anime Download Manager",
+    "subtitle": "Free, with no account and no ads, for Windows 10 and Windows 11",
+    "cta": ["Download Anime Download Manager", "{{download_url}}"],
+    "note": "AnimeDownloadManager-{{version}}-setup.exe · {{release_size}} · released on {{release_date}}",
+    "art": "<img src=\"{{root}}assets/img/logo-256.png\" width=\"220\" height=\"220\" alt=\"\">"
+  }
+} -->
+<div class="page">
+  <div class="prose">
+    <h2>Version {{version}}</h2>
+    <table class="data">
+      <tr><td>Version</td><td><strong>{{version}}</strong> (<a href="{{home}}nouveautes.html">what's new</a>, <a href="{{home}}changelog.html">changelog</a>)</td></tr>
+      <tr><td>Released</td><td>{{release_date}}</td></tr>
+      <tr><td>File</td><td>AnimeDownloadManager-{{version}}-setup.exe, {{release_size}}</td></tr>
+      <tr><td>System</td><td>Windows 10 or Windows 11, 64-bit</td></tr>
+      <tr><td>Price</td><td>Free, with no trial period</td></tr>
+    </table>
+    <p>Previous versions and the details of each release are on the <a href="{{releases_url}}">GitHub releases page</a>.</p>
+
+    <hr>
+
+    <h2 id="installation">Installation instructions</h2>
+    <ol class="steps">
+      <li><strong>Run <code>AnimeDownloadManager-{{version}}-setup.exe</code></strong> from your browser's Downloads folder.</li>
+      <li><strong>If Windows shows "Windows protected your PC,"</strong> click <em>More info</em>, then <em>Run anyway</em>. The installer is not yet signed with a paid certificate, and SmartScreen flags it until it is widely used.</li>
+      <li><strong>Accept the permission prompt.</strong> The installer needs administrator rights once, to place the application in <code>Program Files\Anime Download Manager</code>.</li>
+      <li><strong>Follow the wizard</strong>, then leave the "Launch Anime Download Manager" box checked on the last page.</li>
+      <li><strong>Install a source.</strong> On first launch, open the <em>Addon Store</em> (the Addons button of the toolbar) and install the source of the site you use: Voir-Anime, French-Stream, or Wiflix.</li>
+      <li><strong>Add your first anime</strong> with the <em>Add URL</em> button (<kbd>Ctrl</kbd> + <kbd>N</kbd>), by pasting the address of its page.</li>
+    </ol>
+
+    <div class="note">
+      <p>ADM never writes to its installation folder: your list, your settings, and your sources live in <code>%APPDATA%\anime-dm</code>. A new version installs over the old one and keeps everything.</p>
+    </div>
+
+    <h2 id="mises-a-jour">Updates</h2>
+    <p>You do not need to come back here: a few seconds after it starts, ADM checks whether a newer version exists, offers it with its release notes, then downloads and installs it if you accept. You can also look for it at any time with <em>Help › Quick update</em>.</p>
+
+    <h2 id="desinstallation">Uninstalling</h2>
+    <p>Go through Windows <em>Settings › Apps</em>. Uninstalling closes ADM, removes its automatic start and its registration with the browsers, then empties <code>%APPDATA%\anime-dm</code> while keeping the installed sources, unless you check the box that removes them too. <strong>Downloaded videos are never touched.</strong></p>
+
+    <h2>A question?</h2>
+    <p>See the <a href="{{home}}support/faq.html">FAQ</a> or <a href="{{home}}contact.html">contact us</a>.</p>
+  </div>
+</div>

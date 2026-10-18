@@ -1,0 +1,73 @@
+<!--meta {
+  "title": "Sources",
+  "description": "The sources of Anime Download Manager: verified libraries, installed from the Addon Store, that each serve one anime site.",
+  "nav": "sources",
+  "hero": {
+    "variant": "sources",
+    "title": "The sources of Anime Download Manager",
+    "subtitle": "One site, one source: install the ones you need from the Addon Store",
+    "art": "<img src=\"{{root}}assets/img/logo-256.png\" width=\"190\" height=\"190\" alt=\"\">"
+  }
+} -->
+<div class="page">
+  <div class="prose">
+    <p>ADM contains the logic of no site. Each site is served by a <strong>source</strong>: a small library that knows how to read its pages, list the episodes of an anime, and find the players of an episode. You install, update, or remove it from the <em>Addon Store</em>, the <em>Addons</em> button of the toolbar.</p>
+
+    <h2>Available sources</h2>
+    <table class="data">
+      <thead>
+        <tr><th>Source</th><th>Language</th><th>What it serves</th><th class="hide-sm">Version</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="source-name">{{img source-voiranime half "Icon of the Voir-Anime source"}}Voir-Anime</span></td>
+          <td class="nowrap">French</td>
+          <td>Anime with French subtitles and French dubbing, anime pages and episode pages; four players per episode</td>
+          <td class="hide-sm nowrap">0.1.6</td>
+        </tr>
+        <tr>
+          <td><span class="source-name">{{img source-frenchstream half "Icon of the FrenchStream source"}}FrenchStream</span></td>
+          <td class="nowrap">French</td>
+          <td>Movies and series, anime included, dubbed or subtitled in French</td>
+          <td class="hide-sm nowrap">0.1.4</td>
+        </tr>
+        <tr>
+          <td><span class="source-name">{{img source-wiflix half "Icon of the Wiflix source"}}Wiflix</span></td>
+          <td class="nowrap">French</td>
+          <td>Movies and series, dubbed or subtitled in French</td>
+          <td class="hide-sm nowrap">0.1.3</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <figure>
+      {{img addon-store "The ADM Addon Store: each source with its icon, language, version, and state"}}
+      <figcaption>The Addon Store: install, update, remove, and configure a source.</figcaption>
+    </figure>
+
+    <h2>Installing a source</h2>
+    <ol class="steps">
+      <li>Click <em>Addons</em> in the toolbar.</li>
+      <li>Select the source in the list, then click the download button at the top right.</li>
+      <li>The source is ready: paste the address of an anime from its site into <em>Add URL</em>, and ADM picks it automatically.</li>
+    </ol>
+
+    <h2>When a site changes its address</h2>
+    <p>Some sites change their domain name regularly. No need to wait for a new version: select the source in the Addon Store, click the gear, and enter the new address in the <em>URL du site</em> (site URL) field.</p>
+
+    <h2>Why you can trust them</h2>
+    <ul>
+      <li><strong>The address of the store is built into the application</strong>: it is not a list anyone could change.</li>
+      <li><strong>Each source carries a SHA-256 checksum</strong> in the store index; ADM checks it before it even writes the file to the disk.</li>
+      <li><strong>A source opens no connection by itself</strong>: every request goes through the application.</li>
+      <li><strong>Their code is public</strong>, in the <a href="https://github.com/goddivor/anime-dm-addons">anime-dm-addons</a> repository.</li>
+    </ul>
+
+    <h2>Suggesting a source</h2>
+    <p>A source is written in Rust and compiled into a Windows library. The <a href="https://github.com/goddivor/anime-dm-addons">anime-dm-addons</a> repository describes the interface and contains the three existing sources, to use as models. Open a pull request: once reviewed, the source joins the store.</p>
+
+    <div class="note warn">
+      <p>ADM neither hosts nor provides any content: it downloads what the sites serve. It is up to you to check that you have the right to download what you download. Read the <a href="{{home}}avertissement.html">disclaimer</a>.</p>
+    </div>
+  </div>
+</div>

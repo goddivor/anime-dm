@@ -116,14 +116,44 @@
     form.addEventListener("submit", function (ev) {
       ev.preventDefault();
       var f = form.elements;
-      var body = "**Sujet :** " + f.topic.value + "\n**Version d'ADM :** " + (f.version.value || "?") +
-        "\n**Windows :** " + (f.windows.value || "?") + "\n\n" + f.details.value;
+      var labels = (form.getAttribute("data-labels") || "Topic|ADM version|Windows").split("|");
+      var colon = document.documentElement.lang === "fr" ? " :" : ":";
+      var body = "**" + labels[0] + colon + "** " + f.topic.value +
+        "\n**" + labels[1] + colon + "** " + (f.version.value || "?") +
+        "\n**" + labels[2] + colon + "** " + (f.windows.value || "?") + "\n\n" + f.details.value;
       var url = form.getAttribute("action") + "?title=" + encodeURIComponent(f.title.value) +
         "&body=" + encodeURIComponent(body);
       window.open(url, "_blank", "noopener");
     });
   }
 
+  // Switches between the light and dark themes, and remembers the choice.
+  function setupTheme() {
+    var button = document.querySelector(".theme-toggle");
+    if (!button) return;
+    button.addEventListener("click", function () {
+      var next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      try { localStorage.setItem("adm-theme", next); } catch (e) { return; }
+    });
+  }
+
+  // Opens the Get menu on click, and closes it on a click outside or Escape.
+  function setupDropdown() {
+    var drop = document.querySelector(".dropdown");
+    if (!drop) return;
+    var button = drop.querySelector(".get-button");
+    function set(open) {
+      drop.classList.toggle("open", open);
+      button.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+    button.addEventListener("click", function (ev) { ev.stopPropagation(); set(!drop.classList.contains("open")); });
+    document.addEventListener("click", function (ev) { if (!drop.contains(ev.target)) set(false); });
+    document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") set(false); });
+  }
+
+  setupTheme();
+  setupDropdown();
   setupMenu();
   setupSprites();
   setupSequences();

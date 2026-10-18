@@ -1,0 +1,47 @@
+<!--meta {
+  "title": "Toolbar",
+  "description": "Choose the look of the Anime Download Manager toolbar: animated Classique Rem and Néon packs, Windows glyphs, Internet Download Manager skins.",
+  "nav": "support"
+} -->
+<div class="page">
+  <p class="breadcrumb"><a href="{{home}}support/index.html">← Support</a></p>
+  <h1 class="page-title">Customizing the toolbar</h1>
+
+  <div class="prose wide">
+    <p>The look of the ADM toolbar changes with <em>View › Toolbar</em>. The packs shipped with the application are animated: each button plays its animation when the pointer hovers it, and grays out when it has nothing to do. <strong>Hover the buttons below</strong> to see them as in the application.</p>
+
+    <h2>The looks shipped with ADM</h2>
+
+    <div class="gallery-item">
+      <h3>Classique Rem</h3>
+      <p>The default pack, drawn for ADM.</p>
+      {{toolbar classique-rem dark}}
+      {{toolbar classique-rem light}}
+    </div>
+
+    <div class="gallery-item">
+      <h3>Néon</h3>
+      <p>Bright buttons with a glowing halo, made for the dark theme.</p>
+      {{toolbar neon dark}}
+      {{img tb-neon-light shot "The Néon toolbar in the application, light theme"}}
+    </div>
+
+    <div class="gallery-item">
+      <h3>Windows glyphs</h3>
+      <p>The icons of the Segoe Fluent Icons font of Windows 11 (Segoe MDL2 Assets on Windows 10), plain and sharp at every size. The Addons and Find buttons, which no glyph depicts well, borrow those of the Classique Rem pack.</p>
+      {{img tb-fluent-dark shot "The Windows glyph toolbar in the dark theme"}}
+    </div>
+
+    <h2>Internet Download Manager skins</h2>
+    <p>ADM accepts IDM toolbar skins: a <code>.tbi</code> file with its <code>.bmp</code> image strips.</p>
+    <ol class="steps">
+      <li>Download the skin you like and extract its archive.</li>
+      <li>Copy its files into <code>%APPDATA%\anime-dm\toolbar</code> (type this address in the File Explorer address bar).</li>
+      <li>Quit ADM with <em>Tasks › Quit</em>, then start it again: the skin appears in <em>View › Toolbar</em>.</li>
+    </ol>
+    <p>IDM skins have no Addons or Find buttons: ADM lends them those of the Classique Rem pack.</p>
+
+    <h2>Creating an animated pack</h2>
+    <p>A pack is a folder of <code>resources\toolbar</code> holding a <code>pack.json</code> file (its name) and, for each button, a strip of images in a row with its JSON file (the size and duration of each image). The button names are <code>add</code>, <code>resume</code>, <code>stop</code>, <code>stop-all</code>, <code>remove</code>, <code>remove-all</code>, <code>options</code>, <code>schedule</code>, <code>addons</code>, and <code>search</code>. A PNG strip keeps its transparency, and so a halo; a BMP strip uses a transparent background color. The Classique Rem and Néon packs, in the <a href="{{repo_url}}/tree/feature/win32-cpp/resources/toolbar">repository</a>, serve as models.</p>
+  </div>
+</div>

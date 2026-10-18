@@ -1,0 +1,79 @@
+<!--meta {
+  "title": "Changelog",
+  "description": "Le journal détaillé des modifications d'Anime Download Manager pour Windows, version par version, avec les demandes de fusion et les tickets GitHub.",
+  "nav": "news",
+  "hero": {
+    "variant": "plain",
+    "title": "Changelog"
+  }
+} -->
+<div class="page with-sidebar">
+  <nav class="sidebar" aria-label="Versions">
+    <ul>
+      <li><a href="#v0-02">0.02</a></li>
+      <li><a href="#v0-01">0.01</a></li>
+    </ul>
+  </nav>
+
+  <div class="prose changelog">
+    <p>Le détail de chaque version de l'application Windows, avec un lien vers la demande de fusion ou le ticket GitHub correspondant. Pour un résumé, voir les <a href="{{home}}nouveautes.html">nouveautés</a> ; pour les fichiers, la <a href="{{releases_url}}">page des publications</a>.</p>
+
+    <section class="release" id="v0-02">
+      <h2>0.02 <a class="tag-link" href="{{repo_url}}/releases/tag/win-v0.02">win-v0.02</a></h2>
+      <p class="date">4 octobre 2026</p>
+      <h3>Corrections</h3>
+      <ul>
+        <li>L'icône du dossier d'un animé est désignée par son seul nom de fichier : elle suit le dossier quand il est renommé, déplacé ou copié. Les dossiers posés par la 0.01 sont réparés au démarrage. <a href="{{repo_url}}/issues/99">#99</a></li>
+        <li>Le panneau Catégories enregistre le pli d'un animé fait avec le chevron. <a href="{{repo_url}}/issues/100">#100</a></li>
+        <li>Supprimer un animé avec ses fichiers retire aussi son dossier quand il ne contient plus que son habillage. <a href="{{repo_url}}/issues/101">#101</a></li>
+        <li>L'application démarre avec Windows par défaut ; libellé de l'option clarifié. <a href="{{repo_url}}/issues/102">#102</a></li>
+      </ul>
+      <p class="refs">Demandes de fusion : <a href="{{repo_url}}/pull/103">#103</a>, <a href="{{repo_url}}/pull/104">#104</a>, <a href="{{repo_url}}/pull/105">#105</a>.</p>
+    </section>
+
+    <section class="release" id="v0-01">
+      <h2>0.01 <a class="tag-link" href="{{repo_url}}/releases/tag/win-v0.01">win-v0.01</a></h2>
+      <p class="date">25 septembre 2026</p>
+      <p>Première version de l'application Windows, réécrite en C++ (Win32) à la place de l'application Tauri.</p>
+      <h3>Moteur et sources</h3>
+      <ul>
+        <li>Téléchargement par connexions HTTP parallèles et segmentation dynamique, listes HLS sans ffmpeg. <a href="{{repo_url}}/pull/45">#45</a></li>
+        <li>Addon Store et sources en bibliothèques natives vérifiées par SHA-256. <a href="{{repo_url}}/pull/43">#43</a>, <a href="{{repo_url}}/pull/67">#67</a></li>
+        <li>Reprise par n'importe quel lecteur de la source, y compris d'un épisode terminé. <a href="{{repo_url}}/pull/64">#64</a>, <a href="{{repo_url}}/pull/65">#65</a></li>
+      </ul>
+      <h3>Interface</h3>
+      <ul>
+        <li>Fenêtre à la manière d'IDM : couleurs relevées sur IDM 6.43, lignes peintes à la main, icônes de type de fichier du shell. <a href="{{repo_url}}/pull/42">#42</a>, <a href="{{repo_url}}/pull/49">#49</a>, <a href="{{repo_url}}/pull/55">#55</a>, <a href="{{repo_url}}/pull/57">#57</a>, <a href="{{repo_url}}/pull/59">#59</a></li>
+        <li>Panneau Catégories avec les affiches, chevrons et icônes de Windows. <a href="{{repo_url}}/pull/46">#46</a>, <a href="{{repo_url}}/pull/92">#92</a></li>
+        <li>Ajout en trois fenêtres, puis fenêtres d'ajout indépendantes et téléchargement par lot. <a href="{{repo_url}}/pull/61">#61</a>, <a href="{{repo_url}}/pull/88">#88</a></li>
+        <li>Tri par colonne, colonnes supplémentaires, largeurs gardées, choix des colonnes et de la police. <a href="{{repo_url}}/pull/63">#63</a>, <a href="{{repo_url}}/pull/75">#75</a>, <a href="{{repo_url}}/pull/80">#80</a>, <a href="{{repo_url}}/pull/82">#82</a></li>
+        <li>Recherche dans la liste, survol des lignes, <kbd>Ctrl</kbd> + <kbd>A</kbd>. <a href="{{repo_url}}/pull/68">#68</a>, <a href="{{repo_url}}/pull/76">#76</a></li>
+        <li>Fenêtre Options à onglets et fenêtre À propos à la manière d'IDM. <a href="{{repo_url}}/pull/69">#69</a>, <a href="{{repo_url}}/pull/93">#93</a></li>
+        <li>Entrées de menu grisées quand elles n'ont rien à faire. <a href="{{repo_url}}/pull/85">#85</a></li>
+        <li>Zone de notification : fermeture dans la barre, menu, notifications. <a href="{{repo_url}}/pull/90">#90</a></li>
+        <li>Cadre de la fenêtre et panneau gardés d'une session à l'autre. <a href="{{repo_url}}/pull/89">#89</a></li>
+      </ul>
+      <h3>Barre d'outils</h3>
+      <ul>
+        <li>Glyphes Segoe Fluent Icons et peaux de barre d'outils d'IDM. <a href="{{repo_url}}/pull/51">#51</a></li>
+        <li>Packs de sprites animés Classique Rem (par défaut) et Néon. <a href="{{repo_url}}/pull/52">#52</a>, <a href="{{repo_url}}/pull/53">#53</a>, <a href="{{repo_url}}/pull/79">#79</a></li>
+      </ul>
+      <h3>Navigateur, planificateur, fichiers</h3>
+      <ul>
+        <li>Extension de navigateur et hôte de messagerie native. <a href="{{repo_url}}/pull/69">#69</a></li>
+        <li>Planificateur à deux files, puis files par animé. <a href="{{repo_url}}/pull/71">#71</a>, <a href="{{repo_url}}/pull/74">#74</a></li>
+        <li>Animés suivis, avec proposition des épisodes manquants. <a href="{{repo_url}}/pull/72">#72</a>, <a href="{{repo_url}}/pull/84">#84</a></li>
+        <li>Icônes de dossier tirées des affiches. <a href="{{repo_url}}/pull/47">#47</a></li>
+        <li>Export et import, puis classeurs Excel et OpenDocument. <a href="{{repo_url}}/pull/73">#73</a>, <a href="{{repo_url}}/pull/86">#86</a></li>
+      </ul>
+      <h3>Distribution</h3>
+      <ul>
+        <li>Installateur, publication des versions Windows et mise à jour intégrée ; numéros de version N.NN. <a href="{{repo_url}}/pull/95">#95</a></li>
+      </ul>
+      <h3>Retiré</h3>
+      <ul>
+        <li>Téléchargement manuel, limiteur de vitesse et accélérateur. <a href="{{repo_url}}/pull/87">#87</a>, <a href="{{repo_url}}/pull/91">#91</a></li>
+      </ul>
+    </section>
+  </div>
+</div>
