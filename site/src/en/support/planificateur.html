@@ -1,0 +1,63 @@
+<!--meta {
+  "title": "Scheduler",
+  "description": "The Anime Download Manager scheduler: two queues to start and stop at set times, and following animes that are still airing.",
+  "nav": "support"
+} -->
+<div class="page">
+  <p class="breadcrumb"><a href="{{home}}support/index.html">← Support</a></p>
+  <h1 class="page-title">The ADM scheduler</h1>
+
+  <div class="with-sidebar">
+    <nav class="sidebar" aria-label="Contents">
+      <ul>
+        <li><a href="#files">Queues</a>
+          <ul>
+            <li><a href="#mettre">Moving to a queue</a></li>
+            <li><a href="#programmer">Scheduling a queue</a></li>
+          </ul>
+        </li>
+        <li><a href="#suivis">Followed animes</a>
+          <ul>
+            <li><a href="#suivre">Following an anime</a></li>
+            <li><a href="#rythme">How often it checks</a></li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="prose">
+      <h2 id="files">Queues</h2>
+      <p>ADM has two queues: the <strong>main queue</strong> and the <strong>scheduler queue</strong>. Each episode belongs to one of them; the Categories panel shows them below the animes. <em>Start queue</em> resumes its stopped or failed episodes, <em>Stop queue</em> stops the running ones.</p>
+
+      <h3 id="mettre">Moving to a queue</h3>
+      <p>Right-click episodes in the list, or an anime in the panel for all its episodes, then <em>Move to the queue</em>: a check mark shows the current queue. The <em>Later</em> button of the add window drops the episodes, stopped, into the main queue.</p>
+
+      <h3 id="programmer">Scheduling a queue</h3>
+      <figure>{{img scheduler-queues "Scheduler, Queues tab: daily start at a given time"}}</figure>
+      <p>Click <em>Schedule</em>, then in the <em>Queues</em> tab, choose the queue and set:</p>
+      <ul>
+        <li><strong>the automatic start</strong>: <em>once</em>, on a date and at a time, or <em>every day</em>, on the checked days;</li>
+        <li><strong>the automatic stop</strong>, at a set time;</li>
+        <li><strong>what happens once the queue is done</strong>: nothing, quit ADM, or shut down the computer.</li>
+      </ul>
+      <p>The list at the bottom shows the files in the queue and their status; <em>Start now</em> launches it without waiting. ADM must be open, even hidden in the notification area, for the queue to start on time.</p>
+      <div class="note"><p>An interrupted session (power cut, restart) leaves nothing pending: at the next launch, everything that was active becomes stopped, and the scheduled queue or you restart it.</p></div>
+
+      <h2 id="suivis">Followed animes</h2>
+      <figure>{{img scheduler-follows "Scheduler, Followed animes tab"}}</figure>
+      <p>A followed anime is checked regularly; its new episodes are added to its folder on their own, and started if you wish. The <em>Followed animes</em> tab lists them, with the last released episode, the release day, and the next check; <em>Check now</em> does not wait.</p>
+
+      <h3 id="suivre">Following an anime</h3>
+      <figure>{{img follow "Follow an anime window"}}</figure>
+      <ol class="steps">
+        <li>Right-click the anime in the Categories panel, then <em>Follow the new episodes…</em> (or <em>Follow an anime…</em> in the tab).</li>
+        <li>Enter the <strong>release day</strong> and <strong>time</strong>. Sites do not give the date of episodes: ADM fills these fields with the present moment; correct them from the broadcast schedule.</li>
+        <li>Choose the <strong>queue</strong> that will receive the new episodes, and whether they start at once.</li>
+        <li>Confirm. The first check <strong>offers the episodes already released</strong> that your list is missing: those after your last downloaded episode are checked, the older ones are not.</li>
+      </ol>
+
+      <h3 id="rythme">How often it checks</h3>
+      <p>ADM checks the anime's page at release time, then every three hours for two days as long as the episode has not come out. As soon as it does, or after those two days, the next check is set for the following week.</p>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,72 @@
+<!--meta {
+  "title": "FAQ",
+  "description": "Answers to the most common questions about Anime Download Manager: installation, browser, sources, downloads, scheduler.",
+  "nav": "support",
+  "hero": {
+    "variant": "plain",
+    "back": true,
+    "title": "Frequently asked questions"
+  }
+} -->
+<div class="page">
+  <div class="prose faq">
+    <form class="faq-search" role="search" onsubmit="return false">
+      <input type="search" id="faq-filter" placeholder="Filter the questions, for example &quot;player&quot; or &quot;Firefox&quot;" aria-label="Filter the questions">
+    </form>
+    <p class="faq-empty">No question matches. <a href="{{home}}contact.html">Write to us</a>.</p>
+
+    <h2 id="installation">Installation and updates</h2>
+    <div>
+      <details><summary>Which systems does ADM run on?</summary><div><p>Windows 10 and Windows 11, 64-bit. The application ships as a single executable, with no library to install alongside it.</p></div></details>
+      <details><summary>Windows says "Windows protected your PC." Is that normal?</summary><div><p>Yes. The installer is not yet signed with a paid certificate, and SmartScreen flags any program that is not widely used yet. Click <em>More info</em>, then <em>Run anyway</em>. The code of ADM is public on GitHub.</p></div></details>
+      <details><summary>Where does ADM keep my list and my settings?</summary><div><p>In <code>%APPDATA%\anime-dm</code>: the list (<code>downloads.json</code>), the settings, the followed animes, the posters, and the installed sources. ADM never writes to its installation folder.</p></div></details>
+      <details><summary>How do I update ADM?</summary><div><p>You have nothing to do: ADM checks for a new version on its own after each start and offers it to you. To look for it right away: <em>Help › Quick update</em>. The update keeps your list and your settings.</p></div></details>
+      <details><summary>ADM starts with Windows. How do I stop that?</summary><div><p>Uncheck <em>Start Anime Download Manager when Windows starts</em> in <em>Options › General</em>.</p></div></details>
+      <details><summary>Does uninstalling delete my videos?</summary><div><p>No, never. It empties <code>%APPDATA%\anime-dm</code> while keeping the installed sources, unless you check the box that removes them too.</p></div></details>
+    </div>
+
+    <h2 id="navigateur">Browser integration</h2>
+    <div>
+      <details><summary>Which browsers are supported?</summary><div><p>Google Chrome, Microsoft Edge, Brave, Chromium, Vivaldi, Opera, and Mozilla Firefox. You choose which ones ADM registers with in <em>Options › General</em>.</p></div></details>
+      <details><summary>Where do I get the extension?</summary><div><p>The <em>Install the extension…</em> button in <em>Options › General</em> opens its page. Its publication on the Chrome Web Store and the Firefox add-ons site is in progress; see the <a href="{{home}}support/extension.html">Browser integration</a> page for its status.</p></div></details>
+      <details><summary>The "Download with ADM" button does not show up on a site.</summary><div><ol><li>Check that a source serves the site: it must be installed in the Addon Store.</li><li>Check that your browser is checked in <em>Options › General</em>.</li><li>Start ADM at least once after installing a source: it is what tells the extension which sites are served.</li><li>Close and reopen the browser.</li></ol></div></details>
+      <details><summary>The panel shows up too often. Can I tone it down?</summary><div><p>Yes: <em>Options › General › Edit…</em> chooses full or mini mode, and whether it appears on the pages, when hovering links, or both.</p></div></details>
+      <details><summary>Does the extension send my data anywhere?</summary><div><p>No. It never talks to the network: it only hands the address of the page to the application installed on your computer, when you click its button.</p></div></details>
+    </div>
+
+    <h2 id="sources">Sources and Addon Store</h2>
+    <div>
+      <details><summary>What is a source?</summary><div><p>A small library that knows how to read a site: find the anime, its episodes, and their players. ADM contains none; you install the ones you need from the Addon Store. See the <a href="{{home}}sources.html">Sources</a> page.</p></div></details>
+      <details><summary>ADM says no source serves my address.</summary><div><p>Install the source of the site from the Addon Store. If it is already installed, the site may have changed its address: set the new one in the Addon Store (gear button, <em>URL du site</em> field).</p></div></details>
+      <details><summary>A site has changed its domain name.</summary><div><p>Select its source in the Addon Store, click the gear, and enter the new address in <em>URL du site</em> (site URL). No need to wait for an update.</p></div></details>
+      <details><summary>Can I add a site that is not supported?</summary><div><p>Suggest it from the <a href="{{home}}contact.html">Contact</a> page, or write its source yourself: the <a href="https://github.com/goddivor/anime-dm-addons">anime-dm-addons</a> repository holds three to use as models.</p></div></details>
+    </div>
+
+    <h2 id="telechargements">Downloads and players</h2>
+    <div>
+      <details><summary>Where do my videos go?</summary><div><p>To the folder shown in the <em>Download information</em> window, each anime in its own subfolder. Check <em>Remember this path</em> to have that folder offered for the next downloads; you can also change it in <em>Options › Save to</em>.</p></div></details>
+      <details><summary>An episode failed. What do I do?</summary><div><p>The chosen player no longer answers or does not have the video. Right-click the episode, then <em>Resume</em>, and pick another player in the list. <em>Automatic</em> lets the source try its players in its own order.</p></div></details>
+      <details><summary>A finished episode is cut short or of poor quality.</summary><div><p>A player sometimes serves an incomplete copy. Right-click, <em>Resume</em>, then another player: for a finished episode, ADM starts over from scratch with that player.</p></div></details>
+      <details><summary>What is the difference between Stop and Delete?</summary><div><p><em>Stop</em> keeps what has already been received: <em>Resume</em> picks up from there. <em>Delete</em> removes the episode from the list and discards the received parts; the box in the confirmation also deletes the file from the disk.</p></div></details>
+      <details><summary>How do I speed up or slow down downloads?</summary><div><p><em>Options › Downloads</em> sets the number of simultaneous downloads (1 to 10) and of connections per download (1 to 16). Some hosts limit the number of connections: beyond that limit, more connections bring nothing.</p></div></details>
+      <details><summary>Why are some files .ts?</summary><div><p>Some players serve the video as an HLS playlist, cut into small pieces. ADM joins them into a <code>.ts</code> file (or <code>.mp4</code> for fragmented MP4), which VLC, mpv, and most players read.</p></div></details>
+      <details><summary>Does the download resume after a cut?</summary><div><p>Yes. Positions are saved every three seconds; on resume, ADM reads the page again to get a fresh address for the video, and continues where it stopped if the file size has not changed.</p></div></details>
+    </div>
+
+    <h2 id="planificateur">Scheduler and followed animes</h2>
+    <div>
+      <details><summary>How do I download overnight?</summary><div><p>Put the episodes in the scheduler queue (right-click, <em>Move to the queue</em>), then in <em>Schedule › Queues</em>, check <em>Start this queue on its own</em>, set the time, and optionally <em>Shut down the computer</em> once the queue is done.</p></div></details>
+      <details><summary>How do I get the new episodes of an airing anime?</summary><div><p>Right-click the anime in the Categories panel, <em>Follow the new episodes…</em>, then enter its release day and time. See <a href="{{home}}support/planificateur.html#suivis">Followed animes</a>.</p></div></details>
+      <details><summary>Why do I have to enter the release day?</summary><div><p>Sites do not give the date of each episode. ADM fills in the day and time with the moment you follow the anime; correct them from the broadcast schedule.</p></div></details>
+    </div>
+
+    <h2 id="general">General questions</h2>
+    <div>
+      <details><summary>Is ADM really free?</summary><div><p>Yes: no trial period, no paid edition, no ads, and no account. Its code is public on GitHub.</p></div></details>
+      <details><summary>Does ADM provide videos?</summary><div><p>No. ADM neither hosts nor provides any content: it downloads what the sites serve. It is up to you to check your right to do so; read the <a href="{{home}}avertissement.html">disclaimer</a>.</p></div></details>
+      <details><summary>The close button does not quit ADM.</summary><div><p>It tucks it into the notification area, next to the clock, so that downloads keep running. To quit: <em>Tasks › Quit</em>, or right-click the ADM icon next to the clock, then <em>Quit</em>. This behavior is set in <em>Options › General</em>.</p></div></details>
+      <details><summary>Can I use ADM in French?</summary><div><p>Yes: <em>View › Language › Français</em>.</p></div></details>
+      <details><summary>Do my IDM toolbar skins work?</summary><div><p>Yes. Drop them into <code>%APPDATA%\anime-dm\toolbar</code> and pick them with <em>View › Toolbar</em>. See <a href="{{home}}support/barre-outils.html">Toolbar</a>.</p></div></details>
+    </div>
+  </div>
+</div>

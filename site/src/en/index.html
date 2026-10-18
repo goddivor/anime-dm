@@ -1,0 +1,122 @@
+<!--meta {
+  "title": "Anime Download Manager, the download manager for your anime",
+  "bare_title": true,
+  "description": "Anime Download Manager (ADM) downloads your anime from your favorite sites, with up to eight connections per episode, resumes after a cut, and files each series in its own folder. Free, for Windows.",
+  "nav": "home",
+  "hero": {
+    "variant": "home",
+    "badge": "Free · Open code · Windows 10 and 11",
+    "title": "Download your anime faster, and find it neatly filed",
+    "subtitle": "Anime Download Manager (ADM) fetches the episodes of your anime sites in one click, speeds them up with eight parallel connections, picks up where it left off, and files each series in its own folder, with its poster.",
+    "cta": ["Download ADM for free", "{{download_url}}"],
+    "note": "Version {{version}} · {{release_size}} · <a href=\"{{home}}nouveautes.html\">What's new</a>"
+  }
+} -->
+<div class="features">
+
+  <section class="feature">
+    <div class="text">
+      <h2>Faster and more reliable</h2>
+      <p>Install Anime Download Manager and stop waiting for an episode to finish. Each video is pulled through several connections at once, three episodes move forward together, and the next ones wait their turn in the queue. A network cut, a shutdown, or a power failure loses nothing: the download resumes where it stopped.</p>
+    </div>
+    <div class="media">{{img main-dark "Main window of Anime Download Manager: three episodes of Sousou no Frieren downloading, the next ones pending"}}</div>
+  </section>
+
+  <section class="feature flip">
+    <div class="text">
+      <h2>A download engine with dynamic segmentation</h2>
+      <p>ADM works like the major download managers, with plain HTTP requests and no ffmpeg. The file starts as a single segment; each connection that frees up splits the largest remaining segment in half, so none stays idle. Positions are saved every three seconds, and HLS playlists (<code>.m3u8</code>) follow the same path, AES-128 decryption included.</p>
+      <a class="link-caps" href="{{home}}support/segmentation.html">More about segmentation</a>
+    </div>
+    <div class="media">{{partial segments}}</div>
+  </section>
+
+  <section class="feature">
+    <div class="text">
+      <h2>Right from your browser</h2>
+      <p>The ADM extension for Google Chrome, Microsoft Edge, Brave, Vivaldi, Opera, and Mozilla Firefox adds a "Download with ADM" button to the page of an anime or an episode, and the same panel when you hover any link that leads there. One click, and the add window opens with the source chosen and the episode checked.</p>
+      <a class="link-caps" href="{{home}}support/extension.html">Browser integration</a>
+    </div>
+    <div class="media">{{sequence browser-seq 7 "voir-anime.to/anime/sousou-no-frieren/" "The pointer moves down the episode list: the Download this episode with ADM panel follows each hovered link, then the click hands it to ADM" 1400,800,800,800,1100,900,1600}}</div>
+  </section>
+
+  <section class="feature flip">
+    <div class="text">
+      <h2>One episode, a season, or the whole series</h2>
+      <p>Paste the address of an anime: ADM reads the page and shows the poster and the list of episodes. Check them in the grid or type a range such as <code>1-8,12</code>. Right-click an episode to choose its player, and the Later button drops it into the queue without starting it.</p>
+      <p>Several addresses on the clipboard? <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd> groups them by anime and opens an add window for each.</p>
+    </div>
+    <div class="media">{{img add-episodes "Episodes window: a grid of 28 episodes, the first eight checked by the range 1-8"}}</div>
+  </section>
+
+  <section class="feature">
+    <div class="text">
+      <h2>Your favorite anime sites</h2>
+      <p>Each site is served by a source, a small library you install from the built-in Addon Store: Voir-Anime, French-Stream, Wiflix, and more to come. Every library carries a SHA-256 checksum, checked before it is even written to the disk, and the store only serves sources published by the project.</p>
+      <a class="link-caps" href="{{home}}sources.html">See the sources</a>
+    </div>
+    <div class="media">{{img addon-store "Addon Store: the FrenchStream, Wiflix, and Voir-Anime sources with their versions"}}</div>
+  </section>
+
+  <section class="feature flip">
+    <div class="text">
+      <h2>Scheduler and followed animes</h2>
+      <p>Start a queue at the time you choose, once or every day, stop it at a set time, then let ADM quit or shut down the computer. Follow an anime that is still airing: on its release day ADM checks the page, then every three hours for two days, and adds each new episode on its own.</p>
+      <a class="link-caps" href="{{home}}support/planificateur.html">The scheduler in detail</a>
+    </div>
+    <div class="media">{{img scheduler-follows "Followed animes tab of the scheduler: one followed anime, its last released episode, and the next check"}}</div>
+  </section>
+
+  <section class="feature">
+    <div class="text">
+      <h2>Each series in its own folder</h2>
+      <p>The episodes of an anime land in its own folder, and the Categories panel shows them under its poster. ADM can also dress that folder with an icon made from the poster (DVD case, Blu-ray case, disc, folder) that follows it when you move it, and prepare each series for Aniyomi.</p>
+    </div>
+    <div class="media">{{img folder-icons "Anime and movie folders in File Explorer, each with an icon made from its poster"}}</div>
+  </section>
+
+  <section class="feature flip">
+    <div class="text">
+      <h2>An interface that suits you</h2>
+      <p>Choose the dark or light theme, the order and width of the columns, the font, and the toolbar: the Classique Rem pack, the Néon pack with its glowing buttons, the Windows glyphs, or the IDM skins you already have. The buttons come alive when you hover them.</p>
+      <a class="link-caps" href="{{home}}support/barre-outils.html">Choose a toolbar</a>
+    </div>
+    <div class="media">{{img theme-split "Main window split diagonally between the dark theme and the light theme"}}</div>
+  </section>
+
+</div>
+
+<div class="features-cta">
+  <a class="btn btn-solid btn-large" href="{{home}}fonctionnalites.html">Explore all the features</a>
+  <a class="btn btn-outline btn-large" href="{{home}}support/utiliser-adm.html">Read the user guide</a>
+</div>
+
+<section class="try">
+  <h2>Free, with no account and no ads</h2>
+  <p>No trial period, no email address, no credit card. Download ADM, install a source from the Addon Store, and start your first episode.</p>
+  <a class="btn btn-solid btn-large" href="{{download_url}}">Download Anime Download Manager</a>
+  {{partial systems}}
+</section>
+
+<section class="release-band">
+  <div class="release-inner">
+    {{partial box}}
+    <div>
+      <span class="tag-new">new version</span>
+      <p>Anime Download Manager {{version}}: the icon of a folder now follows it when it is renamed or moved, the Categories panel remembers folded animes, deleting an anime also removes its empty folder, and the application starts with Windows.</p>
+      <a class="btn btn-solid" href="{{home}}nouveautes.html">Learn more</a>
+    </div>
+  </div>
+</section>
+
+<section class="why">
+  <h2>Why Anime Download Manager</h2>
+  {{partial why}}
+  <a class="link-caps" href="{{home}}fonctionnalites.html">All the features</a>
+</section>
+
+<section class="contribute">
+  <h2>Suggest a source, improve ADM</h2>
+  <p>The code of ADM and its sources is public. Report a problem, suggest an improvement, or write the source of a new site: every contribution benefits everyone.</p>
+  <a class="btn btn-ghost" href="{{repo_url}}">Contribute on GitHub</a>
+</section>
