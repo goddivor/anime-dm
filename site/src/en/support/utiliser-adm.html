@@ -1,0 +1,103 @@
+<!--meta {
+  "title": "Using ADM",
+  "description": "The Anime Download Manager user guide: main window, Categories panel, adding a download, batch download, context menu, Options, export, and import.",
+  "nav": "support"
+} -->
+<div class="page">
+  <p class="breadcrumb"><a href="{{home}}support/index.html">← Support</a></p>
+  <h1 class="page-title">Using Anime Download Manager</h1>
+
+  <div class="with-sidebar">
+    <nav class="sidebar" aria-label="Contents">
+      <ul>
+        <li><a href="#fenetre">Main window</a></li>
+        <li><a href="#categories">Categories panel</a></li>
+        <li><a href="#ajout">Adding a download</a></li>
+        <li><a href="#lot">Batch download</a></li>
+        <li><a href="#menu">Context menu</a></li>
+        <li><a href="#options">Options window</a></li>
+        <li><a href="#affichage">Columns, font, theme</a></li>
+        <li><a href="#export">Export and import</a></li>
+        <li><a href="#notification">Notification area</a></li>
+        <li><a href="#raccourcis">Keyboard shortcuts</a></li>
+        <li><a href="#a-propos">About and updates</a></li>
+      </ul>
+    </nav>
+
+    <div class="prose">
+      <h2 id="fenetre">Main window</h2>
+      <p>The main window shows the list of episodes: file name, size, status, time left, speed, last try, date added, location, address, and parent page. Click a column header to sort the list; during a transfer, the status cell turns into a progress bar.</p>
+      <figure>{{img main-dark "ADM main window with three episodes downloading and five pending"}}</figure>
+      <p>Above the list, the <em>Add URL</em>, <em>Resume</em>, <em>Stop</em>, <em>Stop all</em>, <em>Delete</em>, <em>Delete all</em>, <em>Options</em>, <em>Schedule</em>, <em>Addons</em>, and <em>Find</em> buttons turn on or gray out depending on what the selection allows. Menu entries follow the same rule.</p>
+      <p><em>Resume</em> restarts stopped or failed episodes where they left off. <em>Stop</em> keeps what has been received; <em>Delete</em> removes the episode from the list and, if you check the box in the confirmation, its file from the disk.</p>
+
+      <h2 id="categories">Categories panel</h2>
+      <figure>{{img sidebar "The Categories panel: the animes with their poster and their number of episodes, then the two queues"}}</figure>
+      <p>The left panel groups episodes by anime, under its poster, with their count. A chevron folds or unfolds an anime, and ADM remembers. Below come the two queues: the main queue and the scheduler queue.</p>
+      <p>Click a row to filter the list. Right-click an anime to open it in your browser, open its folder, change the folder icon, prepare the series for Aniyomi, move it to a queue, follow it, or delete it. The panel is hidden with <em>View › Categories</em>, and its width is set by dragging the splitter.</p>
+
+      <h2 id="ajout">Adding a download</h2>
+      <p>Click <em>Add URL</em> (<kbd>Ctrl</kbd> + <kbd>N</kbd>). Adding takes three windows, as in IDM.</p>
+      <h3>1. The address</h3>
+      <figure>{{img add-url "Add a download window: Address field and Source list"}}</figure>
+      <p>Paste the address of an anime or episode page; if it is already on the clipboard, it fills in by itself. The source that serves this site is picked automatically. Click <em>OK</em>: ADM reads the page, and the next window arrives once the episodes are known.</p>
+      <h3>2. The information</h3>
+      <figure>{{img add-info "Download information window"}}</figure>
+      <p>Check the save folder: each anime gets its own subfolder there. <em>Remember this path</em> offers it for the next downloads. Choose the folder icon template, then click the episodes button to pick them. <em>Start</em> launches the download; <em>Later</em> drops the episodes, stopped, into the main queue.</p>
+      <h3>3. The episodes</h3>
+      <figure>{{img add-episodes "Episodes to download window"}}</figure>
+      <p>Check the episodes in the grid, or type a selection such as <code>1-8</code> or <code>1-5,12</code>: the grid and the field answer each other. The player chosen at the top applies to all; right-click an episode to give it its own.</p>
+      <div class="note"><p>Each add lives in its own windows, with a button on the taskbar. You can open several at once and keep using the main window in the meantime.</p></div>
+
+      <h2 id="lot">Batch download</h2>
+      <p>Copy several addresses (anime or episode pages, one per line or mixed with text), then choose <em>Tasks › Batch download from clipboard</em> (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd>). ADM groups them by anime and opens an add window for each, with the source chosen and the named episodes checked (all of them, for an anime page). A notice counts the addresses no installed source serves.</p>
+
+      <h2 id="menu">Context menu</h2>
+      <figure>{{img menu-list "Context menu of an episode in the list"}}</figure>
+      <p>Right-click episodes in the list for <em>Open</em> (a finished file), <em>Open folder</em>, <em>Resume</em>, <em>Stop</em> (a running transfer), <em>Move to the queue</em>, and <em>Delete</em>.</p>
+      <figure>{{img menu-resume "Resume submenu: Automatic, then the players of the source"}}</figure>
+      <p><em>Resume</em> is a submenu: <em>Automatic</em> lets the source try its players in order, the other entries force a player. The current player is checked. For a stopped or failed episode, ADM resumes where it left off; for a finished episode, it starts over from scratch, because a player sometimes serves a cut copy where another has the whole video.</p>
+
+      <h2 id="options">Options window</h2>
+      <p>The <em>Options</em> button opens the configuration of ADM, in three tabs. <em>OK</em> applies, <em>Cancel</em> changes nothing.</p>
+      <h3>General</h3>
+      <figure>{{img options-general "Options, General tab"}}</figure>
+      <p>Starting with Windows, closing to the notification area, pasting the clipboard when the add window opens, the browsers ADM registers with, the <em>Install the extension…</em> button, and the setup of the browsers' download panel (<em>Edit…</em>).</p>
+      <h3>Save to</h3>
+      <figure>{{img options-save "Options, Save to tab"}}</figure>
+      <p>The download folder and the box that offers it for every new download, the icon applied to each anime's folder with its template, and the automatic preparation for Aniyomi (<code>cover.jpg</code> and <code>.nomedia</code>).</p>
+      <h3>Downloads</h3>
+      <figure>{{img options-downloads "Options, Downloads tab"}}</figure>
+      <p>The number of simultaneous downloads (1 to 10), which applies at once, and the number of connections per download (1 to 16), which applies to the next transfers.</p>
+
+      <h2 id="affichage">Columns, font, theme</h2>
+      <figure>{{img columns "Customise columns window"}}</figure>
+      <p><em>View › Customise columns</em> chooses the columns shown and their order; the file name stays first. Drag a separator in the header to set a width: ADM keeps it. <em>View › Font</em> changes the font of the toolbar, the panel, and the list, <em>View › Mode</em> chooses the dark, light, or Windows theme, and <em>View › Toolbar</em> the look of the buttons (see <a href="{{home}}support/barre-outils.html">Toolbar</a>).</p>
+
+      <h2 id="export">Export and import</h2>
+      <p><em>Tasks › Export</em> writes the selection, or the whole list if nothing is selected, in one of these formats:</p>
+      <ul>
+        <li><strong>ADM file</strong> (<code>.adm</code>): everything, animes, posters, sources, episodes, players, and queues;</li>
+        <li><strong>Text</strong>: one page address per line;</li>
+        <li><strong>JSON</strong>: a flat list;</li>
+        <li><strong>CSV</strong>, <strong>Excel</strong> (<code>.xlsx</code>), or <strong>OpenDocument</strong> (<code>.ods</code>): a table, one row per episode.</li>
+      </ul>
+      <p><em>Tasks › Import</em> reads any of these back. For a bare address, ADM finds the source from the site and queries the page: every episode for an anime page, that one alone for an episode page. Episodes already in the list are skipped, the others wait, stopped, in the main queue.</p>
+
+      <h2 id="notification">Notification area</h2>
+      <p>The close button of the window tucks ADM next to the clock without stopping it. Click its icon to reopen the window; right-click it for adding, batch download, the queues, the scheduler, the options, the Addon Store, and <em>Quit</em>. The tooltip counts the running transfers, and a notification announces each finished episode when the window is not in the foreground. To make the close button really quit, uncheck the option in <em>Options › General</em>.</p>
+
+      <h2 id="raccourcis">Keyboard shortcuts</h2>
+      <table class="data">
+        <tr><td class="nowrap"><kbd>Ctrl</kbd> + <kbd>N</kbd></td><td>Add a download</td></tr>
+        <tr><td class="nowrap"><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd></td><td>Batch download from the clipboard</td></tr>
+        <tr><td class="nowrap"><kbd>Ctrl</kbd> + <kbd>F</kbd></td><td>Find in the list</td></tr>
+        <tr><td class="nowrap"><kbd>Del</kbd></td><td>Delete the selection</td></tr>
+      </table>
+
+      <h2 id="a-propos">About and updates</h2>
+      <figure>{{img about "About Anime Download Manager window"}}</figure>
+      <p><em>Help › About Anime Download Manager</em> gives the version and the build date, and the <em>Check for updates</em> button. ADM also runs that check on its own, quietly, after each start: it says nothing if there is nothing new.</p>
+    </div>
+  </div>
+</div>

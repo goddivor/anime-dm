@@ -1,0 +1,79 @@
+<!--meta {
+  "title": "Changelog",
+  "description": "The detailed change log of Anime Download Manager for Windows, version by version, with the GitHub pull requests and issues.",
+  "nav": "news",
+  "hero": {
+    "variant": "plain",
+    "title": "Changelog"
+  }
+} -->
+<div class="page with-sidebar">
+  <nav class="sidebar" aria-label="Versions">
+    <ul>
+      <li><a href="#v0-02">0.02</a></li>
+      <li><a href="#v0-01">0.01</a></li>
+    </ul>
+  </nav>
+
+  <div class="prose changelog">
+    <p>The details of each version of the Windows application, with a link to the matching GitHub pull request or issue. For a summary, see <a href="{{home}}nouveautes.html">what's new</a>; for the files, the <a href="{{releases_url}}">releases page</a>.</p>
+
+    <section class="release" id="v0-02">
+      <h2>0.02 <a class="tag-link" href="{{repo_url}}/releases/tag/win-v0.02">win-v0.02</a></h2>
+      <p class="date">October 4, 2026</p>
+      <h3>Fixes</h3>
+      <ul>
+        <li>The icon of an anime's folder is named by its file name alone, so it follows the folder when it is renamed, moved, or copied. Folders dressed by 0.01 are repaired at startup. <a href="{{repo_url}}/issues/99">#99</a></li>
+        <li>The Categories panel saves an anime folded with the chevron. <a href="{{repo_url}}/issues/100">#100</a></li>
+        <li>Deleting an anime with its files also removes its folder once it holds nothing but its dressing. <a href="{{repo_url}}/issues/101">#101</a></li>
+        <li>The application starts with Windows by default; the option's label is clearer. <a href="{{repo_url}}/issues/102">#102</a></li>
+      </ul>
+      <p class="refs">Pull requests: <a href="{{repo_url}}/pull/103">#103</a>, <a href="{{repo_url}}/pull/104">#104</a>, <a href="{{repo_url}}/pull/105">#105</a>.</p>
+    </section>
+
+    <section class="release" id="v0-01">
+      <h2>0.01 <a class="tag-link" href="{{repo_url}}/releases/tag/win-v0.01">win-v0.01</a></h2>
+      <p class="date">September 25, 2026</p>
+      <p>The first version of the Windows application, rewritten in C++ (Win32) to replace the Tauri application.</p>
+      <h3>Engine and sources</h3>
+      <ul>
+        <li>Download over parallel HTTP connections with dynamic segmentation, HLS playlists without ffmpeg. <a href="{{repo_url}}/pull/45">#45</a></li>
+        <li>Addon Store and sources as native libraries verified by SHA-256. <a href="{{repo_url}}/pull/43">#43</a>, <a href="{{repo_url}}/pull/67">#67</a></li>
+        <li>Resume through any player of the source, including for a finished episode. <a href="{{repo_url}}/pull/64">#64</a>, <a href="{{repo_url}}/pull/65">#65</a></li>
+      </ul>
+      <h3>Interface</h3>
+      <ul>
+        <li>An IDM-like window: colors measured on IDM 6.43, hand-painted rows, shell file type icons. <a href="{{repo_url}}/pull/42">#42</a>, <a href="{{repo_url}}/pull/49">#49</a>, <a href="{{repo_url}}/pull/55">#55</a>, <a href="{{repo_url}}/pull/57">#57</a>, <a href="{{repo_url}}/pull/59">#59</a></li>
+        <li>Categories panel with posters, chevrons, and Windows icons. <a href="{{repo_url}}/pull/46">#46</a>, <a href="{{repo_url}}/pull/92">#92</a></li>
+        <li>Adding in three windows, then independent add windows and batch download. <a href="{{repo_url}}/pull/61">#61</a>, <a href="{{repo_url}}/pull/88">#88</a></li>
+        <li>Sorting by column, extra columns, kept widths, choice of columns and font. <a href="{{repo_url}}/pull/63">#63</a>, <a href="{{repo_url}}/pull/75">#75</a>, <a href="{{repo_url}}/pull/80">#80</a>, <a href="{{repo_url}}/pull/82">#82</a></li>
+        <li>Find in the list, row hover, <kbd>Ctrl</kbd> + <kbd>A</kbd>. <a href="{{repo_url}}/pull/68">#68</a>, <a href="{{repo_url}}/pull/76">#76</a></li>
+        <li>Tabbed Options window and IDM-like About window. <a href="{{repo_url}}/pull/69">#69</a>, <a href="{{repo_url}}/pull/93">#93</a></li>
+        <li>Menu entries grayed out when they have nothing to act on. <a href="{{repo_url}}/pull/85">#85</a></li>
+        <li>Notification area: close to tray, menu, notifications. <a href="{{repo_url}}/pull/90">#90</a></li>
+        <li>Window frame and panel kept from one session to the next. <a href="{{repo_url}}/pull/89">#89</a></li>
+      </ul>
+      <h3>Toolbar</h3>
+      <ul>
+        <li>Segoe Fluent Icons glyphs and IDM toolbar skins. <a href="{{repo_url}}/pull/51">#51</a></li>
+        <li>Animated Classique Rem (default) and Néon sprite packs. <a href="{{repo_url}}/pull/52">#52</a>, <a href="{{repo_url}}/pull/53">#53</a>, <a href="{{repo_url}}/pull/79">#79</a></li>
+      </ul>
+      <h3>Browser, scheduler, files</h3>
+      <ul>
+        <li>Browser extension and native messaging host. <a href="{{repo_url}}/pull/69">#69</a></li>
+        <li>Scheduler with two queues, then queues per anime. <a href="{{repo_url}}/pull/71">#71</a>, <a href="{{repo_url}}/pull/74">#74</a></li>
+        <li>Followed animes, with an offer of the missing episodes. <a href="{{repo_url}}/pull/72">#72</a>, <a href="{{repo_url}}/pull/84">#84</a></li>
+        <li>Folder icons made from the posters. <a href="{{repo_url}}/pull/47">#47</a></li>
+        <li>Export and import, then Excel and OpenDocument workbooks. <a href="{{repo_url}}/pull/73">#73</a>, <a href="{{repo_url}}/pull/86">#86</a></li>
+      </ul>
+      <h3>Distribution</h3>
+      <ul>
+        <li>Installer, Windows releases, and built-in update; N.NN version numbers. <a href="{{repo_url}}/pull/95">#95</a></li>
+      </ul>
+      <h3>Removed</h3>
+      <ul>
+        <li>Manual download, speed limiter, and booster. <a href="{{repo_url}}/pull/87">#87</a>, <a href="{{repo_url}}/pull/91">#91</a></li>
+      </ul>
+    </section>
+  </div>
+</div>
