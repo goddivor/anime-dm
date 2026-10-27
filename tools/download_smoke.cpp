@@ -5,7 +5,8 @@
 //   download-smoke --url <video URL> <output path> [referer]
 //
 // The first form resolves the episode through an installed source; the second
-// fetches a video the caller already knows, playlist or file.
+// fetches a video the caller already knows, playlist or file, in a parts folder
+// of its own so that several runs can go side by side.
 
 #include <atomic>
 #include <cstdio>
@@ -25,6 +26,7 @@
 namespace {
 
 constexpr UINT kEvent = WM_APP + 1;
+constexpr int kConnections = 8;
 constexpr wchar_t kClass[] = L"DownloadSmoke";
 
 const char* Name(DownloadStatus status) {
@@ -78,7 +80,7 @@ int FetchUrl(const std::string& url, const std::wstring& outPath, const std::str
         source.headers["Referer"] = referer;
     }
 
-    std::wstring parts = paths::PartsDir(0);
+    std::wstring parts = paths::PartsDir(GetCurrentProcessId());
     std::unique_ptr<Transfer> transfer = OpenTransfer(http, source, parts, control);
     if (!transfer) {
         std::printf("the host refused the video\n");
@@ -88,7 +90,7 @@ int FetchUrl(const std::string& url, const std::wstring& outPath, const std::str
                 static_cast<unsigned long long>(transfer->Total()));
 
     bool fetched = transfer->Run(
-        Downloader::kConnections, [](uint64_t done, uint64_t total, double fraction, double speed) {
+        kConnections, [](uint64_t done, uint64_t total, double fraction, double speed) {
             std::printf("downloading  done=%llu total=%llu fraction=%.3f speed=%.0f KB/s\n",
                         static_cast<unsigned long long>(done),
                         static_cast<unsigned long long>(total), fraction, speed / 1024.0);
