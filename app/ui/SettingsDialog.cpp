@@ -151,11 +151,13 @@ void InitSave(HWND page, Screen& screen) {
     SyncTemplateState(page);
 }
 
-// Fills the downloads page: the two limits of the engine, with their spinners.
+// Fills the downloads page: the limits of the engine, with their spinners.
 void InitDownloads(HWND page, Screen& screen) {
     const Settings& settings = *screen.settings;
     SetDialogText(page, IDC_SET_LBL_RUNNING, STR_SET_RUNNING);
     SetDialogText(page, IDC_SET_LBL_CONNECTIONS, STR_SET_CONNECTIONS);
+    SetDialogText(page, IDC_SET_LBL_PER_SERVER, STR_SET_PER_SERVER);
+    SetDialogText(page, IDC_SET_LBL_RETRIES, STR_SET_RETRIES);
     SetDialogText(page, IDC_SET_LIMITS_HINT, STR_SET_LIMITS_HINT);
 
     HWND running = GetDlgItem(page, IDC_SET_RUNNING_SPIN);
@@ -165,6 +167,12 @@ void InitDownloads(HWND page, Screen& screen) {
     SendMessageW(connections, UDM_SETRANGE32, settings::kMinConnections,
                  settings::kMaxConnections);
     SendMessageW(connections, UDM_SETPOS32, 0, settings.connections);
+    HWND perServer = GetDlgItem(page, IDC_SET_PER_SERVER_SPIN);
+    SendMessageW(perServer, UDM_SETRANGE32, settings::kMinPerServer, settings::kMaxPerServer);
+    SendMessageW(perServer, UDM_SETPOS32, 0, settings.perServer);
+    HWND retries = GetDlgItem(page, IDC_SET_RETRIES_SPIN);
+    SendMessageW(retries, UDM_SETRANGE32, settings::kMinRetries, settings::kMaxRetries);
+    SendMessageW(retries, UDM_SETPOS32, 0, settings.retries);
 }
 
 // Reads a spinner back, within its bounds.
@@ -203,6 +211,8 @@ void ReadPages(Screen& screen) {
     HWND downloads = screen.pages[2];
     settings.maxRunning = SpinValue(downloads, IDC_SET_RUNNING_SPIN);
     settings.connections = SpinValue(downloads, IDC_SET_CONNECTIONS_SPIN);
+    settings.perServer = SpinValue(downloads, IDC_SET_PER_SERVER_SPIN);
+    settings.retries = SpinValue(downloads, IDC_SET_RETRIES_SPIN);
 
     settings.panelMode = screen.draft.panelMode;
     settings.panelOnPage = screen.draft.panelOnPage;
@@ -463,6 +473,7 @@ bool Differs(const Settings& a, const Settings& b) {
            a.rememberPath != b.rememberPath || a.savePath != b.savePath ||
            a.startWithWindows != b.startWithWindows || a.browsers != b.browsers ||
            a.maxRunning != b.maxRunning || a.connections != b.connections ||
+           a.perServer != b.perServer || a.retries != b.retries ||
            a.panelMode != b.panelMode || a.panelOnPage != b.panelOnPage ||
            a.panelOnLinks != b.panelOnLinks;
 }

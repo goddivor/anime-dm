@@ -36,10 +36,11 @@ public:
 
     void Attach(HWND window, UINT message);
 
-    // How many videos run at once, and how many connections one may open;
-    // the first applies as soon as a slot frees up, the second to the next
-    // transfer that starts.
-    void SetLimits(int running, int connections);
+    // How many videos run at once, how many connections one may open, how
+    // many all may open together to one host, and how many times a video
+    // that fails on the network is resolved again; the first applies as soon
+    // as a slot frees up, the others to the next transfer that starts.
+    void SetLimits(int running, int connections, int perServer, int retries);
 
     // Queues an item; it starts as soon as a slot frees up.
     void Start(const DownloadTask& task);
@@ -61,6 +62,7 @@ private:
 
     std::atomic<int> maxRunning_{3};
     std::atomic<int> connections_{8};
+    std::atomic<int> retries_{3};
 
     void Pump();
     void Run(std::shared_ptr<Job> job);

@@ -10,6 +10,7 @@
 <div class="page with-sidebar">
   <nav class="sidebar" aria-label="Versions">
     <ul>
+      <li><a href="#v0-03">0.03</a></li>
       <li><a href="#v0-02">0.02</a></li>
       <li><a href="#v0-01">0.01</a></li>
     </ul>
@@ -17,6 +18,22 @@
 
   <div class="prose changelog">
     <p>Le détail de chaque version de l'application Windows, avec un lien vers la demande de fusion ou le ticket GitHub correspondant. Pour un résumé, voir les <a href="{{home}}nouveautes.html">nouveautés</a> ; pour les fichiers, la <a href="{{releases_url}}">page des publications</a>.</p>
+
+    <section class="release" id="v0-03">
+      <h2>0.03 <a class="tag-link" href="{{repo_url}}/releases/tag/win-v0.03">win-v0.03</a></h2>
+      <p class="date">27 octobre 2026</p>
+      <h3>Corrections</h3>
+      <ul>
+        <li>Une connexion qui échoue ne fait plus tomber le téléchargement : cinq échecs de suite sans octet reçu avant d'abandonner, attente croissante de 1 à 16 s, retrait dès le deuxième refus quand d'autres connexions sont servies ; sa part revient à une autre connexion, et l'équipe se reforme seule. Même logique pour les listes HLS. <a href="{{repo_url}}/pull/110">#110</a></li>
+        <li>L'adresse de la vidéo est relue auprès de la source quand un transfert échoue sur le réseau, en gardant les parts reçues. <a href="{{repo_url}}/pull/110">#110</a></li>
+        <li>Le panneau Catégories est repeint en entier quand sa zone utile change de taille ; le nombre d'épisodes n'apparaît plus en double. <a href="{{repo_url}}/pull/110">#110</a></li>
+      </ul>
+      <h3>Ajouts</h3>
+      <ul>
+        <li>Options › Téléchargements : connexions par serveur (24 par défaut) et reprises par fichier (3 par défaut). <a href="{{repo_url}}/pull/110">#110</a></li>
+        <li>Banc d'essai du moteur : <code>download-smoke</code> réparé et serveur de test <code>tools/hostile_host.py</code>. <a href="{{repo_url}}/pull/110">#110</a></li>
+      </ul>
+    </section>
 
     <section class="release" id="v0-02">
       <h2>0.02 <a class="tag-link" href="{{repo_url}}/releases/tag/win-v0.02">win-v0.02</a></h2>

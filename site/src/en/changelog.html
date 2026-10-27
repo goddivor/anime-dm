@@ -10,6 +10,7 @@
 <div class="page with-sidebar">
   <nav class="sidebar" aria-label="Versions">
     <ul>
+      <li><a href="#v0-03">0.03</a></li>
       <li><a href="#v0-02">0.02</a></li>
       <li><a href="#v0-01">0.01</a></li>
     </ul>
@@ -17,6 +18,22 @@
 
   <div class="prose changelog">
     <p>The details of each version of the Windows application, with a link to the matching GitHub pull request or issue. For a summary, see <a href="{{home}}nouveautes.html">what's new</a>; for the files, the <a href="{{releases_url}}">releases page</a>.</p>
+
+    <section class="release" id="v0-03">
+      <h2>0.03 <a class="tag-link" href="{{repo_url}}/releases/tag/win-v0.03">win-v0.03</a></h2>
+      <p class="date">October 27, 2026</p>
+      <h3>Fixes</h3>
+      <ul>
+        <li>A failing connection no longer brings the download down: five failures in a row without a byte before it gives up, a growing pause from 1 to 16 s, and it steps back at the second refusal while other connections are served; its part goes to another connection, and the crew re-forms on its own. The same logic applies to HLS playlists. <a href="{{repo_url}}/pull/110">#110</a></li>
+        <li>The address of the video is read again from the source when a transfer fails on the network, keeping the parts already received. <a href="{{repo_url}}/pull/110">#110</a></li>
+        <li>The Categories panel is repainted whole when its client area changes size; the episode count no longer appears twice. <a href="{{repo_url}}/pull/110">#110</a></li>
+      </ul>
+      <h3>Additions</h3>
+      <ul>
+        <li>Options › Downloads: connections per server (24 by default) and retries per file (3 by default). <a href="{{repo_url}}/pull/110">#110</a></li>
+        <li>Engine test bench: <code>download-smoke</code> repaired and a test host, <code>tools/hostile_host.py</code>. <a href="{{repo_url}}/pull/110">#110</a></li>
+      </ul>
+    </section>
 
     <section class="release" id="v0-02">
       <h2>0.02 <a class="tag-link" href="{{repo_url}}/releases/tag/win-v0.02">win-v0.02</a></h2>

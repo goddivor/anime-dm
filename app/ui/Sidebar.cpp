@@ -217,11 +217,13 @@ bool WheelIsOver(HWND window, LPARAM lParam) {
     return PtInRect(&bounds, at) != FALSE;
 }
 
-// Repaints the whole tree whenever it scrolls, either way, and folds a row
-// when the press lands on its box. To scroll, the tree shifts the pixels
-// already on screen and paints only the strip it uncovers; the rows the panel
-// draws itself, laid out against the right edge and tied with dotted lines,
-// never quite match that copy.
+// Repaints the whole tree whenever it scrolls or its client area changes
+// size, and folds a row when the press lands on its box. To scroll, the tree
+// shifts the pixels already on screen and paints only the strip it uncovers;
+// when its vertical scroll bar comes or goes, after a row is folded or
+// unfolded, it paints only the strip the width gained. The rows the panel
+// draws itself lay their count and their cut title against the right edge, so
+// either copy would leave the old count beside the new one.
 LRESULT CALLBACK RepaintOnScroll(HWND tree, UINT msg, WPARAM wParam, LPARAM lParam,
                                  UINT_PTR id, DWORD_PTR data) {
     if (msg == WM_NCDESTROY) {
@@ -249,8 +251,13 @@ LRESULT CALLBACK RepaintOnScroll(HWND tree, UINT msg, WPARAM wParam, LPARAM lPar
 
     int horizontal = GetScrollPos(tree, SB_HORZ);
     int vertical = GetScrollPos(tree, SB_VERT);
+    RECT before = {};
+    GetClientRect(tree, &before);
     LRESULT result = DefSubclassProc(tree, msg, wParam, lParam);
-    if (GetScrollPos(tree, SB_HORZ) != horizontal || GetScrollPos(tree, SB_VERT) != vertical) {
+    RECT after = {};
+    GetClientRect(tree, &after);
+    if (GetScrollPos(tree, SB_HORZ) != horizontal || GetScrollPos(tree, SB_VERT) != vertical ||
+        after.right != before.right || after.bottom != before.bottom || msg == WM_SIZE) {
         InvalidateRect(tree, nullptr, FALSE);
     }
     return result;
