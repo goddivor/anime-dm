@@ -160,6 +160,23 @@ porte `.ts` (ou `.mp4` s'il s'agit de MP4 fragmenté). Quand un hébergeur offre
 fichier direct et une liste, **le fichier direct passe en premier** : ce sont les plages
 d'octets qui accélèrent.
 
+**Une connexion qui échoue ne fait jamais tomber le téléchargement** (`Crew`, dans
+`Transfer.cpp`), comme chez IDM. Chaque connexion n'a droit qu'à cinq échecs **de suite sans
+recevoir un octet** (un essai qui a reçu des données remet le compte à zéro), avec une attente
+qui double de 1 à 16 s ; refusée (403, 429, 503, 509) alors que d'autres connexions sont servies,
+elle se retire dès le deuxième refus. Elle rend alors sa part, qu'une autre connexion reprendra :
+toutes les 15 s sans nouveau refus, une connexion rejoint l'équipe, et si l'équipe entière est
+partie avec du travail restant, une seule repart après une pause croissante. Le transfert
+n'échoue qu'après quatre de ces relances sans un octet. Chaque requête prend d'abord une place
+auprès de son hébergeur (`ServerGate`, plafond des Options) et la rend dès qu'elle est finie. Une liste HLS remet de même en tête de
+file le segment refusé. Au-dessus, `Downloader` relit jusqu'à trois fois l'adresse de la vidéo
+auprès de la source quand un transfert échoue sur le réseau (les adresses des hébergeurs
+expirent), en gardant les parts. Pour éprouver tout cela : `tools/hostile_host.py` (Python, sans dépendance) sert un
+fichier avec plages, débit bridé, refus au-delà de N transferts et coupures aléatoires, et
+`download-smoke --url` le télécharge ; plusieurs lancements côte à côte ont chacun leur
+dossier de parts. Mesuré : IDM martèle un serveur qui refuse (plus de 1 500 refus pour un
+fichier) mais ne lâche jamais ; ADM termine aussi, en une poignée de refus.
+
 Le moteur ne touche jamais à l'interface : tout remonte en `DownloadEvent` posté à la
 fenêtre. **Arrêter** garde les parts ; **Supprimer** les jette.
 
@@ -190,7 +207,12 @@ portant l'icône que Windows donne à son type de fichier. Une ligne qui a des e
 par un **chevron** à la manière d'IDM (`paint::Chevron`, lissé par GDI+, sur une pastille de la
 couleur de la ligne) au lieu du carré + / −. `Sidebar::OnTreePress` annonce lui-même le pli à la
 fenêtre (`TVN_ITEMEXPANDEDW`), qui l'enregistre : le contrôle ne le signale que la première fois
-qu'on le lui demande par message. Les deux racines portent le dossier de Windows
+qu'on le lui demande par message. Le sous-classement repeint tout l'arbre dès que sa
+position de défilement **ou la taille de sa zone utile** change : plier ou déplier fait apparaître
+ou disparaître la barre verticale, le contrôle ne repeint que la bande gagnée, et le nombre
+d'épisodes, calé sur le bord droit, restait sinon dessiné deux fois. L'arbre d'IDM, lui, est un
+`TreeView` ordinaire (boutons, lignes, sans double tampon) que le contrôle dessine seul : rien
+n'y dépend du bord droit. Les deux racines portent le dossier de Windows
 (`SHGetStockIconInfo`, `SIID_FOLDER` et `SIID_FOLDEROPEN`, identiques sous Windows 11), la file
 principale l'enveloppe et celle du planificateur l'horloge de `shell32.dll` (ressources 265 et
 16752, chargées par leur numéro, plus stable que leur rang) ; le glyphe de la palette les
@@ -306,9 +328,15 @@ ne touche à rien.
    aperçu peint de chacun, sur la page, au survol des liens).
 2. **Enregistrer sous** : le dossier de téléchargement et sa case « Proposer ce dossier », les
    icônes de dossier avec leur modèle, Aniyomi.
-3. **Téléchargements** : les téléchargements simultanés (1 à 10) et les connexions par
-   téléchargement (1 à 16), avec leurs compteurs ; `Downloader::SetLimits` les reçoit, le
-   premier joue aussitôt, le second aux prochains transferts.
+3. **Téléchargements** : les téléchargements simultanés (1 à 10), les connexions par
+   téléchargement (1 à 16), les connexions par serveur (1 à 64, 24 par défaut : le plafond commun
+   à tous les téléchargements vers un même hébergeur, comme « Max. connections number for a
+   server » d'IDM) et les reprises par fichier (1 à 10, 3 par défaut : les relectures de l'adresse
+   par la source après un échec réseau), avec leurs compteurs ; `Downloader::SetLimits` les
+   reçoit, le premier joue aussitôt, les autres aux prochains transferts. Mesuré sur le serveur
+   difficile : baisser le plafond au niveau de la limite de l'hébergeur ralentit (une place rendue
+   puis reprise arrive avant que le serveur ait libéré la sienne) ; il ne sert qu'aux hébergeurs
+   qui bannissent au-delà, le moteur s'adaptant seul à ceux qui refusent.
 
 La fenêtre principale applique ce qui sort du dialogue (`ApplySettings`) : registre `Run`,
 `bridge::RegisterHost` par navigateur, limites du moteur, puis `settings::Save`.

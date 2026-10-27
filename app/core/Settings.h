@@ -20,6 +20,8 @@ struct Settings {
     std::vector<std::string> browsers;    // the ids of the browsers the host is declared to
     int maxRunning = 3;                   // videos downloaded at once
     int connections = 8;                  // connections one video may open
+    int perServer = 24;                   // connections all videos may open to one host
+    int retries = 3;                      // times a failed video is resolved and tried again
     std::string panelMode = "full";       // the browser panel, "full" with its label or "mini"
     bool panelOnPage = true;              // show it on the page of an anime or an episode
     bool panelOnLinks = true;             // show it over the links that lead to one
@@ -40,11 +42,15 @@ struct Settings {
 
 namespace settings {
 
-// The bounds of the two limits of the download engine.
+// The bounds of the limits of the download engine.
 constexpr int kMinRunning = 1;
 constexpr int kMaxRunning = 10;
 constexpr int kMinConnections = 1;
 constexpr int kMaxConnections = 16;
+constexpr int kMinPerServer = 1;
+constexpr int kMaxPerServer = 64;
+constexpr int kMinRetries = 1;
+constexpr int kMaxRetries = 10;
 
 Settings Load();
 void Save(const Settings& settings);

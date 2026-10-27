@@ -1,6 +1,8 @@
 #include "core/Downloader.h"
 
 #include <algorithm>
+#include <chrono>
+#include <thread>
 
 #include "core/Addon.h"
 #include "core/AddonStore.h"
@@ -17,6 +19,15 @@ struct Downloader::Job {
 };
 
 namespace {
+
+constexpr int kResolvePauseMs = 5000;
+
+// Sleeps in slices so a stop request is honoured promptly.
+void Backoff(int milliseconds, const std::atomic<bool>& stop) {
+    for (int elapsed = 0; elapsed < milliseconds && !stop; elapsed += 100) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+}
 
 // Compares two player names the way the sources spell them.
 bool SameName(const std::string& a, const std::string& b) {
@@ -210,9 +221,11 @@ bool Downloader::Holds(uint64_t id) {
 }
 
 // Takes the new limits; a wider slot count starts waiting items at once.
-void Downloader::SetLimits(int running, int connections) {
+void Downloader::SetLimits(int running, int connections, int perServer, int retries) {
     maxRunning_ = running;
     connections_ = connections;
+    retries_ = retries;
+    SetServerLimit(perServer);
     Pump();
 }
 
@@ -340,53 +353,75 @@ void Downloader::Run(std::shared_ptr<Job> job) {
 
     TransferControl control{job->stop, job->discard};
     std::unique_ptr<Transfer> transfer;
-    std::string address;
-    for (const nlohmann::json& hoster : order) {
+    bool fetched = false;
+    int rounds = std::max(1, retries_.load());
+    for (int round = 0; round < rounds; ++round) {
+        if (round > 0) {
+            Backoff(kResolvePauseMs * round, job->stop);
+            control.error = DownloadError::None;
+            control.detail.clear();
+        }
         if (job->stop) {
             stopped();
             return;
         }
-        std::optional<nlohmann::json> videos = addon->Call("adm_video_list", hoster);
-        if (!videos) {
-            continue;
-        }
-        for (const TransferSource& source : SourcesOf(*videos)) {
+        // The address of a video expires: each round asks the source again,
+        // and the transfer picks up the parts the previous round left.
+        std::string address;
+        transfer.reset();
+        for (const nlohmann::json& hoster : order) {
             if (job->stop) {
                 stopped();
                 return;
             }
-            transfer = OpenTransfer(http_, source, partsDir, control);
+            std::optional<nlohmann::json> videos = addon->Call("adm_video_list", hoster);
+            if (!videos) {
+                continue;
+            }
+            for (const TransferSource& source : SourcesOf(*videos)) {
+                if (job->stop) {
+                    stopped();
+                    return;
+                }
+                transfer = OpenTransfer(http_, source, partsDir, control);
+                if (transfer) {
+                    address = HostOf(source.url);
+                    break;
+                }
+            }
             if (transfer) {
-                address = HostOf(source.url);
                 break;
             }
         }
-        if (transfer) {
+        if (!transfer) {
+            if (round == 0) {
+                fail(DownloadError::NoVideo, std::string());
+                return;
+            }
+            continue;
+        }
+
+        event.status = DownloadStatus::Downloading;
+        event.address = address;
+        event.total = transfer->Total();
+        event.outPath = WithExtension(task.outPath, transfer->Extension());
+        Post(event);
+
+        fetched = transfer->Run(
+            connections_.load(), [&](uint64_t done, uint64_t total, double fraction, double speed) {
+                event.done = done;
+                event.total = total;
+                event.fraction = fraction;
+                event.speed = speed;
+                Post(event);
+            });
+        if (job->stop) {
+            stopped();
+            return;
+        }
+        if (fetched || control.error != DownloadError::Network) {
             break;
         }
-    }
-    if (!transfer) {
-        fail(DownloadError::NoVideo, std::string());
-        return;
-    }
-
-    event.status = DownloadStatus::Downloading;
-    event.address = address;
-    event.total = transfer->Total();
-    event.outPath = WithExtension(task.outPath, transfer->Extension());
-    Post(event);
-
-    bool fetched = transfer->Run(
-        connections_.load(), [&](uint64_t done, uint64_t total, double fraction, double speed) {
-            event.done = done;
-            event.total = total;
-            event.fraction = fraction;
-            event.speed = speed;
-            Post(event);
-        });
-    if (job->stop) {
-        stopped();
-        return;
     }
     if (!fetched) {
         fail(control.error == DownloadError::None ? DownloadError::Network : control.error,

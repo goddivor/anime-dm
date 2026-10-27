@@ -91,6 +91,9 @@ Settings Load() {
     settings.maxRunning = Clamp(root.value("maxRunning", settings.maxRunning), kMinRunning, kMaxRunning);
     settings.connections =
         Clamp(root.value("connections", settings.connections), kMinConnections, kMaxConnections);
+    settings.perServer =
+        Clamp(root.value("perServer", settings.perServer), kMinPerServer, kMaxPerServer);
+    settings.retries = Clamp(root.value("retries", settings.retries), kMinRetries, kMaxRetries);
     if (settings.folderTemplate.empty()) {
         settings.folderTemplate = "none";
     }
@@ -119,6 +122,8 @@ void Save(const Settings& settings) {
         {"browsers", settings.browsers},
         {"maxRunning", settings.maxRunning},
         {"connections", settings.connections},
+        {"perServer", settings.perServer},
+        {"retries", settings.retries},
         {"panelMode", settings.panelMode},
         {"panelOnPage", settings.panelOnPage},
         {"panelOnLinks", settings.panelOnLinks},

@@ -7,6 +7,13 @@ qui existe déjà sans comportement, ou un chantier ouvert ailleurs.
 
 - [ ] **Aide** (F1) : ouvrir une page d'aide, en ligne ou embarquée.
 
+## Fenêtre de progression
+
+- [ ] **Fenêtre « Téléchargement en cours »**, comme celle d'IDM : barre de progression, taille,
+  débit, temps restant, et l'état de chaque connexion (segment, octets reçus, « Réception… »,
+  « Nouvelle tentative… ») avec la bande qui montre les segments. Le moteur connaît déjà tout
+  cela ; il faut le remonter par `DownloadEvent` et l'afficher. Demandée le 27/10/2026.
+
 ## Fenêtre d'ajout et extension
 
 - [ ] **Choix de la file dans la fenêtre d'ajout** : *Plus tard* met toujours dans la file

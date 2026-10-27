@@ -54,6 +54,9 @@ public:
     virtual uint64_t Total() const = 0;
 };
 
+// Caps the connections every transfer may open together to one host.
+void SetServerLimit(int limit);
+
 // Builds the transfer that fits a video: a playlist is fetched segment by
 // segment, anything else by byte ranges. Nothing when the host refuses it.
 std::unique_ptr<Transfer> OpenTransfer(Http& http, const TransferSource& source,
