@@ -12,6 +12,7 @@
 <div class="page with-sidebar">
   <nav class="sidebar" aria-label="Versions">
     <ul>
+      <li><a href="#v0-03">Version 0.03</a></li>
       <li><a href="#v0-02">Version 0.02</a></li>
       <li><a href="#v0-01">Version 0.01</a></li>
     </ul>
@@ -19,6 +20,17 @@
 
   <div class="prose">
     <p>ADM checks for a new version on its own, a few seconds after each start. When it finds one, it shows what it brings and offers to install it. You can also look for it at any time with <em>Help › Quick update</em>. The technical details of each version are in the <a href="{{home}}changelog.html">changelog</a>.</p>
+
+    <section class="release" id="v0-03">
+      <h2>What's new in version 0.03</h2>
+      <p class="date">Released on October 27, 2026</p>
+      <ul>
+        <li>Several downloads at once no longer fail over and over: a connection that fails or that the host turns away steps back and hands its part to the others, instead of stopping the whole episode. A connection comes back as soon as the host calms down.</li>
+        <li>When a transfer fails on the network, ADM asks the source for the address of the video again by itself and resumes with what it has already received, with no need to click Resume.</li>
+        <li>Two new settings in Options › Downloads: connections per server, a cap shared by every download to the same host, and the number of retries per file.</li>
+        <li>The Categories panel no longer shows the episode count twice after an anime is folded or unfolded.</li>
+      </ul>
+    </section>
 
     <section class="release" id="v0-02">
       <h2>What's new in version 0.02</h2>
