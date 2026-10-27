@@ -167,7 +167,8 @@ qui double de 1 à 16 s ; refusée (403, 429, 503, 509) alors que d'autres conne
 elle se retire dès le deuxième refus. Elle rend alors sa part, qu'une autre connexion reprendra :
 toutes les 15 s sans nouveau refus, une connexion rejoint l'équipe, et si l'équipe entière est
 partie avec du travail restant, une seule repart après une pause croissante. Le transfert
-n'échoue qu'après quatre de ces relances sans un octet. Une liste HLS remet de même en tête de
+n'échoue qu'après quatre de ces relances sans un octet. Chaque requête prend d'abord une place
+auprès de son hébergeur (`ServerGate`, plafond des Options) et la rend dès qu'elle est finie. Une liste HLS remet de même en tête de
 file le segment refusé. Au-dessus, `Downloader` relit jusqu'à trois fois l'adresse de la vidéo
 auprès de la source quand un transfert échoue sur le réseau (les adresses des hébergeurs
 expirent), en gardant les parts. Pour éprouver tout cela : `tools/hostile_host.py` (Python, sans dépendance) sert un
@@ -327,9 +328,15 @@ ne touche à rien.
    aperçu peint de chacun, sur la page, au survol des liens).
 2. **Enregistrer sous** : le dossier de téléchargement et sa case « Proposer ce dossier », les
    icônes de dossier avec leur modèle, Aniyomi.
-3. **Téléchargements** : les téléchargements simultanés (1 à 10) et les connexions par
-   téléchargement (1 à 16), avec leurs compteurs ; `Downloader::SetLimits` les reçoit, le
-   premier joue aussitôt, le second aux prochains transferts.
+3. **Téléchargements** : les téléchargements simultanés (1 à 10), les connexions par
+   téléchargement (1 à 16), les connexions par serveur (1 à 64, 24 par défaut : le plafond commun
+   à tous les téléchargements vers un même hébergeur, comme « Max. connections number for a
+   server » d'IDM) et les reprises par fichier (1 à 10, 3 par défaut : les relectures de l'adresse
+   par la source après un échec réseau), avec leurs compteurs ; `Downloader::SetLimits` les
+   reçoit, le premier joue aussitôt, les autres aux prochains transferts. Mesuré sur le serveur
+   difficile : baisser le plafond au niveau de la limite de l'hébergeur ralentit (une place rendue
+   puis reprise arrive avant que le serveur ait libéré la sienne) ; il ne sert qu'aux hébergeurs
+   qui bannissent au-delà, le moteur s'adaptant seul à ceux qui refusent.
 
 La fenêtre principale applique ce qui sort du dialogue (`ApplySettings`) : registre `Run`,
 `bridge::RegisterHost` par navigateur, limites du moteur, puis `settings::Save`.

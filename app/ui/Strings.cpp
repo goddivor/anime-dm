@@ -183,10 +183,12 @@ constexpr Translation kTable[STR_COUNT] = {
     {L"Reprises par fichier :", L"Retries per file:"},
     {L"Un nombre de téléchargements plus large s'applique aussitôt ; les autres valeurs valent "
      L"pour les prochains transferts. Les connexions par serveur plafonnent celles que tous les "
-     L"téléchargements ouvrent ensemble vers un même hébergeur ; une reprise redemande l'adresse "
-     L"de la vidéo à la source quand un transfert échoue sur le réseau.",
+     L"téléchargements ouvrent ensemble vers un même hébergeur : à baisser seulement pour un "
+     L"hébergeur qui bannit au-delà, car ADM s'adapte déjà seul à ceux qui refusent. Une reprise "
+     L"redemande l'adresse de la vidéo à la source quand un transfert échoue sur le réseau.",
      L"A wider download count applies at once; the other values hold for the next transfers. "
-     L"Connections per server cap those every download opens together to one host; a retry asks "
+     L"Connections per server cap those every download opens together to one host: lower it only "
+     L"for a host that bans beyond it, as ADM already adapts to those that refuse. A retry asks "
      L"the source for the address of the video again when a transfer fails on the network."},
     {L"Panneau de téléchargement dans les navigateurs :", L"Download panel in the browsers:"},
     {L"Éditer…", L"Edit…"},
