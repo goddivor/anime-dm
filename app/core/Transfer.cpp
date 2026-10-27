@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -22,7 +23,12 @@ using Clock = std::chrono::steady_clock;
 constexpr uint64_t kOpenEnded = ~static_cast<uint64_t>(0);
 constexpr uint64_t kMinSplit = 1024 * 1024;  // never halve below this
 constexpr int kAttempts = 5;
-constexpr int kRetryDelayMs = 1500;
+constexpr int kRefusedAttempts = 2;
+constexpr int kRetryDelayMs = 1000;
+constexpr int kMaxRetryDelayMs = 16000;
+constexpr int kRejoinAfterMs = 15000;
+constexpr int kRevivals = 4;
+constexpr int kReviveDelayMs = 4000;
 constexpr int kTickMs = 250;
 constexpr int kReportEveryMs = 500;
 constexpr int kSaveEveryMs = 3000;
@@ -42,6 +48,110 @@ void Backoff(int milliseconds, const std::atomic<bool>& stop) {
 double MillisBetween(Clock::time_point from, Clock::time_point to) {
     return std::chrono::duration<double, std::milli>(to - from).count();
 }
+
+// The wait before the next try of a connection, doubling with each failure
+// in a row up to a ceiling.
+int RetryDelay(int failures) {
+    int delay = kRetryDelayMs;
+    for (int i = 1; i < failures && delay < kMaxRetryDelayMs; ++i) {
+        delay *= 2;
+    }
+    return std::min(delay, kMaxRetryDelayMs);
+}
+
+// Whether a status says the host turns the connection away rather than that
+// the file is gone: too many connections, overloaded, or briefly forbidden.
+bool Refused(int status) {
+    return status == 0 || status == 403 || status == 429 || status == 503 || status == 509;
+}
+
+// Keeps a crew of connections at work on one transfer, the way IDM keeps a
+// download alive whatever happens to one of its connections. A connection
+// that gives up leaves the crew without failing the transfer; another joins
+// once the host has had time to calm down; and when the whole crew is gone
+// with work left, a single connection tries again after a growing pause. The
+// transfer only fails after several such rounds bring no byte at all.
+class Crew {
+public:
+    Crew(int target, const std::atomic<bool>& stop) : target_(std::max(1, target)), stop_(stop) {}
+
+    ~Crew() {
+        for (std::thread& thread : threads_) {
+            if (thread.joinable()) {
+                thread.join();
+            }
+        }
+    }
+
+    // How many connections are at work.
+    int Live() const { return live_; }
+
+    // Records that a connection left because the host would not have it.
+    void GaveUp() { lastLeave_ = Clock::now().time_since_epoch().count(); }
+
+    // Runs the crew until the work is done, stopped, fatally failed, or no
+    // connection can get a byte any more. `work` runs one connection,
+    // `progress` counts what arrived, `finished` tells whether all is in,
+    // `fatal` whether something no retry can mend happened, and `tick` runs
+    // every few hundred milliseconds. False when the crew gave up.
+    bool Run(const std::function<void()>& work, const std::function<uint64_t()>& progress,
+             const std::function<bool()>& finished, const std::function<bool()>& fatal,
+             const std::function<void()>& tick) {
+        for (int i = 0; i < target_; ++i) {
+            Spawn(work);
+        }
+        int revivals = 0;
+        uint64_t atRevival = progress();
+        while (true) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(kTickMs));
+            tick();
+            if (stop_ || fatal()) {
+                break;
+            }
+            if (live_ == 0) {
+                if (finished()) {
+                    break;
+                }
+                uint64_t now = progress();
+                if (now > atRevival) {
+                    revivals = 0;
+                }
+                if (revivals >= kRevivals) {
+                    return false;
+                }
+                Backoff(kReviveDelayMs << revivals, stop_);
+                ++revivals;
+                atRevival = progress();
+                Spawn(work);
+                continue;
+            }
+            Clock::time_point now = Clock::now();
+            Clock::time_point left{Clock::duration(lastLeave_.load())};
+            if (live_ < target_ && MillisBetween(left, now) >= kRejoinAfterMs &&
+                MillisBetween(lastJoin_, now) >= kRejoinAfterMs) {
+                Spawn(work);
+            }
+        }
+        return true;
+    }
+
+private:
+    void Spawn(const std::function<void()>& work) {
+        ++live_;
+        lastJoin_ = Clock::now();
+        threads_.emplace_back([this, work] {
+            work();
+            --live_;
+        });
+    }
+
+    int target_;
+    const std::atomic<bool>& stop_;
+    std::atomic<int> live_{0};
+    std::atomic<Clock::rep> lastLeave_{0};
+    Clock::time_point lastJoin_;
+    std::vector<std::thread> threads_;
+};
 
 // One part on disk, written from a given offset onward.
 class PartFile {
@@ -242,20 +352,22 @@ public:
         Pacer pacer(progress);
         pacer.Begin(Done(), total_, Fraction());
 
-        std::vector<std::thread> workers;
-        workers_ = count;
-        for (int i = 0; i < count; ++i) {
-            workers.emplace_back([this] { Worker(); });
+        bool kept = false;
+        {
+            Crew crew(count, control_.stop);
+            crew_ = &crew;
+            kept = crew.Run([this] { Worker(); }, [this] { return Done(); },
+                            [this] { return Complete(); }, [this] { return failed_.load(); },
+                            [&] {
+                                if (pacer.Tick(Done(), total_, Fraction())) {
+                                    Save();
+                                }
+                            });
         }
-
-        while (workers_ > 0) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(kTickMs));
-            if (pacer.Tick(Done(), total_, Fraction())) {
-                Save();
-            }
-        }
-        for (std::thread& worker : workers) {
-            worker.join();
+        crew_ = nullptr;
+        if (!kept && !failed_) {
+            int status = lastStatus_;
+            Fail(DownloadError::Network, status > 0 ? "HTTP " + std::to_string(status) : std::string());
         }
         Save();
         progress(Done(), total_, Fraction(), 0.0);
@@ -435,9 +547,15 @@ private:
         return segment.to == kOpenEnded || segment.from + segment.done <= segment.to;
     }
 
-    // Fetches one segment, retrying on a broken connection.
-    void Fetch(size_t index) {
-        int attempts = 0;
+    enum class Outcome { Done, Stopped, GaveUp };
+
+    // Fetches one segment, retrying on a broken connection. A try that
+    // brought bytes wipes the slate clean, so a long segment over a shaky
+    // line is never condemned for its past cuts; the connection only gives
+    // up after several tries in a row without a byte, and after fewer when
+    // the host turns it away while other connections are being served.
+    Outcome Fetch(size_t index) {
+        int failures = 0;
         while (!control_.stop && !failed_) {
             uint64_t from = 0;
             uint64_t to = 0;
@@ -452,7 +570,7 @@ private:
                 part = segment.part;
             }
             if (to != kOpenEnded && from + done > to) {
-                return;
+                return Outcome::Done;
             }
             if (!ranges_) {
                 done = 0;
@@ -461,7 +579,7 @@ private:
             PartFile file;
             if (!file.Open(PartPath(part), done)) {
                 Fail(DownloadError::Disk, std::string());
-                return;
+                return Outcome::Stopped;
             }
             {
                 std::lock_guard<std::mutex> lock(mutex_);
@@ -488,43 +606,59 @@ private:
 
             if (diskError) {
                 Fail(DownloadError::Disk, std::string());
-                return;
+                return Outcome::Stopped;
             }
+            bool progressed = false;
             {
                 std::lock_guard<std::mutex> lock(mutex_);
                 Segment& segment = segments_[index];
                 if (segment.to == kOpenEnded) {
                     segment.finished = status >= 200 && status < 300 && !control_.stop;
                     if (segment.finished) {
-                        return;
+                        return Outcome::Done;
                     }
                 } else if (segment.from + segment.done > segment.to) {
-                    return;
+                    return Outcome::Done;
                 }
+                progressed = segment.done > done;
             }
             if (control_.stop) {
-                return;
+                return Outcome::Stopped;
             }
-            if (++attempts >= kAttempts) {
-                Fail(DownloadError::Network, status > 0 ? "HTTP " + std::to_string(status)
-                                                        : std::string());
-                return;
+            if (status > 0) {
+                lastStatus_ = status;
             }
-            Backoff(kRetryDelayMs, control_.stop);
+            failures = progressed ? 0 : failures + 1;
+            bool crowded = !progressed && Refused(status) && crew_ != nullptr && crew_->Live() > 1;
+            if (failures >= (crowded ? kRefusedAttempts : kAttempts)) {
+                return Outcome::GaveUp;
+            }
+            Backoff(RetryDelay(std::max(1, failures)), control_.stop);
         }
+        return Outcome::Stopped;
     }
 
+    // One connection: takes segment after segment until none is left, and
+    // leaves the crew when the host will not serve it, its segment going
+    // back to the pool for another connection to finish.
     void Worker() {
         while (!control_.stop && !failed_) {
             std::optional<size_t> index = Claim();
             if (!index) {
-                break;
+                return;
             }
-            Fetch(*index);
-            std::lock_guard<std::mutex> lock(mutex_);
-            segments_[*index].active = false;
+            Outcome outcome = Fetch(*index);
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                segments_[*index].active = false;
+            }
+            if (outcome == Outcome::GaveUp) {
+                if (crew_ != nullptr) {
+                    crew_->GaveUp();
+                }
+                return;
+            }
         }
-        --workers_;
     }
 
     void Fail(DownloadError error, const std::string& detail) {
@@ -546,7 +680,8 @@ private:
     std::mutex mutex_;
     std::vector<Segment> segments_;
     int nextPart_ = 0;
-    std::atomic<int> workers_{0};
+    Crew* crew_ = nullptr;
+    std::atomic<int> lastStatus_{0};
     std::atomic<bool> failed_{false};
 };
 
@@ -593,19 +728,30 @@ public:
             return false;
         }
 
-        std::vector<std::thread> workers;
-        workers_ = std::max(1, connections);
-        for (int i = 0; i < std::max(1, connections); ++i) {
-            workers.emplace_back([this] { Worker(); });
-        }
-        while (workers_ > 0) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(kTickMs));
-            if (pacer.Tick(bytes_, 0, Fraction())) {
-                Save();
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            queue_.clear();
+            for (size_t i = 0; i < completed_.size(); ++i) {
+                if (!completed_[i]) {
+                    queue_.push_back(i);
+                }
             }
         }
-        for (std::thread& worker : workers) {
-            worker.join();
+        bool kept = false;
+        {
+            Crew crew(connections, control_.stop);
+            crew_ = &crew;
+            kept = crew.Run([this] { Worker(); }, [this] { return bytes_.load(); },
+                            [this] { return Complete(); }, [this] { return failed_.load(); },
+                            [&] {
+                                if (pacer.Tick(bytes_, 0, Fraction())) {
+                                    Save();
+                                }
+                            });
+        }
+        crew_ = nullptr;
+        if (!kept && !failed_) {
+            Fail(DownloadError::Network, std::string());
         }
         Save();
         progress(bytes_, 0, Fraction(), 0.0);
@@ -697,14 +843,20 @@ private:
         return std::all_of(completed_.begin(), completed_.end(), [](bool b) { return b; });
     }
 
-    // Fetches a URL whole, retrying on a broken connection.
+    // Fetches a URL whole, retrying on a broken connection with a growing
+    // pause; fewer tries while other connections are being served, since the
+    // host is then more likely turning this one away than gone.
     std::optional<std::vector<uint8_t>> FetchWhole(const std::string& url) {
-        for (int attempt = 0; attempt < kAttempts && !control_.stop; ++attempt) {
+        for (int failures = 1; !control_.stop; ++failures) {
             std::optional<std::vector<uint8_t>> body = http_.GetBytes(url, source_.headers);
             if (body && !body->empty()) {
                 return body;
             }
-            Backoff(kRetryDelayMs, control_.stop);
+            bool crowded = crew_ != nullptr && crew_->Live() > 1;
+            if (failures >= (crowded ? kRefusedAttempts : kAttempts)) {
+                break;
+            }
+            Backoff(RetryDelay(failures), control_.stop);
         }
         return std::nullopt;
     }
@@ -767,14 +919,19 @@ private:
         return cipher::AesCbcDecrypt(*key, iv, data);
     }
 
+    // One connection: takes segment after segment from the queue. A segment
+    // the host will not give goes back to the front of the queue and the
+    // connection leaves the crew, which sends another one later.
     void Worker() {
         while (!control_.stop && !failed_) {
-            size_t index = next_++;
-            if (index >= media_.segments.size()) {
-                break;
-            }
+            size_t index = 0;
             {
                 std::lock_guard<std::mutex> lock(mutex_);
+                if (queue_.empty()) {
+                    return;
+                }
+                index = queue_.front();
+                queue_.pop_front();
                 if (completed_[index]) {
                     continue;
                 }
@@ -783,25 +940,28 @@ private:
             std::optional<std::vector<uint8_t>> body = FetchWhole(segment.url);
             if (!body) {
                 if (!control_.stop) {
-                    Fail(DownloadError::Network, std::string());
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    queue_.push_front(index);
                 }
-                break;
+                if (crew_ != nullptr) {
+                    crew_->GaveUp();
+                }
+                return;
             }
             if (!segment.keyUrl.empty() && !Decrypt(segment, *body)) {
                 Fail(DownloadError::Key, std::string());
-                break;
+                return;
             }
             PartFile file;
             if (!file.Open(PartPath(index), 0) || !file.Write(body->data(), body->size())) {
                 Fail(DownloadError::Disk, std::string());
-                break;
+                return;
             }
             file.Close();
             bytes_ += body->size();
             std::lock_guard<std::mutex> lock(mutex_);
             completed_[index] = true;
         }
-        --workers_;
     }
 
     void Fail(DownloadError error, const std::string& detail) {
@@ -822,9 +982,9 @@ private:
     std::mutex mutex_;
     std::vector<bool> completed_;
     std::map<std::string, std::vector<uint8_t>> keys_;
-    std::atomic<size_t> next_{0};
+    std::deque<size_t> queue_;
+    Crew* crew_ = nullptr;
     std::atomic<uint64_t> bytes_{0};
-    std::atomic<int> workers_{0};
     std::atomic<bool> failed_{false};
     bool initDone_ = false;
 };
