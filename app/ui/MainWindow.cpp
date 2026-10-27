@@ -934,7 +934,8 @@ void MainWindow::RemoveBareFolders(const std::vector<std::wstring>& folders) {
 void MainWindow::ApplySettings() {
     autostart::Set(settings_.startWithWindows);
     PublishSources();
-    downloader_.SetLimits(settings_.maxRunning, settings_.connections);
+    downloader_.SetLimits(settings_.maxRunning, settings_.connections, settings_.perServer,
+                          settings_.retries);
 }
 
 // Stops the transfers, keeps their parts, and records the queue as it stands.

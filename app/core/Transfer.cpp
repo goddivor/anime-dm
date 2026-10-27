@@ -3,10 +3,12 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <deque>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <optional>
 #include <thread>
 
@@ -64,6 +66,81 @@ int RetryDelay(int failures) {
 bool Refused(int status) {
     return status == 0 || status == 403 || status == 429 || status == 503 || status == 509;
 }
+
+// The host a URL points at, lowercased; empty when it has none.
+std::string HostOf(const std::string& url) {
+    size_t start = url.find("://");
+    start = start == std::string::npos ? 0 : start + 3;
+    size_t end = url.find_first_of(":/?#", start);
+    std::string host = url.substr(start, end == std::string::npos ? std::string::npos : end - start);
+    std::transform(host.begin(), host.end(), host.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return host;
+}
+
+// The requests every transfer has open with each host, held under a ceiling
+// the options set, the way IDM caps its connections per server. A request
+// waits for a free place rather than being refused by the host.
+class ServerGate {
+public:
+    static ServerGate& Instance() {
+        static ServerGate gate;
+        return gate;
+    }
+
+    void SetLimit(int limit) { limit_ = std::max(1, limit); }
+
+    // Takes a place with a host, waiting while the host is at its ceiling;
+    // false when the transfer is stopped first.
+    bool Enter(const std::string& host, const std::atomic<bool>& stop) {
+        while (!stop) {
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                int& open = open_[host];
+                if (open < limit_) {
+                    ++open;
+                    return true;
+                }
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        return false;
+    }
+
+    void Leave(const std::string& host) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto found = open_.find(host);
+        if (found != open_.end() && --found->second <= 0) {
+            open_.erase(found);
+        }
+    }
+
+private:
+    std::mutex mutex_;
+    std::map<std::string, int> open_;
+    std::atomic<int> limit_{24};
+};
+
+// A place held with a host for the length of one request.
+class ServerSlot {
+public:
+    ServerSlot(const std::string& host, const std::atomic<bool>& stop)
+        : host_(host), held_(ServerGate::Instance().Enter(host, stop)) {}
+    ~ServerSlot() { Release(); }
+
+    bool Held() const { return held_; }
+
+    void Release() {
+        if (held_) {
+            ServerGate::Instance().Leave(host_);
+            held_ = false;
+        }
+    }
+
+private:
+    std::string host_;
+    bool held_;
+};
 
 // Keeps a crew of connections at work on one transfer, the way IDM keeps a
 // download alive whatever happens to one of its connections. A connection
@@ -331,7 +408,8 @@ class RangeTransfer : public Transfer {
 public:
     RangeTransfer(Http& http, const TransferSource& source, const std::wstring& dir,
                   TransferControl& control, const HttpProbe& probe)
-        : http_(http), source_(source), dir_(dir), control_(control), probe_(probe) {}
+        : http_(http), source_(source), dir_(dir), control_(control), probe_(probe),
+          host_(HostOf(source.url)) {}
 
     bool Prepare() override {
         total_ = probe_.length;
@@ -588,6 +666,10 @@ private:
 
             uint64_t start = from + done;
             bool diskError = false;
+            ServerSlot slot(host_, control_.stop);
+            if (!slot.Held()) {
+                return Outcome::Stopped;
+            }
             int status = http_.Stream(
                 source_.url, source_.headers, start, to == kOpenEnded ? 0 : to,
                 [start](int code) { return start == 0 || code == 206; },
@@ -602,6 +684,7 @@ private:
                     }
                     return Advance(index, room);
                 });
+            slot.Release();
             file.Close();
 
             if (diskError) {
@@ -675,6 +758,7 @@ private:
     std::wstring dir_;
     TransferControl& control_;
     HttpProbe probe_;
+    std::string host_;
     uint64_t total_ = 0;
     bool ranges_ = false;
     std::mutex mutex_;
@@ -848,7 +932,14 @@ private:
     // host is then more likely turning this one away than gone.
     std::optional<std::vector<uint8_t>> FetchWhole(const std::string& url) {
         for (int failures = 1; !control_.stop; ++failures) {
-            std::optional<std::vector<uint8_t>> body = http_.GetBytes(url, source_.headers);
+            std::optional<std::vector<uint8_t>> body;
+            {
+                ServerSlot slot(HostOf(url), control_.stop);
+                if (!slot.Held()) {
+                    break;
+                }
+                body = http_.GetBytes(url, source_.headers);
+            }
             if (body && !body->empty()) {
                 return body;
             }
@@ -997,6 +1088,11 @@ bool LooksLikePlaylist(const std::string& url) {
 }
 
 }  // namespace
+
+// Caps the connections every transfer may open together to one host.
+void SetServerLimit(int limit) {
+    ServerGate::Instance().SetLimit(limit);
+}
 
 // Builds the transfer that fits a video.
 std::unique_ptr<Transfer> OpenTransfer(Http& http, const TransferSource& source,

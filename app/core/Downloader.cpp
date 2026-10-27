@@ -20,7 +20,6 @@ struct Downloader::Job {
 
 namespace {
 
-constexpr int kResolveRounds = 3;
 constexpr int kResolvePauseMs = 5000;
 
 // Sleeps in slices so a stop request is honoured promptly.
@@ -222,9 +221,11 @@ bool Downloader::Holds(uint64_t id) {
 }
 
 // Takes the new limits; a wider slot count starts waiting items at once.
-void Downloader::SetLimits(int running, int connections) {
+void Downloader::SetLimits(int running, int connections, int perServer, int retries) {
     maxRunning_ = running;
     connections_ = connections;
+    retries_ = retries;
+    SetServerLimit(perServer);
     Pump();
 }
 
@@ -353,7 +354,8 @@ void Downloader::Run(std::shared_ptr<Job> job) {
     TransferControl control{job->stop, job->discard};
     std::unique_ptr<Transfer> transfer;
     bool fetched = false;
-    for (int round = 0; round < kResolveRounds; ++round) {
+    int rounds = std::max(1, retries_.load());
+    for (int round = 0; round < rounds; ++round) {
         if (round > 0) {
             Backoff(kResolvePauseMs * round, job->stop);
             control.error = DownloadError::None;

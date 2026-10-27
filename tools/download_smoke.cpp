@@ -6,7 +6,8 @@
 //
 // The first form resolves the episode through an installed source; the second
 // fetches a video the caller already knows, playlist or file, in a parts folder
-// of its own so that several runs can go side by side.
+// of its own so that several runs can go side by side. ADM_PER_SERVER, when
+// set, caps the connections all runs open together to one host.
 
 #include <atomic>
 #include <cstdio>
@@ -121,6 +122,10 @@ int FetchUrl(const std::string& url, const std::wstring& outPath, const std::str
 }  // namespace
 
 int wmain(int argc, wchar_t** argv) {
+    wchar_t perServer[16] = {};
+    if (GetEnvironmentVariableW(L"ADM_PER_SERVER", perServer, 16) > 0) {
+        SetServerLimit(_wtoi(perServer));
+    }
     if (argc >= 4 && std::wstring(argv[1]) == L"--url") {
         return FetchUrl(Narrow(argv[2]), argv[3], argc > 4 ? Narrow(argv[4]) : std::string());
     }
