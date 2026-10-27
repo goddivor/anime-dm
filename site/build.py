@@ -22,7 +22,7 @@ REPO_URL = "https://github.com/goddivor/anime-dm"
 BASE_URL = "https://goddivor.github.io/anime-dm/"
 
 RELEASES = {
-    "0.03": {"iso": "2026-10-27", "bytes": 0},
+    "0.03": {"iso": "2026-10-27", "bytes": 14467544},
     "0.02": {"iso": "2026-10-04", "bytes": 14455925},
     "0.01": {"iso": "2026-09-25", "bytes": 14593381},
 }
