@@ -22,6 +22,7 @@ REPO_URL = "https://github.com/goddivor/anime-dm"
 BASE_URL = "https://goddivor.github.io/anime-dm/"
 
 RELEASES = {
+    "0.03": {"iso": "2026-10-27", "bytes": 0},
     "0.02": {"iso": "2026-10-04", "bytes": 14455925},
     "0.01": {"iso": "2026-09-25", "bytes": 14593381},
 }
@@ -363,6 +364,8 @@ def page(rel, lang, raw, ctx_base):
 def main():
     v = version()
     info = RELEASES.get(v, {"iso": "", "bytes": 0})
+    known = [r["bytes"] for r in RELEASES.values() if r["bytes"]]
+    estimate = not info["bytes"] and bool(known)
     ctx = {}
     for lang in UI:
         ctx[lang] = {
@@ -373,7 +376,8 @@ def main():
             "repo_url": REPO_URL,
             "issues_url": f"{REPO_URL}/issues",
             "release_date": long_date(info["iso"], lang) if info["iso"] else "",
-            "release_size": size_text(info["bytes"], lang) if info["bytes"] else "",
+            "release_size": (size_text(info["bytes"], lang) if info["bytes"]
+                             else "≈ " + size_text(known[0], lang) if estimate else ""),
         }
     if OUT.exists():
         shutil.rmtree(OUT)

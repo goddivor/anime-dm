@@ -12,6 +12,7 @@
 <div class="page with-sidebar">
   <nav class="sidebar" aria-label="Versions">
     <ul>
+      <li><a href="#v0-03">Version 0.03</a></li>
       <li><a href="#v0-02">Version 0.02</a></li>
       <li><a href="#v0-01">Version 0.01</a></li>
     </ul>
@@ -19,6 +20,17 @@
 
   <div class="prose">
     <p>ADM vérifie seul l'existence d'une nouvelle version, quelques secondes après chaque démarrage. Quand il en trouve une, il affiche ce qu'elle apporte et propose de l'installer. Vous pouvez aussi la chercher à tout moment par <em>Aide › Mise à jour rapide</em>. Le détail technique de chaque version se trouve dans le <a href="{{home}}changelog.html">changelog</a>.</p>
+
+    <section class="release" id="v0-03">
+      <h2>Nouveautés de la version 0.03</h2>
+      <p class="date">Publiée le 27 octobre 2026</p>
+      <ul>
+        <li>Plusieurs téléchargements en même temps ne tombent plus en échec à répétition : une connexion qui échoue ou que l'hébergeur refuse se retire et rend sa part aux autres, au lieu d'arrêter tout l'épisode. Une connexion revient dès que l'hébergeur se calme.</li>
+        <li>Quand un transfert échoue sur le réseau, ADM redemande lui-même l'adresse de la vidéo à la source et reprend avec ce qui est déjà reçu, sans qu'il faille cliquer sur Reprendre.</li>
+        <li>Deux nouveaux réglages dans Options › Téléchargements : les connexions par serveur, plafond commun à tous les téléchargements vers un même hébergeur, et le nombre de reprises par fichier.</li>
+        <li>Le panneau Catégories n'affiche plus deux fois le nombre d'épisodes après le pliage ou le dépliage d'un animé.</li>
+      </ul>
+    </section>
 
     <section class="release" id="v0-02">
       <h2>Nouveautés de la version 0.02</h2>
